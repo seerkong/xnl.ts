@@ -1,0 +1,1023 @@
+{
+  "docId": "default",
+  "headVersionId": "op_01KFKAQAVHP5P15MZH4B36VNDP",
+  "versions": [
+    {
+      "id": "root_01KFJ5S8ND84ZVTVDC375HBF2A",
+      "kind": "root",
+      "parents": [],
+      "ts": "2026-01-22T06:20:34.861Z",
+      "text": ""
+    },
+    {
+      "id": "op_01KFJ5S8NGQ2W78HEGGR3DH8AT",
+      "kind": "op",
+      "parents": [
+        "root_01KFJ5S8ND84ZVTVDC375HBF2A"
+      ],
+      "ts": "2026-01-22T06:20:34.866Z",
+      "clientId": "c1_01KFJ5S8N6RRKPZ5JMJGQDRKH7",
+      "opId": "op_1_01KFJ5S8NG05TK7VDNNBYY4KR9",
+      "mutations": [
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "s_01KFJ5S8NH0EVCDSSQJZH4WPEK"
+            }
+          }
+        }
+      ],
+      "text": "<a id=\"s_01KFJ5S8NH0EVCDSSQJZH4WPEK\">"
+    },
+    {
+      "id": "op_01KFJEXDA53CS3VF5V4GE9SBFQ",
+      "kind": "op",
+      "parents": [
+        "op_01KFJ5S8NGQ2W78HEGGR3DH8AT"
+      ],
+      "ts": "2026-01-22T09:00:07.878Z",
+      "clientId": "c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F",
+      "opId": "op_1_01KFJEXDA4YSAJMJT2DE4VTPMP",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "s_01KFJ5S8NH0EVCDSSQJZH4WPEK"
+            }
+          },
+          "targetUniqueName": "s_01KFJ5S8NH0EVCDSSQJZH4WPEK"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G\">"
+    },
+    {
+      "id": "pull_01KFJEXFX4AE23JE4PVW12B047",
+      "kind": "op",
+      "parents": [
+        "op_01KFJ5S8NGQ2W78HEGGR3DH8AT"
+      ],
+      "ts": "2026-01-22T09:00:10.532Z",
+      "clientId": "c3_01KFJEX5CC343XF7SVXZMD3YPG",
+      "opId": "pull_3_1_01KFJEXFX22BBX0V9X03M3XR16",
+      "mutations": [],
+      "text": "<a id=\"s_01KFJ5S8NH0EVCDSSQJZH4WPEK\"><a id=\"c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G\">"
+    },
+    {
+      "id": "pull_01KFJEXSFBRHB3PENJ863ZAJ8P",
+      "kind": "op",
+      "parents": [
+        "op_01KFJEXDA53CS3VF5V4GE9SBFQ"
+      ],
+      "ts": "2026-01-22T09:00:20.331Z",
+      "clientId": "c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F",
+      "opId": "pull_1_3_01KFJEXSFA5YVXF1FVVZN9Q1RN",
+      "mutations": [],
+      "text": "<a id=\"s_01KFJ5S8NH0EVCDSSQJZH4WPEK\"><a id=\"c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G\">"
+    },
+    {
+      "id": "pull_01KFJEY2AR9W33TXM8AFMCA0P0",
+      "kind": "op",
+      "parents": [
+        "op_01KFJ5S8NGQ2W78HEGGR3DH8AT"
+      ],
+      "ts": "2026-01-22T09:00:29.400Z",
+      "clientId": "c4_01KFJEX5CD9MPFT2A9Z0K4FNJV",
+      "opId": "pull_4_3_01KFJEY2APERRQCJT997A5J1B5",
+      "mutations": [],
+      "text": "<a id=\"s_01KFJ5S8NH0EVCDSSQJZH4WPEK\"><a id=\"c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G\">"
+    },
+    {
+      "id": "op_01KFJEYCTK4PKTT049G92SF6QJ",
+      "kind": "op",
+      "parents": [
+        "pull_01KFJEY2AR9W33TXM8AFMCA0P0"
+      ],
+      "ts": "2026-01-22T09:00:40.147Z",
+      "clientId": "c1_01KFJEY87BPSQPEVYCXA8GC5YX",
+      "opId": "op_1_01KFJEYCTJ80SX2PC8KKPB3SKF",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "s_01KFJ5S8NH0EVCDSSQJZH4WPEK"
+            }
+          },
+          "targetUniqueName": "s_01KFJ5S8NH0EVCDSSQJZH4WPEK"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJEY87BPSQPEVYCXA8GC5YX:01KFJEYCTJ5H2AKHAMKQQJV6YV"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJEY87BPSQPEVYCXA8GC5YX:01KFJEYCTJ5H2AKHAMKQQJV6YV"
+        },
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "1"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFJEY87BPSQPEVYCXA8GC5YX:01KFJEYCTJ5H2AKHAMKQQJV6YV\">"
+    },
+    {
+      "id": "merge_01KFJEYCTMDT7NGY6CX1EHVZW5",
+      "kind": "merge",
+      "parents": [
+        "op_01KFJEYCTK4PKTT049G92SF6QJ",
+        "pull_01KFJEXFX4AE23JE4PVW12B047"
+      ],
+      "ts": "2026-01-22T09:00:40.148Z",
+      "text": "<a id=\"s_01KFJ5S8NH0EVCDSSQJZH4WPEK\"><a id=\"c_c1_01KFJEY87BPSQPEVYCXA8GC5YX:01KFJEYCTJ5H2AKHAMKQQJV6YV\"><a id=\"c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G\">"
+    },
+    {
+      "id": "merge_01KFJEYCTN0KY4EM5QPR7EYT8D",
+      "kind": "merge",
+      "parents": [
+        "merge_01KFJEYCTMDT7NGY6CX1EHVZW5",
+        "pull_01KFJEXSFBRHB3PENJ863ZAJ8P"
+      ],
+      "ts": "2026-01-22T09:00:40.149Z",
+      "text": "<a id=\"s_01KFJ5S8NH0EVCDSSQJZH4WPEK\"><a id=\"c_c1_01KFJEY87BPSQPEVYCXA8GC5YX:01KFJEYCTJ5H2AKHAMKQQJV6YV\"><a id=\"c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G\">"
+    },
+    {
+      "id": "op_01KFJNBDQK3J388YS647FJH729",
+      "kind": "op",
+      "parents": [
+        "merge_01KFJEYCTN0KY4EM5QPR7EYT8D"
+      ],
+      "ts": "2026-01-22T10:52:38.516Z",
+      "clientId": "c1_01KFJNBDQCGMZ3QKS1E6NGBNJK",
+      "opId": "op_1_01KFJNBDQK7501YGCQRFY35A6S",
+      "mutations": [
+        {
+          "type": "OBJECT_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            },
+            {
+              "type": "InstanceProperty",
+              "value": "metadata"
+            },
+            {
+              "type": "MapKey",
+              "value": "id"
+            }
+          ],
+          "valueBefore": "s_01KFJ5S8NH0EVCDSSQJZH4WPEK",
+          "parentUniqueNameBefore": "s_01KFJ5S8NH0EVCDSSQJZH4WPEK"
+        },
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "2"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJEX5CCA0VP8WQ8ZHJ12E5F:01KFJEXDA38G1DDW34HMJ2J75G"
+        },
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "1"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJEY87BPSQPEVYCXA8GC5YX:01KFJEYCTJ5H2AKHAMKQQJV6YV"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJEY87BPSQPEVYCXA8GC5YX:01KFJEYCTJ5H2AKHAMKQQJV6YV"
+        }
+      ],
+      "text": "<a id=\"s_01KFJNBDQM64TK8YDAZ1N8SQ7S\">"
+    },
+    {
+      "id": "op_01KFJNCHQW6BGNPQDB5M5SPB9C",
+      "kind": "op",
+      "parents": [
+        "op_01KFJNBDQK3J388YS647FJH729"
+      ],
+      "ts": "2026-01-22T10:53:15.389Z",
+      "clientId": "c1_01KFJNBXPX47V17Z964C49S1N2",
+      "opId": "op_1_01KFJNCHQVGDY36AG18DD8H2JD",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "s_01KFJNBDQM64TK8YDAZ1N8SQ7S"
+            }
+          },
+          "targetUniqueName": "s_01KFJNBDQM64TK8YDAZ1N8SQ7S"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJNBXPX47V17Z964C49S1N2:01KFJNCHQV51YTM10W7TXJD69D"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJNBXPX47V17Z964C49S1N2:01KFJNCHQV51YTM10W7TXJD69D"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFJNBXPX47V17Z964C49S1N2:01KFJNCHQV51YTM10W7TXJD69D\">"
+    },
+    {
+      "id": "op_01KFJP0JY85XYWWK2YCFRMV1VX",
+      "kind": "op",
+      "parents": [
+        "op_01KFJNCHQW6BGNPQDB5M5SPB9C"
+      ],
+      "ts": "2026-01-22T11:04:11.977Z",
+      "clientId": "c1_01KFJP0J31SDB6TCND7AJP9694",
+      "opId": "op_1_01KFJP0JY8JFNAFPX36F43VGZ6",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJNBXPX47V17Z964C49S1N2:01KFJNCHQV51YTM10W7TXJD69D"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJNBXPX47V17Z964C49S1N2:01KFJNCHQV51YTM10W7TXJD69D"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\">"
+    },
+    {
+      "id": "op_01KFJXFXYRMZC2KK34BTC46XVF",
+      "kind": "op",
+      "parents": [
+        "op_01KFJP0JY85XYWWK2YCFRMV1VX"
+      ],
+      "ts": "2026-01-22T13:14:54.809Z",
+      "clientId": "c1_01KFJXFTV09SVQB43CFM0VG1DP",
+      "opId": "op_1_01KFJXFXYQ519N05Z068TC3CZK",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931\">"
+    },
+    {
+      "id": "pull_01KFJXG35JPBWQN0ZJXKH2RJZC",
+      "kind": "op",
+      "parents": [
+        "op_01KFJP0JY85XYWWK2YCFRMV1VX"
+      ],
+      "ts": "2026-01-22T13:15:00.146Z",
+      "clientId": "c2_01KFJXFTV02XFNN1K8DBY31J4V",
+      "opId": "pull_2_1_01KFJXG35HEV2Y8PZFSAVRJN20",
+      "mutations": [],
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\"><a id=\"c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931\">"
+    },
+    {
+      "id": "pull_01KFJXG9HBKC6E6XSRD79KMV64",
+      "kind": "op",
+      "parents": [
+        "op_01KFJP0JY85XYWWK2YCFRMV1VX"
+      ],
+      "ts": "2026-01-22T13:15:06.667Z",
+      "clientId": "c3_01KFJXFTV0SXWX2PD3V7Y1M4DG",
+      "opId": "pull_3_1_01KFJXG9HAR6G0X265GP7ZH34Z",
+      "mutations": [],
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\"><a id=\"c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931\">"
+    },
+    {
+      "id": "pull_01KFJXGE28D18YDTWAA76PJQAK",
+      "kind": "op",
+      "parents": [
+        "op_01KFJP0JY85XYWWK2YCFRMV1VX"
+      ],
+      "ts": "2026-01-22T13:15:11.304Z",
+      "clientId": "c4_01KFJXFTV04Z2KRP945C2WED7T",
+      "opId": "pull_4_1_01KFJXGE27ZZ9AAHNFQ2PWZFMF",
+      "mutations": [],
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\"><a id=\"c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931\">"
+    },
+    {
+      "id": "op_01KFK0ER9KJ4D9ZT957A8DDV5D",
+      "kind": "op",
+      "parents": [
+        "pull_01KFJXGE28D18YDTWAA76PJQAK"
+      ],
+      "ts": "2026-01-22T14:06:41.972Z",
+      "clientId": "c1_01KFK0EKXNN29QHMZ94PXERB9D",
+      "opId": "op_1_01KFK0ER9J4ZNGXGKMA4S5QAVV",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "1"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFK0EKXNN29QHMZ94PXERB9D:01KFK0ER9JVM4E7Z6XXB8NB049"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFK0EKXNN29QHMZ94PXERB9D:01KFK0ER9JVM4E7Z6XXB8NB049"
+        },
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\">"
+    },
+    {
+      "id": "merge_01KFK0ER9Q3DTT50BHE4TGMK4M",
+      "kind": "merge",
+      "parents": [
+        "op_01KFJXFXYRMZC2KK34BTC46XVF",
+        "op_01KFK0ER9KJ4D9ZT957A8DDV5D"
+      ],
+      "ts": "2026-01-22T14:06:41.975Z",
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\"><a id=\"c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931\">"
+    },
+    {
+      "id": "merge_01KFK0ER9RARGKD85NHXKHB0EK",
+      "kind": "merge",
+      "parents": [
+        "merge_01KFK0ER9Q3DTT50BHE4TGMK4M",
+        "pull_01KFJXG35JPBWQN0ZJXKH2RJZC"
+      ],
+      "ts": "2026-01-22T14:06:41.976Z",
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\"><a id=\"c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931\">"
+    },
+    {
+      "id": "merge_01KFK0ER9RJM2R63RDZDEKHX69",
+      "kind": "merge",
+      "parents": [
+        "merge_01KFK0ER9RARGKD85NHXKHB0EK",
+        "pull_01KFJXG9HBKC6E6XSRD79KMV64"
+      ],
+      "ts": "2026-01-22T14:06:41.976Z",
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\"><a id=\"c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931\">"
+    },
+    {
+      "id": "op_01KFK0F68C3M1HTRVSVX40W64M",
+      "kind": "op",
+      "parents": [
+        "op_01KFK0ER9KJ4D9ZT957A8DDV5D"
+      ],
+      "ts": "2026-01-22T14:06:56.268Z",
+      "clientId": "c1_01KFK0EKXNN29QHMZ94PXERB9D",
+      "opId": "op_1_01KFK0F68BJS0ZB93W018JWJB4",
+      "mutations": [
+        {
+          "type": "OBJECT_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            },
+            {
+              "type": "InstanceProperty",
+              "value": "metadata"
+            },
+            {
+              "type": "MapKey",
+              "value": "m"
+            }
+          ],
+          "valueAfter": 1,
+          "parentUniqueNameAfter": "c_c1_01KFK0EKXNN29QHMZ94PXERB9D:01KFK0ER9JVM4E7Z6XXB8NB049"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\" m=1>"
+    },
+    {
+      "id": "merge_01KFK0F68DFC5ZR2RFWPAYGAPX",
+      "kind": "merge",
+      "parents": [
+        "merge_01KFK0ER9RJM2R63RDZDEKHX69",
+        "op_01KFK0F68C3M1HTRVSVX40W64M"
+      ],
+      "ts": "2026-01-22T14:06:56.269Z",
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\" m=1><a id=\"c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931\">"
+    },
+    {
+      "id": "op_01KFK0FJRCKP0CG10XWABQEX3A",
+      "kind": "op",
+      "parents": [
+        "merge_01KFK0F68DFC5ZR2RFWPAYGAPX"
+      ],
+      "ts": "2026-01-22T14:07:09.068Z",
+      "clientId": "c3_01KFK0EKXN1JJSZWEZY5BZNS2R",
+      "opId": "op_3_01KFK0FJRBDEKVEKXR14XAC6X0",
+      "mutations": [
+        {
+          "type": "OBJECT_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            },
+            {
+              "type": "InstanceProperty",
+              "value": "metadata"
+            },
+            {
+              "type": "MapKey",
+              "value": "n"
+            }
+          ],
+          "valueAfter": 2,
+          "parentUniqueNameAfter": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5"
+        },
+        {
+          "type": "TREE_UPDATE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "1"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\" m=1 n=2><a id=\"c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931\">"
+    },
+    {
+      "id": "op_01KFK2TFS3XZE7WTWS8NFZP304",
+      "kind": "op",
+      "parents": [
+        "op_01KFK0FJRCKP0CG10XWABQEX3A"
+      ],
+      "ts": "2026-01-22T14:48:03.620Z",
+      "clientId": "c1_01KFK2TABXQQJVJWF99J4P9X54",
+      "opId": "op_1_01KFK2TFS3KF3RR5D0DCJXGV98",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "1"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJXFTV09SVQB43CFM0VG1DP:01KFJXFXYQZS2D9T9PH0BVJ931"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFK2TABXQQJVJWF99J4P9X54:01KFK2TFS2GK3YAA5YJPRJP4GK"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFK2TABXQQJVJWF99J4P9X54:01KFK2TFS2GK3YAA5YJPRJP4GK"
+        },
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5",
+              "m": 1,
+              "n": 2
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5\" m=1 n=2>"
+    },
+    {
+      "id": "op_01KFK2V5RKAFY7AVYDPFTPEQMJ",
+      "kind": "op",
+      "parents": [
+        "op_01KFK2TFS3XZE7WTWS8NFZP304"
+      ],
+      "ts": "2026-01-22T14:48:26.131Z",
+      "clientId": "c1_01KFK2V2DE4JZXHQH5HHKHVR2X",
+      "opId": "op_1_01KFK2V5RKR1XQ8XFWPNXTZJW1",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5",
+              "m": 1,
+              "n": 2
+            }
+          },
+          "targetUniqueName": "c_c1_01KFJP0J31SDB6TCND7AJP9694:01KFJP0JY755J7J6BPMSC4BSG5"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFK2V2DE4JZXHQH5HHKHVR2X:01KFK2V5RJVXRCNMJXBBJP7N68"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFK2V2DE4JZXHQH5HHKHVR2X:01KFK2V5RJVXRCNMJXBBJP7N68"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFK2V2DE4JZXHQH5HHKHVR2X:01KFK2V5RJVXRCNMJXBBJP7N68\">"
+    },
+    {
+      "id": "op_01KFK2VETZH1KF1G0ATAYMWVNT",
+      "kind": "op",
+      "parents": [
+        "op_01KFK2V5RKAFY7AVYDPFTPEQMJ"
+      ],
+      "ts": "2026-01-22T14:48:35.424Z",
+      "clientId": "c2_01KFK2V2DE77GS2FES5SFST6JV",
+      "opId": "op_2_01KFK2VETZ34WWZK21RG6B11RS",
+      "mutations": [
+        {
+          "type": "OBJECT_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            },
+            {
+              "type": "InstanceProperty",
+              "value": "metadata"
+            },
+            {
+              "type": "MapKey",
+              "value": "m"
+            }
+          ],
+          "valueAfter": 1,
+          "parentUniqueNameAfter": "c_c1_01KFK2V2DE4JZXHQH5HHKHVR2X:01KFK2V5RJVXRCNMJXBBJP7N68"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFK2V2DE4JZXHQH5HHKHVR2X:01KFK2V5RJVXRCNMJXBBJP7N68\" m=1>"
+    },
+    {
+      "id": "op_01KFK5FK7VZKFJVY6JNYFH3XZW",
+      "kind": "op",
+      "parents": [
+        "op_01KFK2VETZH1KF1G0ATAYMWVNT"
+      ],
+      "ts": "2026-01-22T15:34:32.444Z",
+      "clientId": "c1_01KFK5FJ8GCF4F2QQ4Q2WZ26BX",
+      "opId": "op_1_01KFK5FK7TTZV1DE2787J8F0JH",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFK2V2DE4JZXHQH5HHKHVR2X:01KFK2V5RJVXRCNMJXBBJP7N68",
+              "m": 1
+            }
+          },
+          "targetUniqueName": "c_c1_01KFK2V2DE4JZXHQH5HHKHVR2X:01KFK2V5RJVXRCNMJXBBJP7N68"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFK5FJ8GCF4F2QQ4Q2WZ26BX:01KFK5FK7THY2K968NBENGA7FZ"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFK5FJ8GCF4F2QQ4Q2WZ26BX:01KFK5FK7THY2K968NBENGA7FZ"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFK5FJ8GCF4F2QQ4Q2WZ26BX:01KFK5FK7THY2K968NBENGA7FZ\">"
+    },
+    {
+      "id": "op_01KFK5FM8ZJMKEZPXE7ZV8WA2C",
+      "kind": "op",
+      "parents": [
+        "op_01KFK5FK7VZKFJVY6JNYFH3XZW"
+      ],
+      "ts": "2026-01-22T15:34:33.504Z",
+      "clientId": "c2_01KFK5FJ8H8HGADSMCKY8KPPFK",
+      "opId": "op_2_01KFK5FM8ZNDDEW276WRP7472Y",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFK5FJ8GCF4F2QQ4Q2WZ26BX:01KFK5FK7THY2K968NBENGA7FZ"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFK5FJ8GCF4F2QQ4Q2WZ26BX:01KFK5FK7THY2K968NBENGA7FZ"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "m": 1,
+              "id": "c_c2_01KFK5FJ8H8HGADSMCKY8KPPFK:01KFK5FM8ZBAYEEGZQHK49CMQX"
+            }
+          },
+          "targetUniqueName": "c_c2_01KFK5FJ8H8HGADSMCKY8KPPFK:01KFK5FM8ZBAYEEGZQHK49CMQX"
+        }
+      ],
+      "text": "<a m=1 id=\"c_c2_01KFK5FJ8H8HGADSMCKY8KPPFK:01KFK5FM8ZBAYEEGZQHK49CMQX\">"
+    },
+    {
+      "id": "op_01KFK6FG1J8XTHMWGR1068TE9B",
+      "kind": "op",
+      "parents": [
+        "op_01KFK5FM8ZJMKEZPXE7ZV8WA2C"
+      ],
+      "ts": "2026-01-22T15:51:57.747Z",
+      "clientId": "c1_01KFK6FBNDSRQ0HAKBWVB8BCQD",
+      "opId": "op_1_01KFK6FG1H58QZF5CJ75SJSF5A",
+      "mutations": [
+        {
+          "type": "TREE_DELETE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueBefore": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "m": 1,
+              "id": "c_c2_01KFK5FJ8H8HGADSMCKY8KPPFK:01KFK5FM8ZBAYEEGZQHK49CMQX"
+            }
+          },
+          "targetUniqueName": "c_c2_01KFK5FJ8H8HGADSMCKY8KPPFK:01KFK5FM8ZBAYEEGZQHK49CMQX"
+        },
+        {
+          "type": "TREE_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            }
+          ],
+          "valueAfter": {
+            "kind": "DataElement",
+            "tag": "a",
+            "metadata": {
+              "id": "c_c1_01KFK6FBNDSRQ0HAKBWVB8BCQD:01KFK6FG1H1HRE5EHHDP5NFFFV"
+            }
+          },
+          "targetUniqueName": "c_c1_01KFK6FBNDSRQ0HAKBWVB8BCQD:01KFK6FG1H1HRE5EHHDP5NFFFV"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFK6FBNDSRQ0HAKBWVB8BCQD:01KFK6FG1H1HRE5EHHDP5NFFFV\">"
+    },
+    {
+      "id": "op_01KFK6FT4QWJ5AZ6BZQM28APKM",
+      "kind": "op",
+      "parents": [
+        "op_01KFK6FG1J8XTHMWGR1068TE9B"
+      ],
+      "ts": "2026-01-22T15:52:08.087Z",
+      "clientId": "c2_01KFK6FBNE4GC3VWY320FTSFXP",
+      "opId": "op_2_01KFK6FT4PWCWTPNGQR87ZT7CZ",
+      "mutations": [
+        {
+          "type": "OBJECT_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            },
+            {
+              "type": "InstanceProperty",
+              "value": "metadata"
+            },
+            {
+              "type": "MapKey",
+              "value": "m"
+            }
+          ],
+          "valueAfter": 1,
+          "parentUniqueNameAfter": "c_c1_01KFK6FBNDSRQ0HAKBWVB8BCQD:01KFK6FG1H1HRE5EHHDP5NFFFV"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFK6FBNDSRQ0HAKBWVB8BCQD:01KFK6FG1H1HRE5EHHDP5NFFFV\" m=1>"
+    },
+    {
+      "id": "op_01KFKAQ1SEKJM7T2K8JQRWWNAG",
+      "kind": "op",
+      "parents": [
+        "op_01KFK6FT4QWJ5AZ6BZQM28APKM"
+      ],
+      "ts": "2026-01-22T17:05:59.599Z",
+      "clientId": "c1_01KFKAPRHQWZJTJW38ZS4A20HY",
+      "opId": "op_1_01KFKAQ1SDD95DJ6561BP6KN44",
+      "mutations": [
+        {
+          "type": "OBJECT_ADD",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            },
+            {
+              "type": "InstanceProperty",
+              "value": "metadata"
+            },
+            {
+              "type": "MapKey",
+              "value": "n"
+            }
+          ],
+          "valueAfter": 2,
+          "parentUniqueNameAfter": "c_c1_01KFK6FBNDSRQ0HAKBWVB8BCQD:01KFK6FG1H1HRE5EHHDP5NFFFV"
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFK6FBNDSRQ0HAKBWVB8BCQD:01KFK6FG1H1HRE5EHHDP5NFFFV\" m=1 n=2>"
+    },
+    {
+      "id": "op_01KFKAQAVHP5P15MZH4B36VNDP",
+      "kind": "op",
+      "parents": [
+        "op_01KFKAQ1SEKJM7T2K8JQRWWNAG"
+      ],
+      "ts": "2026-01-22T17:06:08.881Z",
+      "clientId": "c3_01KFKAPRHR4E7CB0N91WH87RKY",
+      "opId": "op_3_01KFKAQAVHSCYNM5FF5Z0XEKTE",
+      "mutations": [
+        {
+          "type": "OBJECT_UPDATE",
+          "path": [
+            {
+              "type": "ListIndex",
+              "value": "0"
+            },
+            {
+              "type": "InstanceProperty",
+              "value": "metadata"
+            },
+            {
+              "type": "MapKey",
+              "value": "m"
+            }
+          ],
+          "valueAfter": 2
+        }
+      ],
+      "text": "<a id=\"c_c1_01KFK6FBNDSRQ0HAKBWVB8BCQD:01KFK6FG1H1HRE5EHHDP5NFFFV\" m=2 n=2>"
+    }
+  ]
+}
