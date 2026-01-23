@@ -11,7 +11,7 @@ import {
   type XnlMutation,
   type XnlWord,
   wordToString,
-} from "../node_modules/xnl.ts/dist/index.js";
+} from "xnl.ts";
 import { diffChars } from "diff";
 import { makeId } from "./id";
 

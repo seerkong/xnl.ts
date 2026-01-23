@@ -48,15 +48,15 @@
         </task>
 
         <task id="T1.2" name="Wire local xnl.ts dependency" status="TODO" priority="P0" estimated_days="0.5">
-          Integrate /Users/kongweixian/lang/xnl.ts so server/client code can import parser + diff/apply mutation APIs.
+          Integrate vendored xnl.ts so server/client code can import parser + diff/apply mutation APIs.
           <dependencies>T1.1</dependencies>
           <acceptance_criteria>
             <criterion id="T1.2-AC1" checked="false">Server can import XNL parser and mutation functions</criterion>
             <criterion id="T1.2-AC2" checked="false">Client bundle can import the same APIs via bun build</criterion>
           </acceptance_criteria>
           <references>
-            <ref>/Users/kongweixian/lang/xnl.ts/src/index.ts</ref>
-            <ref>/Users/kongweixian/lang/xnl.ts/tests</ref>
+            <ref>vendor/xnl.ts/src/index.ts</ref>
+            <ref>vendor/xnl.ts/tests</ref>
           </references>
         </task>
 

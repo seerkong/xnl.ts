@@ -1,4 +1,4 @@
-import { diffNodes, isWord, parseXnl, wordToString, type DataElementNode, XNL } from "../node_modules/xnl.ts/dist/index.js";
+import { diffNodes, isWord, parseXnl, wordToString, type DataElementNode, XNL } from "xnl.ts";
 import {
   jsonParseMessage,
   jsonStringifyMessage,
@@ -51,15 +51,39 @@ function loadPersistedHeadText(docId: string): string {
 
 function waitForOpen(ws: WebSocket, timeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error("timeout waiting for open")), timeoutMs);
-    ws.addEventListener("open", () => {
-      clearTimeout(t);
+    if (ws.readyState === WebSocket.OPEN) {
       resolve();
-    });
-    ws.addEventListener("error", () => {
-      clearTimeout(t);
+      return;
+    }
+
+    if (ws.readyState === WebSocket.CLOSED) {
+      reject(new Error("ws closed before open"));
+      return;
+    }
+
+    const onOpen = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onError = () => {
+      cleanup();
       reject(new Error("ws error before open"));
-    });
+    };
+
+    const t = setTimeout(() => {
+      cleanup();
+      reject(new Error("timeout waiting for open"));
+    }, timeoutMs);
+
+    const cleanup = () => {
+      clearTimeout(t);
+      ws.removeEventListener("open", onOpen);
+      ws.removeEventListener("error", onError);
+    };
+
+    ws.addEventListener("open", onOpen);
+    ws.addEventListener("error", onError);
   });
 }
 
@@ -93,6 +117,8 @@ async function main() {
 
   const ws1 = openWs();
   const ws2 = openWs();
+
+  await new Promise((r) => setTimeout(r, 200));
 
   await Promise.all([waitForOpen(ws1, 2000), waitForOpen(ws2, 2000)]);
 

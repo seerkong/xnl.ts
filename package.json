@@ -2,16 +2,13 @@
   "name": "braid-demo",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "vendor/*"
+  ],
   "scripts": {
-    "dev": "bun run src/server.ts",
-    "build": "bun build src/client.ts --outfile public/app.js",
-    "smoke:ws": "bun run src/ws-smoke.ts"
-  },
-  "dependencies": {
-    "xnl.ts": "file:/Users/kongweixian/lang/xnl.ts"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "bun-types": "latest"
+    "dev": "bun run --cwd apps/demo dev",
+    "build": "bun run --cwd apps/demo build",
+    "smoke:ws": "bun run --cwd apps/demo smoke:ws"
   }
 }

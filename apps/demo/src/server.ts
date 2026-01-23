@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { parsePath } from "../node_modules/xnl.ts/dist/index.js";
-import type { PathItem, XnlMutation, XnlNode } from "../node_modules/xnl.ts/dist/index.js";
+import { parsePath } from "xnl.ts";
+import type { PathItem, XnlMutation, XnlNode } from "xnl.ts";
 import { makeId } from "./id";
 import { applyIntent, canonicalizeText, mergeDocuments3 } from "./merge";
 import type { ServerWebSocket } from "bun";

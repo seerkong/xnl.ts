@@ -1,4 +1,4 @@
-import type { XnlMutation } from "../node_modules/xnl.ts/dist/index.js";
+import type { XnlMutation } from "xnl.ts";
 
 export type DocId = string;
 export type ClientId = string;

@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Braid Demo - XNL Collab Editor</title>
+    <style>
+      :root {
+        --gap: 12px;
+        --radius: 12px;
+        --border: rgba(255, 255, 255, 0.14);
+        --panel: rgba(255, 255, 255, 0.04);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.72);
+        --bg: #0b0e14;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+          sans-serif;
+      }
+
+      .page {
+        height: 100vh;
+        padding: var(--gap);
+        display: grid;
+        grid-template-rows: minmax(480px, 44vh) 1fr;
+        gap: var(--gap);
+        min-height: 0;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .panelHeader {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .panelTitle {
+        margin: 0;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .panelMeta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .panelBody {
+        padding: 10px 12px;
+        flex: 1;
+        min-height: 0;
+      }
+
+      #userGrid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: 1fr;
+        gap: var(--gap);
+        min-height: 0;
+      }
+
+      .userPanel {
+        min-height: 0;
+      }
+
+      .userTopRow {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .userBadges {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .setButton {
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .peerButtons {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .peerSyncButton {
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: transparent;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .peerSyncButton:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+      }
+
+      .setButton:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .parseError {
+        margin: 8px 0 0;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 130, 130, 0.55);
+        background: rgba(255, 120, 120, 0.12);
+        color: rgba(255, 220, 220, 0.98);
+        font-family: var(--mono);
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+
+      .parseError:empty {
+        display: none;
+      }
+
+      .editor {
+        margin-top: 10px;
+        width: 100%;
+        min-height: 140px;
+        height: 100%;
+        resize: none;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.28);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.35;
+        outline: none;
+      }
+
+      .editor:focus {
+        border-color: rgba(140, 205, 255, 0.65);
+        box-shadow: 0 0 0 3px rgba(140, 205, 255, 0.18);
+      }
+
+      .bottomRow {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 380px);
+        gap: var(--gap);
+        min-height: 0;
+      }
+
+      .dagSurface {
+        width: 100%;
+        height: 100%;
+        min-height: 220px;
+        border-radius: 10px;
+        border: 1px dashed rgba(255, 255, 255, 0.18);
+        background: rgba(0, 0, 0, 0.2);
+        overflow: auto;
+      }
+
+      #mutationList {
+        min-height: 0;
+      }
+
+      #mutationItems {
+        margin: 0;
+        padding: 10px 12px;
+        list-style: none;
+        overflow: auto;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .mutationEntry {
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.22);
+        margin-bottom: 10px;
+      }
+
+      .mutationEntry.selected {
+        border-color: rgba(140, 205, 255, 0.65);
+        box-shadow: 0 0 0 3px rgba(140, 205, 255, 0.12);
+      }
+
+      .mutationMeta {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+
+      .mutationContent {
+        margin: 0;
+        max-height: 9rem;
+        overflow: auto;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.35;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      @media (max-width: 980px) {
+        .page {
+          height: auto;
+          min-height: 100vh;
+          grid-template-rows: auto auto;
+        }
+
+        #userGrid {
+          grid-template-columns: 1fr;
+          grid-auto-rows: minmax(260px, auto);
+        }
+
+        .bottomRow {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section id="userGrid" aria-label="Users">
+        <article class="panel userPanel" data-user="1">
+          <header class="panelHeader">
+            <div class="userTopRow">
+              <h2 class="panelTitle">User 1</h2>
+            </div>
+             <div class="userBadges">
+               <span>Status: <span id="user1Status">disconnected</span></span>
+               <span>Rev: <span id="user1Rev">-</span></span>
+               <button id="user1Set" class="setButton" type="button">Set</button>
+               <div class="peerButtons" id="user1PeerButtons"></div>
+             </div>
+
+          </header>
+          <div class="panelBody">
+            <pre id="user1ParseError" class="parseError"></pre>
+            <textarea
+              id="user1Editor"
+              class="editor"
+              spellcheck="false"
+              autocomplete="off"
+              autocapitalize="off"
+            ></textarea>
+          </div>
+        </article>
+
+        <article class="panel userPanel" data-user="2">
+          <header class="panelHeader">
+            <div class="userTopRow">
+              <h2 class="panelTitle">User 2</h2>
+            </div>
+             <div class="userBadges">
+               <span>Status: <span id="user2Status">disconnected</span></span>
+               <span>Rev: <span id="user2Rev">-</span></span>
+               <button id="user2Set" class="setButton" type="button">Set</button>
+               <div class="peerButtons" id="user2PeerButtons"></div>
+             </div>
+
+          </header>
+          <div class="panelBody">
+            <pre id="user2ParseError" class="parseError"></pre>
+            <textarea
+              id="user2Editor"
+              class="editor"
+              spellcheck="false"
+              autocomplete="off"
+              autocapitalize="off"
+            ></textarea>
+          </div>
+        </article>
+
+        <article class="panel userPanel" data-user="3">
+          <header class="panelHeader">
+            <div class="userTopRow">
+              <h2 class="panelTitle">User 3</h2>
+            </div>
+             <div class="userBadges">
+               <span>Status: <span id="user3Status">disconnected</span></span>
+               <span>Rev: <span id="user3Rev">-</span></span>
+               <button id="user3Set" class="setButton" type="button">Set</button>
+               <div class="peerButtons" id="user3PeerButtons"></div>
+             </div>
+
+          </header>
+          <div class="panelBody">
+            <pre id="user3ParseError" class="parseError"></pre>
+            <textarea
+              id="user3Editor"
+              class="editor"
+              spellcheck="false"
+              autocomplete="off"
+              autocapitalize="off"
+            ></textarea>
+          </div>
+        </article>
+
+        <article class="panel userPanel" data-user="4">
+          <header class="panelHeader">
+            <div class="userTopRow">
+              <h2 class="panelTitle">User 4</h2>
+            </div>
+             <div class="userBadges">
+               <span>Status: <span id="user4Status">disconnected</span></span>
+               <span>Rev: <span id="user4Rev">-</span></span>
+               <button id="user4Set" class="setButton" type="button">Set</button>
+               <div class="peerButtons" id="user4PeerButtons"></div>
+             </div>
+
+          </header>
+          <div class="panelBody">
+            <pre id="user4ParseError" class="parseError"></pre>
+            <textarea
+              id="user4Editor"
+              class="editor"
+              spellcheck="false"
+              autocomplete="off"
+              autocapitalize="off"
+            ></textarea>
+          </div>
+        </article>
+      </section>
+
+      <section class="bottomRow" aria-label="DAGs">
+        <article class="panel" aria-label="Time DAG">
+          <header class="panelHeader">
+            <h2 class="panelTitle">Time DAG</h2>
+            <div class="panelMeta" id="timeDagMeta"></div>
+          </header>
+          <div class="panelBody">
+            <div id="timeDag" class="dagSurface"></div>
+          </div>
+        </article>
+
+        <article class="panel" aria-label="Space DAG">
+          <header class="panelHeader">
+            <h2 class="panelTitle">Space DAG</h2>
+            <div class="panelMeta" id="spaceDagMeta"></div>
+          </header>
+          <div class="panelBody">
+            <div id="spaceDag" class="dagSurface"></div>
+          </div>
+        </article>
+
+        <aside class="panel" id="mutationList" aria-label="Mutation list">
+          <header class="panelHeader">
+            <h2 class="panelTitle">Mutations</h2>
+            <div class="panelMeta">
+              <span id="mutationCount">0</span>
+            </div>
+          </header>
+          <ol id="mutationItems"></ol>
+        </aside>
+      </section>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

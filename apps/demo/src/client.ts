@@ -8,7 +8,7 @@ import {
   type TextElementNode,
   type XnlMutation,
   type XnlNode,
-} from "../node_modules/xnl.ts/dist/index.js";
+} from "xnl.ts";
 import {
   jsonParseMessage,
   jsonStringifyMessage,
