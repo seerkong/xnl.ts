@@ -1,0 +1,48 @@
+<Root #DslA_1 export=true {
+  fieldA = "valueA"
+  fieldB = {
+    key1 = <DslB #DslB_3 proto=DslB_1 {
+      key1 = "value1_override"
+      key2 = <delta remove=true>
+      nested = {
+        field1 = "new1"
+        field2 = <delta remove=true>
+        field3 = {
+          deep1 = "new_deep1"
+          deep2 = <delta remove=true>
+        }
+      }
+    }>
+  }
+  fieldC = [
+    <DslC proto=DslC_1>
+  ]
+} [
+  <NodeA #NodeA_1 {
+    key_m = <DslB proto=DslB_2>
+    key_n = <DslC proto=DslC_2>
+  } (
+    <DslCPrefabs [
+      <DslC #DslC_2 { key3 = "value3" }>
+    ]>
+  )>
+] (
+  <DslBPrefabs [
+    <DslB #DslB_1 {
+      key1 = "value1"
+      key2 = "value2"
+      nested = {
+        field1 = "old1"
+        field2 = "old2"
+        field3 = {
+          deep1 = "deep1"
+          deep2 = "deep2"
+        }
+      }
+    }>
+    <DslB #DslB_2 { key2 = "value2" key3 = "value3" }>
+  ]>
+  <DslCPrefabs [
+    <DslC #DslC_1 { key4 = "value4" key5 = "value5" }>
+  ]>
+)>

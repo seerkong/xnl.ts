@@ -1,0 +1,35 @@
+{
+  "name": "xnl.ts",
+  "version": "0.1.0",
+  "description": "XNL (Extensible Notation Language) parser for Node and browser with TypeScript types.",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "test": "vitest run",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "xnl",
+    "parser",
+    "typescript",
+    "xml"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "tsup": "^8.2.4",
+    "typescript": "^5.6.3",
+    "vitest": "^1.6.0"
+  }
+}

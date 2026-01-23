@@ -1,0 +1,21 @@
+<Flow #rootFlow proto=BaseFlow title="Custom" export=true name="MainFlow" [
+  <step #s2 {label="custom"}>
+] (
+  <Prefabs [
+    <Flow #BaseFlow export=true name="BaseFlow" title="Base Title" [
+      <step #s1 {label="base"}>
+      <step #removeMe {label="remove-me"}>
+    ]>
+  ]>
+)>
+
+<Flow #overrideRemover proto=BaseFlow name="Remover" export=true [
+  <step #removeMe remove=true>
+] (
+  <Prefabs [
+    <Flow #BaseFlow export=true name=BaseFlow title="Base Title" [
+      <step #s1 {label="base"}>
+      <step #removeMe {label="should-remove"}>
+    ]>
+  ]>
+)>

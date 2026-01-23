@@ -1,0 +1,1 @@
+<flow #flow1 {status="draft"} [ <step #s1 {label="old"}> ]>

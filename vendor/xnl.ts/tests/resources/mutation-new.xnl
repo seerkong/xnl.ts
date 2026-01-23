@@ -1,0 +1,5 @@
+<flow #flow1 {status="done"}
+  [
+    <step #s1 {label="old"}> <step #s2 {label="new"}>
+  ]
+>
