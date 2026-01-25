@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run src/server.ts",
-    "build": "bun build src/client.ts --outfile public/app.js",
+    "build": "bun build src/client.ts --outfile public/app.js && bun build src/peer.ts --outfile public/peer.js",
     "smoke:ws": "bun run src/ws-smoke.ts"
   },
   "dependencies": {

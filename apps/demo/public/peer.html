@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Braid Demo - Peer</title>
+    <style>
+      :root {
+        --gap: 12px;
+        --radius: 12px;
+        --border: rgba(255, 255, 255, 0.14);
+        --panel: rgba(255, 255, 255, 0.04);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.72);
+        --bg: #0b0e14;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      .page {
+        min-height: 100vh;
+        padding: var(--gap);
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: var(--gap);
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .panelHeader {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .panelTitle {
+        margin: 0;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .panelMeta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .setButton {
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .setButton:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .panelBody {
+        padding: 10px 12px;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .hint {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .parseError {
+        margin: 0;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 200, 200, 0.92);
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.35;
+        white-space: pre-wrap;
+        min-height: 0;
+      }
+
+      .editor {
+        flex: 1;
+        min-height: 240px;
+        resize: vertical;
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 12px;
+        line-height: 1.4;
+        outline: none;
+      }
+
+      .editor:focus {
+        border-color: rgba(140, 205, 255, 0.55);
+        box-shadow: 0 0 0 3px rgba(140, 205, 255, 0.14);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="hint">
+        Open multiple tabs with the same docId and different identity values to simulate multi-user coordination.
+      </div>
+
+      <article class="panel" aria-label="Peer">
+        <header class="panelHeader">
+          <h1 class="panelTitle">Peer</h1>
+          <div class="panelMeta">
+            <span>docId: <span id="peerDocId">-</span></span>
+            <span>identity: <span id="peerIdentity">-</span></span>
+            <span>Status: <span id="peerStatus">disconnected</span></span>
+            <span>Rev: <span id="peerRev">-</span></span>
+            <button id="peerSet" class="setButton" type="button" disabled>Set</button>
+          </div>
+        </header>
+
+        <div class="panelBody">
+          <pre id="peerParseError" class="parseError"></pre>
+          <textarea
+            id="peerEditor"
+            class="editor"
+            spellcheck="false"
+            autocomplete="off"
+            autocapitalize="off"
+          ></textarea>
+        </div>
+      </article>
+    </div>
+
+    <script type="module" src="/peer.js"></script>
+  </body>
+</html>
