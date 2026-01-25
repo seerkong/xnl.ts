@@ -20,6 +20,65 @@ export type MergeResult = {
   nodes: XnlNode[];
 };
 
+function assertAtMostOneRoot(nodes: XnlNode[], context: string): void {
+  if (nodes.length <= 1) return;
+  throw new Error(`${context}: expected 0 or 1 root node, got ${nodes.length}`);
+}
+
+function lastOrUndefined(nodes: XnlNode[]): XnlNode | undefined {
+  return nodes.length ? (nodes[nodes.length - 1] as XnlNode) : undefined;
+}
+
+function mergeRootNodes3(baseNodes: XnlNode[], leftNodes: XnlNode[], rightNodes: XnlNode[]): XnlNode[] {
+  const b = lastOrUndefined(baseNodes);
+  const l = lastOrUndefined(leftNodes);
+  const r = lastOrUndefined(rightNodes);
+
+  const bid = b ? readStableId(b) : undefined;
+  const lid = l ? readStableId(l) : undefined;
+  const rid = r ? readStableId(r) : undefined;
+
+  if (!b) {
+    if (!l && !r) return [];
+    if (!l) return [r as XnlNode];
+    if (!r) return [l as XnlNode];
+
+    if (lid && rid && lid === rid) {
+      const merged = mergeAny(undefined, l, r, "root");
+      return merged === undefined ? [] : [merged as XnlNode];
+    }
+
+    return winnerForKey("root") === "right" ? [r] : [l];
+  }
+
+  if (!l && !r) return [];
+
+  if (!l && r) {
+    if (bid && rid && bid === rid) return [];
+    return [r];
+  }
+
+  if (l && !r) {
+    if (bid && lid && bid === lid) return [];
+    return winnerForKey("root") === "right" ? [] : [l];
+  }
+
+  if (lid && rid && lid === rid) {
+    const merged = bid && bid === lid ? mergeAny(b, l, r, "root") : mergeAny(undefined, l, r, "root");
+    return merged === undefined ? [] : [merged as XnlNode];
+  }
+
+  if (bid && lid && bid === lid && (!rid || bid !== rid)) {
+    return [r as XnlNode];
+  }
+
+  if (bid && rid && bid === rid && (!lid || bid !== lid)) {
+    return [l as XnlNode];
+  }
+
+  return winnerForKey("root") === "right" ? [r as XnlNode] : [l as XnlNode];
+}
+
 type Winner = "left" | "right";
 
 function isPlainObject(value: unknown): value is Record<string, any> {
@@ -53,6 +112,11 @@ function readMetaId(node: any): string | undefined {
 
 function readStableId(node: any): string | undefined {
   return readMetaId(node) ?? readNodeId(node);
+}
+
+function readTag(node: any): string | undefined {
+  if (!isDataElement(node) && !isTextElement(node)) return undefined;
+  return node.tag;
 }
 
 function setMetaId(node: any, id: string) {
@@ -566,12 +630,13 @@ export function mergeDocuments3(baseText: string, leftText: string, rightText: s
   const left = parseXnl(leftText);
   const right = parseXnl(rightText);
 
-  const mergedNodes = mergeNodeList(base.nodes, left.nodes, right.nodes);
+  const mergedNodes = mergeRootNodes3(base.nodes, left.nodes, right.nodes);
 
   ensureMetadataIds({ nodes: mergedNodes }, "m_");
 
   const mergedText = XNL.stringify({ nodes: mergedNodes });
   const canonical = parseXnl(mergedText);
+  assertAtMostOneRoot(canonical.nodes, "mergeDocuments3");
   const canonicalText = XNL.stringify(canonical);
 
   return { text: canonicalText, nodes: canonical.nodes };
@@ -579,11 +644,14 @@ export function mergeDocuments3(baseText: string, leftText: string, rightText: s
 
 export function canonicalizeText(text: string, prefix: string): MergeResult {
   const parsed = parseXnl(text);
+  assertAtMostOneRoot(parsed.nodes, "canonicalizeText");
+
   const nodes = cloneJson(parsed.nodes);
   ensureMetadataIds({ nodes }, prefix);
 
   const withIdsText = XNL.stringify({ nodes });
   const canonical = parseXnl(withIdsText);
+  assertAtMostOneRoot(canonical.nodes, "canonicalizeText");
   const canonicalText = XNL.stringify(canonical);
 
   return { text: canonicalText, nodes: canonical.nodes };
@@ -591,6 +659,11 @@ export function canonicalizeText(text: string, prefix: string): MergeResult {
 
 export function applyIntent(baseText: string, mutations: XnlMutation[]): MergeResult {
   const base = canonicalizeText(baseText, "s_");
+  assertAtMostOneRoot(base.nodes, "applyIntent");
+
+  const baseRoot = base.nodes[0];
+  const baseTag = baseRoot ? readTag(baseRoot) : undefined;
+
   const root = cloneJson(base.nodes);
 
   const next = XNL.mutation.apply(root, mutations);
@@ -598,10 +671,26 @@ export function applyIntent(baseText: string, mutations: XnlMutation[]): MergeRe
     throw new Error("Root must remain array");
   }
 
+  assertAtMostOneRoot(next as XnlNode[], "applyIntent");
+
+  if (baseTag) {
+    const nextRoot = (next as XnlNode[])[0];
+    const nextTag = nextRoot ? readTag(nextRoot) : undefined;
+
+    if (!nextTag) {
+      throw new Error("applyIntent: root node required");
+    }
+
+    if (nextTag !== baseTag) {
+      throw new Error(`applyIntent: root tag locked to <${baseTag}>`);
+    }
+  }
+
   ensureMetadataIds({ nodes: next }, "s_");
 
   const nextText = XNL.stringify({ nodes: next });
   const canonical = parseXnl(nextText);
+  assertAtMostOneRoot(canonical.nodes, "applyIntent");
   const canonicalText = XNL.stringify(canonical);
 
   return { text: canonicalText, nodes: canonical.nodes };

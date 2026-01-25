@@ -122,6 +122,11 @@ function isTextElement(node: any): node is TextElementNode {
   return node && node.kind === "TextElement";
 }
 
+function readTag(node: any): string | undefined {
+  if (!isDataElement(node) && !isTextElement(node)) return undefined;
+  return node.tag;
+}
+
 function readMetaId(node: any): string | undefined {
   if (!isDataElement(node) && !isTextElement(node)) return undefined;
   const raw = (node as any).metadata?.id;
@@ -678,13 +683,227 @@ function renderTimeDag() {
 function renderSpaceDag() {
   spaceDag.textContent = "";
 
-  const box = document.createElement("div");
-  box.style.padding = "10px";
-  box.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
-  box.style.color = "rgba(255,255,255,0.75)";
-  box.textContent = `versions=${graphVersions.size} head=${graphHeadVersionId ?? "-"}`;
+  const spaceDagMeta = document.getElementById("spaceDagMeta");
 
-  spaceDag.appendChild(box);
+  const opList = ops.filter((o) => o.mutations.length > 0 && !o.id.startsWith("pull_"));
+
+  const pathToKey = (path: any[]): string => {
+    const parts: string[] = [];
+    for (let i = 0; i < path.length && i < 4; i++) {
+      const seg = path[i] as any;
+      const t = typeof seg?.type === "string" ? seg.type : "?";
+      const v = seg && typeof seg === "object" && "value" in seg ? (seg as any).value : undefined;
+      parts.push(v === undefined ? t : `${t}:${String(v)}`);
+    }
+    return parts.join("/");
+  };
+
+  const mutationSpaceKey = (m: XnlMutation): string | null => {
+    const mm = m as any;
+
+    const byName =
+      (typeof mm.targetUniqueName === "string" && mm.targetUniqueName) ||
+      (typeof mm.parentUniqueNameAfter === "string" && mm.parentUniqueNameAfter) ||
+      (typeof mm.parentUniqueNameBefore === "string" && mm.parentUniqueNameBefore);
+
+    if (byName) return `id:${byName}`;
+
+    const afterId = readMetaId(mm.valueAfter);
+    if (afterId) return `id:${afterId}`;
+
+    const beforeId = readMetaId(mm.valueBefore);
+    if (beforeId) return `id:${beforeId}`;
+
+    if (Array.isArray(mm.path) && mm.path.length) return `path:${pathToKey(mm.path)}`;
+
+    return null;
+  };
+
+  type Lane = { key: string; ops: OpRecord[]; seen: Set<string> };
+  const lanesByKey = new Map<string, Lane>();
+
+  for (const op of opList) {
+    const keys = new Set<string>();
+    for (const m of op.mutations) {
+      const k = mutationSpaceKey(m);
+      if (k) keys.add(k);
+    }
+    if (!keys.size) keys.add("other");
+
+    for (const key of keys) {
+      let lane = lanesByKey.get(key);
+      if (!lane) {
+        lane = { key, ops: [], seen: new Set() };
+        lanesByKey.set(key, lane);
+      }
+
+      if (lane.seen.has(op.id)) continue;
+      lane.seen.add(op.id);
+      lane.ops.push(op);
+    }
+  }
+
+  const lanes = Array.from(lanesByKey.values());
+  for (const lane of lanes) {
+    lane.ops.sort((a, b) => {
+      const ta = Date.parse(a.ts);
+      const tb = Date.parse(b.ts);
+      if (!Number.isNaN(ta) && !Number.isNaN(tb) && ta !== tb) return ta - tb;
+      if (a.id < b.id) return -1;
+      if (a.id > b.id) return 1;
+      return 0;
+    });
+  }
+
+  lanes.sort((a, b) => {
+    if (b.ops.length !== a.ops.length) return b.ops.length - a.ops.length;
+    if (a.key < b.key) return -1;
+    if (a.key > b.key) return 1;
+    return 0;
+  });
+
+  if (spaceDagMeta) {
+    spaceDagMeta.textContent = `${lanes.length} lanes · ${opList.length} ops`;
+  }
+
+  if (lanes.length === 0) {
+    const empty = document.createElement("div");
+    empty.style.padding = "10px";
+    empty.style.fontFamily =
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+    empty.style.color = "rgba(255,255,255,0.7)";
+    empty.textContent = "No ops yet. Click Set in any user panel to create mutations.";
+    spaceDag.appendChild(empty);
+    return;
+  }
+
+  const shortenId = (id: string): string => {
+    if (id.length <= 22) return id;
+    return `${id.slice(0, 10)}…${id.slice(-10)}`;
+  };
+
+  const labelForKey = (key: string): string => {
+    if (key === "other") return "other";
+    if (key.startsWith("id:")) return shortenId(key.slice(3));
+    if (key.startsWith("path:")) return key.slice(5);
+    return key;
+  };
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+
+  const paddingX = 16;
+  const paddingY = 16;
+  const laneWidth = 190;
+  const laneGap = 14;
+  const headerH = 36;
+  const nodeGapY = 54;
+  const nodeR = 10;
+
+  const maxOps = Math.max(1, ...lanes.map((l) => l.ops.length));
+  const width = paddingX * 2 + lanes.length * laneWidth + Math.max(0, lanes.length - 1) * laneGap;
+  const height = paddingY * 2 + headerH + Math.max(0, maxOps - 1) * nodeGapY + nodeR * 2 + 20;
+
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  svg.style.display = "block";
+
+  for (let laneIdx = 0; laneIdx < lanes.length; laneIdx++) {
+    const lane = lanes[laneIdx] as Lane;
+
+    const laneX = paddingX + laneIdx * (laneWidth + laneGap);
+    const centerX = laneX + laneWidth / 2;
+
+    const bg = document.createElementNS(svgNS, "rect");
+    bg.setAttribute("x", String(laneX));
+    bg.setAttribute("y", String(paddingY));
+    bg.setAttribute("width", String(laneWidth));
+    bg.setAttribute("height", String(height - paddingY * 2));
+    bg.setAttribute("rx", "12");
+    bg.setAttribute("fill", "rgba(0,0,0,0.18)");
+    bg.setAttribute("stroke", "rgba(255,255,255,0.10)");
+    bg.setAttribute("stroke-width", "1");
+    svg.appendChild(bg);
+
+    const label = document.createElementNS(svgNS, "text");
+    label.setAttribute("x", String(centerX));
+    label.setAttribute("y", String(paddingY + 18));
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("fill", "rgba(255,255,255,0.78)");
+    label.setAttribute("font-size", "11");
+    label.setAttribute(
+      "font-family",
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+    );
+    label.textContent = `${labelForKey(lane.key)} (${lane.ops.length})`;
+    svg.appendChild(label);
+
+    const latest = lane.ops[lane.ops.length - 1];
+    if (latest) {
+      bg.style.cursor = "pointer";
+      label.style.cursor = "pointer";
+      bg.addEventListener("click", () => setSelectedOp(latest.id));
+      label.addEventListener("click", () => setSelectedOp(latest.id));
+    }
+
+    const startY = paddingY + headerH;
+
+    for (let i = 0; i < lane.ops.length; i++) {
+      const op = lane.ops[i] as OpRecord;
+      const y = startY + i * nodeGapY;
+
+      if (i > 0) {
+        const prevY = startY + (i - 1) * nodeGapY;
+        const line = document.createElementNS(svgNS, "line");
+        line.setAttribute("x1", String(centerX));
+        line.setAttribute("y1", String(prevY + nodeR));
+        line.setAttribute("x2", String(centerX));
+        line.setAttribute("y2", String(y - nodeR));
+        line.setAttribute("stroke", "rgba(255,255,255,0.22)");
+        line.setAttribute("stroke-width", "2");
+        svg.appendChild(line);
+      }
+
+      const g = document.createElementNS(svgNS, "g");
+
+      const circle = document.createElementNS(svgNS, "circle");
+      circle.setAttribute("cx", String(centerX));
+      circle.setAttribute("cy", String(y));
+      circle.setAttribute("r", String(nodeR));
+      circle.setAttribute("fill", colorForUser(op.userId));
+      circle.setAttribute("opacity", "0.95");
+
+      const selected = selectedOpId === op.id;
+      circle.setAttribute("stroke", selected ? "rgba(140,205,255,0.95)" : "rgba(0,0,0,0)");
+      circle.setAttribute("stroke-width", selected ? "3" : "0");
+
+      circle.style.cursor = "pointer";
+      circle.addEventListener("click", () => setSelectedOp(op.id));
+
+      const title = document.createElementNS(svgNS, "title");
+      title.textContent = `${op.id} u${op.userId} ${op.ts}`;
+
+      const text = document.createElementNS(svgNS, "text");
+      text.setAttribute("x", String(centerX));
+      text.setAttribute("y", String(y + 4));
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("fill", "rgba(10,10,10,0.85)");
+      text.setAttribute("font-size", "11");
+      text.setAttribute(
+        "font-family",
+        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+      );
+      text.textContent = String(op.userId);
+      text.style.pointerEvents = "none";
+
+      g.appendChild(title);
+      g.appendChild(circle);
+      g.appendChild(text);
+      svg.appendChild(g);
+    }
+  }
+
+  spaceDag.appendChild(svg);
 }
 
 function wsUrl(): string {
@@ -729,7 +948,25 @@ function setParseError(state: UserClientState, message: string | null) {
 function validateUserInput(state: UserClientState): { ok: true; text: string } | { ok: false; error: string } {
   const text = state.editor.value;
   try {
-    parseXnl(text);
+    const parsed = parseXnl(text);
+
+    if (parsed.nodes.length > 1) {
+      return { ok: false, error: `expected 0 or 1 root node, got ${parsed.nodes.length}` };
+    }
+
+    const baseRoot = state.baseNodes[0];
+    if (baseRoot) {
+      if (parsed.nodes.length === 0) {
+        return { ok: false, error: "root node required" };
+      }
+
+      const baseTag = readTag(baseRoot);
+      const desiredTag = readTag(parsed.nodes[0]);
+      if (baseTag && desiredTag && baseTag !== desiredTag) {
+        return { ok: false, error: `root tag locked to <${baseTag}>` };
+      }
+    }
+
     return { ok: true, text };
   } catch (err) {
     return { ok: false, error: formatError(err) };
@@ -922,7 +1159,11 @@ function applyIncoming(state: UserClientState, from: UserId): void {
 }
 
 function onServerMessage(state: UserClientState, msg: ServerToClientMessage) {
-  if (msg.type === "error") return;
+  if (msg.type === "error") {
+    const message = typeof msg.message === "string" ? msg.message : "Server error";
+    setParseError(state, message);
+    return;
+  }
   if (msg.docId !== state.docId) return;
 
   if (msg.type === "doc_state") {

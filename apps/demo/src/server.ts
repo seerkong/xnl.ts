@@ -7,7 +7,7 @@ import { applyIntent, canonicalizeText, mergeDocuments3 } from "./merge";
 import type { ServerWebSocket } from "bun";
 
 function sanitizeMutations(mutations: XnlMutation[]): XnlMutation[] {
-  const out = mutations.map((m) => {
+  const out: XnlMutation[] = mutations.map((m): XnlMutation => {
     if (m.type !== "OBJECT_DELETE") return m;
 
     const path = Array.isArray(m.path) ? (m.path as PathItem[]) : (parsePath(m.path) as PathItem[]);
@@ -20,7 +20,8 @@ function sanitizeMutations(mutations: XnlMutation[]): XnlMutation[] {
       path[path.length - 2]?.value === "id";
 
     if (!looksLikeDeleteMetaId) return m;
-    return { ...m, type: "OBJECT_UPDATE", valueAfter: m.valueBefore };
+
+    return { ...m, type: "OBJECT_UPDATE", valueAfter: m.valueBefore } as XnlMutation;
   });
 
   const groups = new Map<string, Array<{ pos: number; idx: number; mutation: XnlMutation }>>();
@@ -40,7 +41,7 @@ function sanitizeMutations(mutations: XnlMutation[]): XnlMutation[] {
 
     const parentKey = JSON.stringify(pathItems.slice(0, -1));
     const arr = groups.get(parentKey) ?? [];
-    arr.push({ pos, idx, mutation: { ...m, path: pathItems } });
+    arr.push({ pos, idx, mutation: m });
     groups.set(parentKey, arr);
   }
 
@@ -97,6 +98,7 @@ type DocState = {
   headVersionId: VersionId;
   versions: Map<VersionId, VersionNode>;
   leaves: Set<VersionId>;
+  rootTag?: string;
 };
 
 type ClientIdentity = {
@@ -138,6 +140,33 @@ function summaryOf(v: VersionNode): VersionSummary {
 function computeHeadText(doc: DocState): string {
   const head = doc.versions.get(doc.headVersionId);
   return head ? head.text : "";
+}
+
+function readRootTagFromNodes(nodes: XnlNode[]): string | undefined {
+  const n = nodes[0] as any;
+  if (!n || typeof n !== "object") return undefined;
+
+  const kind = (n as any).kind;
+  if (kind !== "DataElement" && kind !== "TextElement") return undefined;
+
+  const tag = (n as any).tag;
+  return typeof tag === "string" ? tag : undefined;
+}
+
+function applyRootTagLock(doc: DocState, nodes: XnlNode[]): boolean {
+  const tag = readRootTagFromNodes(nodes);
+
+  if (doc.rootTag) {
+    return typeof tag === "string" && tag === doc.rootTag;
+  }
+
+  if (tag) doc.rootTag = tag;
+  return true;
+}
+
+function rootNodeRequired(doc: DocState, nodes: XnlNode[]): boolean {
+  if (!doc.rootTag) return true;
+  return nodes.length === 1;
 }
 
 function recomputeLeaves(doc: DocState) {
@@ -205,6 +234,7 @@ function createRootDoc(docId: string): DocState {
     headVersionId: rootId,
     versions,
     leaves: new Set([rootId]),
+    rootTag: undefined,
   };
 
   return doc;
@@ -219,6 +249,7 @@ function loadDocFromDisk(docId: string): DocState | null {
     const data = JSON.parse(raw) as {
       docId: string;
       headVersionId: VersionId;
+      rootTag?: string;
       versions: Array<{
         id: VersionId;
         kind: VersionKind;
@@ -262,6 +293,7 @@ function loadDocFromDisk(docId: string): DocState | null {
       headVersionId: data.headVersionId,
       versions,
       leaves: new Set(),
+      rootTag: typeof data.rootTag === "string" ? data.rootTag : undefined,
     };
 
     recomputeLeaves(doc);
@@ -271,7 +303,13 @@ function loadDocFromDisk(docId: string): DocState | null {
       return root;
     }
 
+    if (!doc.rootTag) {
+      const head = doc.versions.get(doc.headVersionId);
+      if (head) applyRootTagLock(doc, head.nodes);
+    }
+
     return doc;
+
   } catch {
     return null;
   }
@@ -294,6 +332,7 @@ function saveDocToDisk(doc: DocState): void {
   const payload = {
     docId: doc.docId,
     headVersionId: doc.headVersionId,
+    rootTag: doc.rootTag,
     versions,
   };
 
@@ -337,7 +376,21 @@ function broadcastGraphUpdate(doc: DocState, added: VersionNode[]) {
 function maybeMerge(doc: DocState): VersionNode[] {
   if (doc.leaves.size <= 1) return [];
 
-  const leaves = Array.from(doc.leaves).sort();
+  const leaves = Array.from(doc.leaves).sort((a, b) => {
+    const va = doc.versions.get(a);
+    const vb = doc.versions.get(b);
+
+    const ta = Date.parse(va?.ts ?? "");
+    const tb = Date.parse(vb?.ts ?? "");
+
+    if (!Number.isNaN(ta) && !Number.isNaN(tb) && ta !== tb) {
+      return ta - tb;
+    }
+
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+  });
 
   let head = doc.headVersionId;
   let workingLeaves = leaves;
@@ -369,6 +422,9 @@ function maybeMerge(doc: DocState): VersionNode[] {
       text: canonical.text,
       nodes: canonical.nodes,
     };
+
+    if (!applyRootTagLock(doc, mergeNode.nodes)) return [];
+    if (!rootNodeRequired(doc, mergeNode.nodes)) return [];
 
     doc.versions.set(mergeNode.id, mergeNode);
     created.push(mergeNode);
@@ -460,9 +516,32 @@ const server = Bun.serve<WSData>({
 
          const opVersionId = makeId("op_");
 
-         try {
-           const sanitizedMutations = sanitizeMutations(msg.mutations);
-           const next = applyIntent(base.text, sanitizedMutations);
+          try {
+            const sanitizedMutations = sanitizeMutations(msg.mutations);
+            const next = applyIntent(base.text, sanitizedMutations);
+
+            if (!applyRootTagLock(doc, next.nodes)) {
+              wsSend(ws, {
+                type: "resync",
+                docId: doc.docId,
+                headVersionId: doc.headVersionId,
+                headText: computeHeadText(doc),
+                reason: "apply_failed",
+              });
+              return;
+            }
+
+            if (!rootNodeRequired(doc, next.nodes)) {
+              wsSend(ws, {
+                type: "resync",
+                docId: doc.docId,
+                headVersionId: doc.headVersionId,
+                headText: computeHeadText(doc),
+                reason: "apply_failed",
+              });
+              return;
+            }
+
 
            const opNode: VersionNode = {
              id: opVersionId,
@@ -528,8 +607,31 @@ const server = Bun.serve<WSData>({
            return;
          }
 
-         const merged = mergeDocuments3(base.text, base.text, other.text);
-         const canonical = canonicalizeText(merged.text, "p_");
+          const merged = mergeDocuments3(base.text, base.text, other.text);
+          const canonical = canonicalizeText(merged.text, "p_");
+
+          if (!applyRootTagLock(doc, canonical.nodes)) {
+            wsSend(ws, {
+              type: "resync",
+              docId: doc.docId,
+              headVersionId: doc.headVersionId,
+              headText: computeHeadText(doc),
+              reason: "apply_failed",
+            });
+            return;
+          }
+
+          if (!rootNodeRequired(doc, canonical.nodes)) {
+            wsSend(ws, {
+              type: "resync",
+              docId: doc.docId,
+              headVersionId: doc.headVersionId,
+              headText: computeHeadText(doc),
+              reason: "apply_failed",
+            });
+            return;
+          }
+
 
          const opNode: VersionNode = {
            id: makeId("pull_"),

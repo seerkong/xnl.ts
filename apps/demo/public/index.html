@@ -36,12 +36,12 @@
       }
 
       .page {
-        height: 100vh;
+        min-height: 100vh;
         padding: var(--gap);
         display: grid;
-        grid-template-rows: minmax(480px, 44vh) 1fr;
+        /* Allow the page to grow and scroll on short viewports. */
+        grid-template-rows: minmax(520px, auto) minmax(420px, auto);
         gap: var(--gap);
-        min-height: 0;
       }
 
       .panel {
