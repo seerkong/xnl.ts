@@ -124,11 +124,15 @@ async function main() {
 
   const connect1: ClientToServerMessage = { type: "connect", docId, clientId: clientId1, protocolVersion: 2 };
   const connect2: ClientToServerMessage = { type: "connect", docId, clientId: clientId2, protocolVersion: 2 };
+
+  const state1P = waitForMessage(ws1, (m) => m.type === "doc_state" && m.docId === docId, 2000);
+  const state2P = waitForMessage(ws2, (m) => m.type === "doc_state" && m.docId === docId, 2000);
+
   ws1.send(jsonStringifyMessage(connect1));
   ws2.send(jsonStringifyMessage(connect2));
 
-  const state1 = await waitForMessage(ws1, (m) => m.type === "doc_state" && m.docId === docId, 2000);
-  const state2 = await waitForMessage(ws2, (m) => m.type === "doc_state" && m.docId === docId, 2000);
+  const state1 = await state1P;
+  const state2 = await state2P;
 
   if (state1.type !== "doc_state" || state2.type !== "doc_state") throw new Error("expected doc_state");
   if (state1.headVersionId !== state2.headVersionId || state1.headText !== state2.headText) {

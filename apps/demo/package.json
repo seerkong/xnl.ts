@@ -8,8 +8,10 @@
     "smoke:ws": "bun run src/ws-smoke.ts"
   },
   "dependencies": {
+    "@braid-demo/realtime-client": "workspace:*",
     "@braid-demo/realtime-core": "workspace:*",
     "@braid-demo/realtime-protocol": "workspace:*",
+    "@braid-demo/realtime-server-bun": "workspace:*",
     "diff": "8.0.3",
     "xnl.ts": "file:../../vendor/xnl.ts"
   },

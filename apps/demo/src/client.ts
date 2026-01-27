@@ -1,23 +1,6 @@
-import {
-  diffNodes,
-  parseXnl,
-  XNL,
-  isWord,
-  wordToString,
-  type DataElementNode,
-  type TextElementNode,
-  type XnlMutation,
-  type XnlNode,
-} from "xnl.ts";
-import {
-  jsonParseMessage,
-  jsonStringifyMessage,
-  type ClientToServerMessage,
-  type ServerToClientMessage,
-  type VersionId,
-  type VersionSummary,
-} from "./shared-protocol";
-import { makeId, ulid } from "./id";
+import { createPeerClient, type PeerClient } from "@braid-demo/realtime-client";
+import { isWord, wordToString, type DataElementNode, type TextElementNode, type XnlMutation } from "xnl.ts";
+import { type ServerToClientMessage, type VersionId, type VersionSummary } from "./shared-protocol";
 
 function requireElement(id: string): HTMLElement {
   const el = document.getElementById(id);
@@ -62,27 +45,10 @@ type OpRecord = {
   mutations: XnlMutation[];
 };
 
-type OutgoingOp = {
-  opId: string;
-  baseVersionId: VersionId;
-  mutations: XnlMutation[];
-  baseNodesAfter: XnlNode[];
-  editorTextAfter: string;
-};
-
 type UserClientState = {
   userId: UserId;
-  clientId: string;
   docId: string;
-  socket: WebSocket | null;
-
-  headVersionId: VersionId | null;
-  baseVersionId: VersionId | null;
-  baseNodes: XnlNode[];
-  headText: string;
-
-  inflight: OutgoingOp | null;
-  sending: boolean;
+  client: PeerClient;
 
   editor: HTMLTextAreaElement;
   setButton: HTMLButtonElement;
@@ -94,24 +60,13 @@ type UserClientState = {
   revEl: HTMLSpanElement;
   parseErrorEl: HTMLPreElement;
 
-  dirty: boolean;
-  lastValidText: string | null;
-  lastCanonicalText: string | null;
   suppressInput: boolean;
 };
-
-function nowId(): string {
-  return ulid();
-}
 
 function requireDiv(id: string): HTMLDivElement {
   const el = requireElement(id);
   if (!(el instanceof HTMLDivElement)) throw new Error(`#${id} must be a div`);
   return el;
-}
-
-function parseToNodes(text: string): XnlNode[] {
-  return parseXnl(text).nodes;
 }
 
 function isDataElement(node: any): node is DataElementNode {
@@ -122,11 +77,6 @@ function isTextElement(node: any): node is TextElementNode {
   return node && node.kind === "TextElement";
 }
 
-function readTag(node: any): string | undefined {
-  if (!isDataElement(node) && !isTextElement(node)) return undefined;
-  return node.tag;
-}
-
 function readMetaId(node: any): string | undefined {
   if (!isDataElement(node) && !isTextElement(node)) return undefined;
   const raw = (node as any).metadata?.id;
@@ -135,167 +85,17 @@ function readMetaId(node: any): string | undefined {
   return undefined;
 }
 
-function setMetaId(node: any, id: string) {
-  if (!isDataElement(node) && !isTextElement(node)) return;
-  if (!node.metadata || typeof node.metadata !== "object" || Array.isArray(node.metadata)) {
-    node.metadata = {};
-  }
-  node.metadata.id = id;
-}
-
-function makeMetaId(prefix: string): string {
-  return makeId(prefix);
-}
-
-function ensureMetadataIds(nodes: XnlNode[], prefix: string): XnlNode[] {
-  const clone = JSON.parse(JSON.stringify(nodes)) as XnlNode[];
-
-  const visit = (node: any) => {
-    if (isDataElement(node) || isTextElement(node)) {
-      const id = readMetaId(node);
-      if (!id) {
-        setMetaId(node, makeMetaId(prefix));
-      } else if ((node as any).metadata?.id && typeof (node as any).metadata.id !== "string") {
-        setMetaId(node, id);
-      }
-
-      if (isDataElement(node)) {
-        if (node.body) for (const child of node.body) visit(child);
-        if (node.extend) {
-          for (const tag of node.extend.order) {
-            const child = node.extend.children[tag];
-            if (child) visit(child);
-          }
-        }
-        if (node.attributes) {
-          for (const v of Object.values(node.attributes)) visit(v);
-        }
-        for (const v of Object.values(node.metadata ?? {})) visit(v);
-      } else {
-        if (node.attributes) {
-          for (const v of Object.values(node.attributes)) visit(v);
-        }
-        for (const v of Object.values(node.metadata ?? {})) visit(v);
-      }
-      return;
-    }
-
-    if (Array.isArray(node)) {
-      for (const child of node) visit(child);
-      return;
-    }
-
-    if (node && typeof node === "object" && !isWord(node)) {
-      for (const v of Object.values(node)) visit(v);
-    }
-  };
-
-  for (const n of clone) visit(n);
-  return clone;
-}
-
-function copyMissingMetaIds(base: any, desired: any): void {
-  if (!base || !desired) return;
-
-  if (Array.isArray(base) && Array.isArray(desired)) {
-    const len = Math.min(base.length, desired.length);
-    for (let i = 0; i < len; i++) copyMissingMetaIds(base[i], desired[i]);
-    return;
-  }
-
-  const baseIsEl = isDataElement(base) || isTextElement(base);
-  const desiredIsEl = isDataElement(desired) || isTextElement(desired);
-
-  if (baseIsEl && desiredIsEl) {
-    const baseId = readMetaId(base);
-    const desiredId = readMetaId(desired);
-
-    if (!desiredId && baseId && base.kind === desired.kind && base.tag === desired.tag) {
-      setMetaId(desired, baseId);
-    }
-
-    const bAttrs = (base as any).attributes;
-    const dAttrs = (desired as any).attributes;
-    if (bAttrs && dAttrs && typeof bAttrs === "object" && typeof dAttrs === "object") {
-      for (const key of Object.keys(dAttrs)) {
-        if (key in bAttrs) copyMissingMetaIds(bAttrs[key], dAttrs[key]);
-      }
-    }
-
-    const bMeta = (base as any).metadata;
-    const dMeta = (desired as any).metadata;
-    if (bMeta && dMeta && typeof bMeta === "object" && typeof dMeta === "object") {
-      for (const key of Object.keys(dMeta)) {
-        if (key === "id") continue;
-        if (key in bMeta) copyMissingMetaIds(bMeta[key], dMeta[key]);
-      }
-    }
-
-    if (isDataElement(base) && isDataElement(desired)) {
-      const bBody = (base as any).body;
-      const dBody = (desired as any).body;
-      if (Array.isArray(bBody) && Array.isArray(dBody)) {
-        const len = Math.min(bBody.length, dBody.length);
-        for (let i = 0; i < len; i++) copyMissingMetaIds(bBody[i], dBody[i]);
-      }
-
-      const bExtend = (base as any).extend;
-      const dExtend = (desired as any).extend;
-      const dOrder = dExtend && Array.isArray(dExtend.order) ? dExtend.order : null;
-      if (bExtend && dExtend && dOrder && bExtend.children && dExtend.children) {
-        for (const tag of dOrder) {
-          const bChild = bExtend.children[tag];
-          const dChild = dExtend.children[tag];
-          if (bChild && dChild) copyMissingMetaIds(bChild, dChild);
-        }
-      }
-    }
-
-    return;
-  }
-
-  if (
-    base &&
-    desired &&
-    typeof base === "object" &&
-    typeof desired === "object" &&
-    !Array.isArray(base) &&
-    !Array.isArray(desired) &&
-    !isWord(base) &&
-    !isWord(desired)
-  ) {
-    for (const key of Object.keys(desired)) {
-      if (key in base) copyMissingMetaIds((base as any)[key], (desired as any)[key]);
-    }
-  }
-}
-
-function isMetaIdObjectMutation(m: XnlMutation): boolean {
-  if (m.type !== "OBJECT_ADD" && m.type !== "OBJECT_UPDATE" && m.type !== "OBJECT_DELETE") return false;
-  if (!Array.isArray(m.path)) return false;
-
-  const path = m.path as any[];
-  const n = path.length;
-  return (
-    n >= 2 &&
-    path[n - 2]?.type === "InstanceProperty" &&
-    path[n - 2]?.value === "metadata" &&
-    path[n - 1]?.type === "MapKey" &&
-    path[n - 1]?.value === "id"
-  );
-}
-
-function formatError(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return String(err);
-}
-
 function parseUserId(value: string | undefined): UserId | null {
   if (!value) return null;
   const m1 = value.match(/^op_([1-4])_/);
   if (m1) return Number(m1[1]) as UserId;
+
   const m2 = value.match(/^c([1-4])_/);
   if (m2) return Number(m2[1]) as UserId;
+
+  const m3 = value.match(/^c_([1-4])_/);
+  if (m3) return Number(m3[1]) as UserId;
+
   return null;
 }
 
@@ -373,7 +173,7 @@ function isAncestorVersion(ancestor: VersionId, descendant: VersionId): boolean 
 }
 
 function pruneIntegratedInbox(state: UserClientState): void {
-  const base = state.baseVersionId;
+  const base = state.client.getState().baseVersionId;
   if (!base) return;
 
   for (const [from, q] of state.inbox.entries()) {
@@ -554,7 +354,7 @@ function renderTimeDag() {
 
     const count = ids.length;
     const layerWidth = Math.max(0, count - 1) * nodeGapX;
-    const offsetX = paddingX + (Math.max(0, (maxCount - 1) * nodeGapX - layerWidth) / 2);
+    const offsetX = paddingX + Math.max(0, (Math.max(0, (maxCount - 1) * nodeGapX - layerWidth) / 2));
 
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
@@ -912,193 +712,13 @@ function wsUrl(): string {
   return u.toString();
 }
 
-function connectUser(state: UserClientState) {
-  const ws = new WebSocket(wsUrl());
-  state.socket = ws;
-  state.statusEl.textContent = "connecting";
-
-  ws.addEventListener("open", () => {
-    state.statusEl.textContent = "connected";
-    const msg: ClientToServerMessage = {
-      type: "connect",
-      docId: state.docId,
-      clientId: state.clientId,
-      protocolVersion: 2,
-    };
-    ws.send(jsonStringifyMessage(msg));
-  });
-
-  ws.addEventListener("close", () => {
-    state.statusEl.textContent = "disconnected";
-    state.socket = null;
-  });
-
-  ws.addEventListener("message", (ev) => {
-    const data = typeof ev.data === "string" ? ev.data : "";
-    const msg = jsonParseMessage<ServerToClientMessage>(data);
-    if (!msg) return;
-    onServerMessage(state, msg);
-  });
-}
-
-function setParseError(state: UserClientState, message: string | null) {
-  state.parseErrorEl.textContent = message ?? "";
-}
-
-function validateUserInput(state: UserClientState): { ok: true; text: string } | { ok: false; error: string } {
-  const text = state.editor.value;
-  try {
-    const parsed = parseXnl(text);
-
-    if (parsed.nodes.length > 1) {
-      return { ok: false, error: `expected 0 or 1 root node, got ${parsed.nodes.length}` };
-    }
-
-    const baseRoot = state.baseNodes[0];
-    if (baseRoot) {
-      if (parsed.nodes.length === 0) {
-        return { ok: false, error: "root node required" };
-      }
-
-      const baseTag = readTag(baseRoot);
-      const desiredTag = readTag(parsed.nodes[0]);
-      if (baseTag && desiredTag && baseTag !== desiredTag) {
-        return { ok: false, error: `root tag locked to <${baseTag}>` };
-      }
-    }
-
-    return { ok: true, text };
-  } catch (err) {
-    return { ok: false, error: formatError(err) };
-  }
-}
-
-function computeAndQueueOp(state: UserClientState): { ok: true } | { ok: false } {
-  const validation = validateUserInput(state);
-  if (!validation.ok) {
-    setParseError(state, validation.error);
-    state.setButton.disabled = true;
-    state.lastValidText = null;
-    return { ok: false };
-  }
-
-  setParseError(state, null);
-
-  if (!state.baseVersionId) {
-    state.setButton.disabled = true;
-    state.lastValidText = validation.text;
-    return { ok: true };
-  }
-
-  state.setButton.disabled = state.sending;
-  state.lastValidText = validation.text;
-  state.lastCanonicalText = null;
-
-  if (!state.dirty) return { ok: true };
-
-  const desiredParsed = parseXnl(validation.text);
-
-  const canonicalNodes = ensureMetadataIds(desiredParsed.nodes, `c_${state.clientId}:`);
-  for (let i = 0; i < canonicalNodes.length && i < state.baseNodes.length; i++) {
-    copyMissingMetaIds(state.baseNodes[i], canonicalNodes[i]);
-  }
-
-  const canonicalText2 = XNL.stringify({ nodes: canonicalNodes });
-  const canonicalParsed = parseXnl(canonicalText2);
-  state.lastCanonicalText = XNL.stringify(canonicalParsed);
-  state.lastValidText = state.lastCanonicalText;
-
-  const desiredNodes = parseToNodes(state.lastCanonicalText);
-  const rawMutations = diffNodes(state.baseNodes, desiredNodes, []);
-
-  const mutations = rawMutations.filter((m) => !isMetaIdObjectMutation(m));
-
-  if (mutations.length === 0) {
-    state.dirty = false;
-    state.setButton.disabled = true;
-    return { ok: true };
-  }
-
-  const opId = `op_${state.userId}_${nowId()}`;
-  state.inflight = {
-    opId,
-    baseVersionId: state.baseVersionId,
-    mutations,
-    baseNodesAfter: desiredNodes,
-    editorTextAfter: state.lastValidText,
-  };
-  state.dirty = false;
-  return { ok: true };
-}
-
-function flush(state: UserClientState) {
-  const ws = state.socket;
-  const inflight = state.inflight;
-
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  if (!inflight) return;
-  if (state.sending) return;
-
-  const msg: ClientToServerMessage = {
-    type: "op",
-    docId: state.docId,
-    clientId: state.clientId,
-    opId: inflight.opId,
-    baseVersionId: inflight.baseVersionId,
-    mutations: inflight.mutations,
-  };
-
-  state.sending = true;
-  ws.send(jsonStringifyMessage(msg));
-
-  for (const [from, q] of state.inbox.entries()) {
-    const btn = state.peerButtons.get(from);
-    if (btn) updatePeerButtonLabel(btn, colorForUser(from), q.length);
-  }
-
-  const optimistic: OpRecord = {
-    id: inflight.opId,
-    userId: state.userId,
-    docId: state.docId,
-    baseVersionId: inflight.baseVersionId,
-    ts: new Date().toISOString(),
-    mutations: inflight.mutations,
-  };
-  ops.push(optimistic);
-  renderMutationList();
-
-  state.baseNodes = inflight.baseNodesAfter;
-  state.revEl.textContent = "pending";
-}
-
-function applyDocStateToUser(state: UserClientState, headVersionId: VersionId, headText: string) {
-  state.headVersionId = headVersionId;
-  state.headText = headText;
-
-  if (state.dirty) return;
-
-  state.baseVersionId = headVersionId;
-  state.baseNodes = parseToNodes(headText);
-  state.revEl.textContent = headVersionId;
-
-  state.suppressInput = true;
-  state.editor.value = headText;
-  state.suppressInput = false;
-
-  state.dirty = false;
-  state.lastValidText = null;
-  state.lastCanonicalText = null;
-  state.setButton.disabled = true;
-  setParseError(state, null);
-
-  pruneIntegratedInbox(state);
-}
+const usersById = new Map<UserId, UserClientState>();
 
 function recordIncoming(state: UserClientState, from: UserId, headVersionId: VersionId, headText: string): void {
   const q = state.inbox.get(from);
   if (!q) return;
 
-  const base = state.baseVersionId;
+  const base = state.client.getState().baseVersionId;
   if (base && isAncestorVersion(headVersionId, base)) {
     return;
   }
@@ -1117,67 +737,51 @@ function applyIncoming(state: UserClientState, from: UserId): void {
   const q = state.inbox.get(from);
   if (!q || q.length === 0) return;
 
-  if (state.sending) return;
+  const s = state.client.getState();
+  if (s.sending) return;
 
-  if (state.dirty) {
-    const ok = computeAndQueueOp(state);
-    if (!ok.ok) return;
+  if (s.dirty) {
+    const res = state.client.commit();
+    if (!res.ok) return;
 
-    if (state.lastValidText) {
+    if (typeof res.canonicalText === "string") {
       state.suppressInput = true;
-      state.editor.value = state.lastValidText;
+      state.editor.value = res.canonicalText;
       state.suppressInput = false;
-      state.dirty = false;
     }
 
     state.pendingClearInboxFrom = from;
-    flush(state);
-    state.setButton.disabled = true;
     return;
   }
 
-  const item = q.shift() as { headVersionId: VersionId; headText: string };
+  const item = q[0] as { headVersionId: VersionId; headText: string };
 
-  state.suppressInput = true;
-  state.editor.value = item.headText;
-  state.suppressInput = false;
+  const res = state.client.checkout(item.headVersionId, item.headText);
+  if (!res.ok) return;
 
-  state.baseVersionId = item.headVersionId;
-  state.baseNodes = parseToNodes(item.headText);
-  state.revEl.textContent = item.headVersionId;
+  q.shift();
+
+  if (typeof res.canonicalText === "string") {
+    state.suppressInput = true;
+    state.editor.value = res.canonicalText;
+    state.suppressInput = false;
+  }
 
   pruneIntegratedInbox(state);
-
-  state.dirty = false;
-  state.lastValidText = null;
-  state.lastCanonicalText = null;
-  state.setButton.disabled = true;
-  setParseError(state, null);
 
   const btn = state.peerButtons.get(from);
   if (btn) updatePeerButtonLabel(btn, colorForUser(from), q.length);
 }
 
-function onServerMessage(state: UserClientState, msg: ServerToClientMessage) {
+function onPeerServerMessage(state: UserClientState, msg: ServerToClientMessage): void {
   if (msg.type === "error") {
-    const message = typeof msg.message === "string" ? msg.message : "Server error";
-    setParseError(state, message);
+    if (msg.docId && msg.docId !== state.docId) return;
     return;
   }
+
   if (msg.docId !== state.docId) return;
 
   if (msg.type === "doc_state") {
-    state.inflight = null;
-    state.sending = false;
-    state.baseVersionId = msg.headVersionId;
-    state.baseNodes = parseToNodes(msg.headText);
-    state.revEl.textContent = msg.headVersionId;
-
-    state.dirty = false;
-    state.lastValidText = null;
-    state.lastCanonicalText = null;
-    state.setButton.disabled = true;
-
     graphHeadVersionId = msg.headVersionId;
     graphVersions.clear();
     for (const v of msg.versions) graphVersions.set(v.id, v);
@@ -1187,8 +791,7 @@ function onServerMessage(state: UserClientState, msg: ServerToClientMessage) {
     renderMutationList();
     renderDags();
 
-    applyDocStateToUser(state, msg.headVersionId, msg.headText);
-    computeAndQueueOp(state);
+    pruneIntegratedInbox(state);
     return;
   }
 
@@ -1201,9 +804,6 @@ function onServerMessage(state: UserClientState, msg: ServerToClientMessage) {
     renderMutationList();
     renderDags();
 
-    state.headVersionId = msg.headVersionId;
-    state.headText = msg.headText;
-
     let origin: UserId | null = null;
     for (const added of msg.added) {
       origin = parseUserId(added.opId) ?? parseUserId(added.clientId);
@@ -1211,12 +811,7 @@ function onServerMessage(state: UserClientState, msg: ServerToClientMessage) {
     }
 
     if (!origin || origin === state.userId) {
-      if (!state.dirty) {
-        state.baseVersionId = msg.headVersionId;
-        state.baseNodes = parseToNodes(msg.headText);
-        state.revEl.textContent = msg.headVersionId;
-      }
-      computeAndQueueOp(state);
+      pruneIntegratedInbox(state);
       return;
     }
 
@@ -1225,63 +820,19 @@ function onServerMessage(state: UserClientState, msg: ServerToClientMessage) {
   }
 
   if (msg.type === "ack") {
-    if (msg.clientId !== state.clientId) return;
-
-    if (state.sending && !state.inflight && msg.opId.startsWith("pull_")) {
-      state.sending = false;
-      return;
-    }
-
-    if (!state.inflight || state.inflight.opId !== msg.opId) return;
-
-    const op = ops.find((o) => o.id === msg.opId);
-    if (op) {
-      op.opVersionId = msg.opVersionId;
-      op.headVersionId = msg.headVersionId;
-    }
-
-    state.baseVersionId = msg.opVersionId;
-    state.baseNodes = state.inflight.baseNodesAfter;
-    state.revEl.textContent = state.baseVersionId;
-
-    state.inflight = null;
-    state.sending = false;
-
     if (state.pendingClearInboxFrom) {
       const from = state.pendingClearInboxFrom;
       state.pendingClearInboxFrom = null;
-
-      const q = state.inbox.get(from);
-      const btn = state.peerButtons.get(from);
-
-      if (q && q.length) {
-        applyIncoming(state, from);
-      } else {
-        if (btn) updatePeerButtonLabel(btn, colorForUser(from), 0);
-      }
+      applyIncoming(state, from);
     }
 
-    renderMutationList();
-    renderDags();
-
-    computeAndQueueOp(state);
+    pruneIntegratedInbox(state);
     return;
   }
 
   if (msg.type === "resync") {
-    state.inflight = null;
-    state.sending = false;
-
-    if (!state.dirty) {
-      state.baseVersionId = msg.headVersionId;
-      state.baseNodes = parseToNodes(msg.headText);
-      state.revEl.textContent = msg.headVersionId;
-
-      pruneIntegratedInbox(state);
-    }
-
-    applyDocStateToUser(state, msg.headVersionId, msg.headText);
-    computeAndQueueOp(state);
+    pruneIntegratedInbox(state);
+    return;
   }
 }
 
@@ -1295,19 +846,23 @@ function makeUserState(userId: UserId): UserClientState {
   const peerButtonsEl = requireDiv(`user${userId}PeerButtons`);
   peerButtonsEl.textContent = "";
 
+  const docId = "default";
+
+  const client = createPeerClient({
+    docId,
+    identity: String(userId),
+    wsUrl,
+    autoApplyRemote: false,
+    onServerMessage: (msg) => {
+      const st = usersById.get(userId);
+      if (st) onPeerServerMessage(st, msg);
+    },
+  });
+
   const state: UserClientState = {
     userId,
-    clientId: `c${userId}_${nowId()}`,
-    docId: "default",
-    socket: null,
-
-    headVersionId: null,
-    baseVersionId: null,
-    baseNodes: [],
-    headText: "",
-
-    inflight: null,
-    sending: false,
+    docId,
+    client,
 
     editor,
     setButton,
@@ -1319,9 +874,6 @@ function makeUserState(userId: UserId): UserClientState {
     revEl,
     parseErrorEl,
 
-    dirty: false,
-    lastValidText: null,
-    lastCanonicalText: null,
     suppressInput: false,
   };
 
@@ -1351,38 +903,40 @@ function makeUserState(userId: UserId): UserClientState {
     state.peerButtonsEl.appendChild(btn);
   }
 
+  client.subscribe((s) => {
+    state.statusEl.textContent = s.status;
+    state.revEl.textContent = s.revLabel;
+    state.parseErrorEl.textContent = s.error ?? "";
+
+    state.setButton.disabled = s.sending || !s.dirty || s.status !== "connected";
+
+    if (!s.dirty && state.editor.value !== s.text) {
+      state.suppressInput = true;
+      state.editor.value = s.text;
+      state.suppressInput = false;
+    }
+  });
 
   editor.addEventListener("input", () => {
     if (state.suppressInput) return;
-    state.dirty = true;
-    state.setButton.disabled = false;
-    state.lastValidText = null;
-    state.lastCanonicalText = null;
+    client.setText(editor.value);
   });
 
   setButton.addEventListener("click", () => {
-    const ok = computeAndQueueOp(state);
-    if (!ok.ok) return;
-
-    if (state.lastValidText) {
+    const res = client.commit();
+    if (res.ok && typeof res.canonicalText === "string") {
       state.suppressInput = true;
-      state.editor.value = state.lastValidText;
+      editor.value = res.canonicalText;
       state.suppressInput = false;
-      state.dirty = false;
     }
-
-    flush(state);
-    state.setButton.disabled = true;
   });
 
   return state;
 }
 
 const users: UserClientState[] = [makeUserState(1), makeUserState(2), makeUserState(3), makeUserState(4)];
-
-for (const u of users) {
-  connectUser(u);
-}
+for (const u of users) usersById.set(u.userId, u);
+for (const u of users) u.client.connect();
 
 renderMutationList();
 renderDags();
