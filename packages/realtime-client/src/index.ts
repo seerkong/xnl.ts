@@ -247,6 +247,14 @@ function parseToNodes(text: string): XnlNode[] {
   return parseXnl(text).nodes;
 }
 
+function formatXnlMultiline(text: string): string {
+  try {
+    return XNL.stringify(parseXnl(text), { pretty: true, indent: 2 });
+  } catch {
+    return text;
+  }
+}
+
 export type PeerClient = {
   getState(): PeerClientState;
   subscribe(listener: (state: PeerClientState) => void): () => void;
@@ -315,7 +323,7 @@ export function createPeerClient(opts: PeerClientOptions): PeerClient {
     state.revLabel = headVersionId;
 
     if (!state.dirty) {
-      state.text = headText;
+      state.text = formatXnlMultiline(headText);
     }
   };
 
@@ -428,9 +436,9 @@ export function createPeerClient(opts: PeerClientOptions): PeerClient {
 
       const canonicalText2 = XNL.stringify({ nodes: canonicalNodes });
       const canonicalParsed = parseXnl(canonicalText2);
-      const canonicalText = XNL.stringify(canonicalParsed);
+      const displayText = XNL.stringify(canonicalParsed, { pretty: true, indent: 2 });
 
-      return { ok: true, parsedNodes: parseToNodes(canonicalText), canonicalText };
+      return { ok: true, parsedNodes: canonicalParsed.nodes, canonicalText: displayText };
     } catch (err) {
       return { ok: false, error: formatError(err) };
     }
@@ -627,20 +635,20 @@ export function createPeerClient(opts: PeerClientOptions): PeerClient {
       const canonicalNodes = ensureMetadataIdsClone(parsed.nodes, `c_${state.clientId}:`);
       const canonicalText2 = XNL.stringify({ nodes: canonicalNodes });
       const canonicalParsed = parseXnl(canonicalText2);
-      const canonicalText = XNL.stringify(canonicalParsed);
+      const displayText = XNL.stringify(canonicalParsed, { pretty: true, indent: 2 });
 
       pendingRemote = null;
 
       state.baseVersionId = baseVersionId;
       baseNodes = canonicalParsed.nodes;
-      state.text = canonicalText;
+      state.text = displayText;
       state.revLabel = baseVersionId;
 
       state.dirty = false;
       setError(null);
       emit();
 
-      return { ok: true, canonicalText };
+      return { ok: true, canonicalText: displayText };
     } catch (err) {
       const error = formatError(err);
       setError(error);

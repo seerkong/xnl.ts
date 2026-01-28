@@ -17,6 +17,23 @@ const server = Bun.serve<RealtimeWSData>({
       return ok ? new Response(null) : new Response("WebSocket upgrade failed", { status: 400 });
     }
 
+    if (url.pathname === "/api/version") {
+      const docId = url.searchParams.get("docId") ?? "";
+      const versionId = url.searchParams.get("versionId") ?? "";
+      if (!docId || !versionId) {
+        return new Response("Missing docId or versionId", { status: 400 });
+      }
+
+      const text = realtime.getVersionText(docId, versionId);
+      if (text === null) {
+        return new Response("Not found", { status: 404 });
+      }
+
+      return new Response(JSON.stringify({ docId, versionId, text }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+
     const relPath = url.pathname === "/" ? "index.html" : url.pathname.replace(/^\/+/, "");
     const filePath = join(PUBLIC_DIR, relPath);
     const file = Bun.file(filePath);

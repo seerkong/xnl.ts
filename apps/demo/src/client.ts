@@ -1,5 +1,5 @@
 import { createPeerClient, type PeerClient } from "@braid-demo/realtime-client";
-import { isWord, wordToString, type DataElementNode, type TextElementNode, type XnlMutation } from "xnl.ts";
+import { XNL, parseXnl, isWord, wordToString, type DataElementNode, type TextElementNode, type XnlMutation } from "xnl.ts";
 import { type ServerToClientMessage, type VersionId, type VersionSummary } from "./shared-protocol";
 
 function requireElement(id: string): HTMLElement {
@@ -30,6 +30,207 @@ function requirePre(id: string): HTMLPreElement {
   const el = requireElement(id);
   if (!(el instanceof HTMLPreElement)) throw new Error(`#${id} must be a pre`);
   return el;
+}
+
+const DOC_ID = "default";
+
+function formatXnlMultiline(text: string): string {
+  try {
+    return XNL.stringify(parseXnl(text), { pretty: true, indent: 2 });
+  } catch {
+    return text;
+  }
+}
+
+type ContextMenuItem = {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+};
+
+let contextMenuEl: HTMLDivElement | null = null;
+let removeContextMenuListeners: (() => void) | null = null;
+
+function closeContextMenu(): void {
+  if (removeContextMenuListeners) {
+    removeContextMenuListeners();
+    removeContextMenuListeners = null;
+  }
+  if (contextMenuEl) {
+    contextMenuEl.remove();
+    contextMenuEl = null;
+  }
+}
+
+function openContextMenu(x: number, y: number, items: ContextMenuItem[]): void {
+  closeContextMenu();
+
+  const el = document.createElement("div");
+  el.className = "contextMenu";
+
+  for (const item of items) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "contextMenuItem";
+    btn.textContent = item.label;
+    btn.disabled = item.disabled === true;
+    btn.addEventListener("click", () => {
+      closeContextMenu();
+      item.onClick();
+    });
+    el.appendChild(btn);
+  }
+
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+
+  document.body.appendChild(el);
+
+  const rect = el.getBoundingClientRect();
+  const pad = 8;
+  const left = Math.min(Math.max(pad, x), Math.max(pad, window.innerWidth - rect.width - pad));
+  const top = Math.min(Math.max(pad, y), Math.max(pad, window.innerHeight - rect.height - pad));
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+
+  const onMouseDown = (ev: MouseEvent) => {
+    if (!contextMenuEl) return;
+    if (ev.target instanceof Node && contextMenuEl.contains(ev.target)) return;
+    closeContextMenu();
+  };
+
+  const onKeyDown = (ev: KeyboardEvent) => {
+    if (ev.key === "Escape") closeContextMenu();
+  };
+
+  document.addEventListener("mousedown", onMouseDown, true);
+  document.addEventListener("keydown", onKeyDown);
+
+  removeContextMenuListeners = () => {
+    document.removeEventListener("mousedown", onMouseDown, true);
+    document.removeEventListener("keydown", onKeyDown);
+  };
+
+  contextMenuEl = el;
+}
+
+let modalEl: HTMLDivElement | null = null;
+let removeModalListeners: (() => void) | null = null;
+
+function closeModal(): void {
+  if (removeModalListeners) {
+    removeModalListeners();
+    removeModalListeners = null;
+  }
+  if (modalEl) {
+    modalEl.remove();
+    modalEl = null;
+  }
+}
+
+function openModal(title: string, meta: string, bodyText: string): { setBody(text: string): void } {
+  closeModal();
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "modalBackdrop";
+
+  const panel = document.createElement("article");
+  panel.className = "panel modalPanel";
+
+  const header = document.createElement("header");
+  header.className = "panelHeader";
+
+  const h = document.createElement("h2");
+  h.className = "panelTitle";
+  h.textContent = title;
+
+  const metaEl = document.createElement("div");
+  metaEl.className = "panelMeta";
+  metaEl.textContent = meta;
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "modalCloseButton";
+  closeBtn.textContent = "Close";
+  closeBtn.addEventListener("click", closeModal);
+
+  header.append(h, metaEl, closeBtn);
+
+  const body = document.createElement("div");
+  body.className = "panelBody";
+
+  const pre = document.createElement("pre");
+  pre.className = "modalCode";
+  pre.textContent = bodyText;
+
+  body.appendChild(pre);
+  panel.append(header, body);
+  backdrop.appendChild(panel);
+
+  const onBackdropMouseDown = (ev: MouseEvent) => {
+    if (ev.target === backdrop) closeModal();
+  };
+
+  const onKeyDown = (ev: KeyboardEvent) => {
+    if (ev.key === "Escape") closeModal();
+  };
+
+  backdrop.addEventListener("mousedown", onBackdropMouseDown);
+  document.addEventListener("keydown", onKeyDown);
+
+  removeModalListeners = () => {
+    backdrop.removeEventListener("mousedown", onBackdropMouseDown);
+    document.removeEventListener("keydown", onKeyDown);
+  };
+
+  document.body.appendChild(backdrop);
+  modalEl = backdrop;
+
+  return {
+    setBody(text: string) {
+      pre.textContent = text;
+    },
+  };
+}
+
+async function fetchVersionText(docId: string, versionId: string): Promise<string> {
+  const url = new URL("/api/version", window.location.href);
+  url.searchParams.set("docId", docId);
+  url.searchParams.set("versionId", versionId);
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(msg || `request failed (${res.status})`);
+  }
+
+  const parsed = (await res.json()) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("invalid response");
+  }
+
+  const text = (parsed as Record<string, unknown>)["text"];
+  if (typeof text !== "string") {
+    throw new Error("missing text");
+  }
+
+  return text;
+}
+
+function viewVersion(opts: { docId: string; versionId: string; meta?: string }): void {
+  const versionId = opts.versionId;
+  const meta = opts.meta ?? `docId=${opts.docId} versionId=${versionId}`;
+
+  const modal = openModal("查看版本", meta, "Loading...");
+
+  void fetchVersionText(opts.docId, versionId)
+    .then((text) => {
+      modal.setBody(formatXnlMultiline(text));
+    })
+    .catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      modal.setBody(`Error: ${msg}`);
+    });
 }
 
 type UserId = 1 | 2 | 3 | 4;
@@ -151,6 +352,13 @@ let selectedOpId: string | null = null;
 
 const graphVersions = new Map<VersionId, VersionSummary>();
 let graphHeadVersionId: VersionId | null = null;
+
+function findVersionIdForOpId(opId: string): VersionId | null {
+  for (const v of graphVersions.values()) {
+    if (v.kind === "op" && v.opId === opId) return v.id;
+  }
+  return null;
+}
 
 function isAncestorVersion(ancestor: VersionId, descendant: VersionId): boolean {
   if (ancestor === descendant) return true;
@@ -409,7 +617,6 @@ function renderTimeDag() {
 
   for (const [id, p] of pos.entries()) {
     const v = p.v;
-    void id;
 
     const g = document.createElementNS(svgNS, "g");
 
@@ -430,6 +637,18 @@ function renderTimeDag() {
     const stroke = v.kind === "op" && v.opId && selectedOpId === v.opId ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0)";
     circle.setAttribute("stroke", stroke);
     circle.setAttribute("stroke-width", "3");
+
+    circle.addEventListener("contextmenu", (ev: MouseEvent) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      openContextMenu(ev.clientX, ev.clientY, [
+        {
+          label: "查看版本",
+          onClick: () => viewVersion({ docId: DOC_ID, versionId: id, meta: `docId=${DOC_ID} versionId=${id} kind=${v.kind}` }),
+        },
+      ]);
+    });
 
     if (v.kind === "op" && v.opId) {
       circle.style.cursor = "pointer";
@@ -680,6 +899,24 @@ function renderSpaceDag() {
       circle.style.cursor = "pointer";
       circle.addEventListener("click", () => setSelectedOp(op.id));
 
+      circle.addEventListener("contextmenu", (ev: MouseEvent) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        const versionId = op.opVersionId ?? findVersionIdForOpId(op.id);
+
+        openContextMenu(ev.clientX, ev.clientY, [
+          {
+            label: "查看版本",
+            disabled: !versionId,
+            onClick: () => {
+              if (!versionId) return;
+              viewVersion({ docId: DOC_ID, versionId, meta: `docId=${DOC_ID} opId=${op.id} versionId=${versionId}` });
+            },
+          },
+        ]);
+      });
+
       const title = document.createElementNS(svgNS, "title");
       title.textContent = `${op.id} u${op.userId} ${op.ts}`;
 
@@ -846,7 +1083,7 @@ function makeUserState(userId: UserId): UserClientState {
   const peerButtonsEl = requireDiv(`user${userId}PeerButtons`);
   peerButtonsEl.textContent = "";
 
-  const docId = "default";
+  const docId = DOC_ID;
 
   const client = createPeerClient({
     docId,

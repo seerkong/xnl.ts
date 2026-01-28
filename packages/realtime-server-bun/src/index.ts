@@ -60,6 +60,7 @@ export type RealtimeBunWebsocketHandlers = {
 
 export type RealtimeBunServer = {
   websocket: RealtimeBunWebsocketHandlers;
+  getVersionText(docId: string, versionId: VersionId): string | null;
 };
 
 function sanitizeMutations(mutations: XnlMutation[]): XnlMutation[] {
@@ -69,11 +70,11 @@ function sanitizeMutations(mutations: XnlMutation[]): XnlMutation[] {
     const path = Array.isArray(m.path) ? (m.path as PathItem[]) : (parsePath(m.path) as PathItem[]);
 
     const looksLikeDeleteMetaId =
-      path.length >= 3 &&
-      path[path.length - 3]?.type === "InstanceProperty" &&
-      path[path.length - 3]?.value === "metadata" &&
-      path[path.length - 2]?.type === "MapKey" &&
-      path[path.length - 2]?.value === "id";
+      path.length >= 2 &&
+      path[path.length - 2]?.type === "InstanceProperty" &&
+      path[path.length - 2]?.value === "metadata" &&
+      path[path.length - 1]?.type === "MapKey" &&
+      path[path.length - 1]?.value === "id";
 
     if (!looksLikeDeleteMetaId) return m;
 
@@ -671,5 +672,11 @@ export function createRealtimeBunServer(opts: RealtimeBunOptions): RealtimeBunSe
     },
   };
 
-  return { websocket };
+  const getVersionText = (docId: string, versionId: VersionId): string | null => {
+    const doc = getOrCreateDoc(docId);
+    const v = doc.versions.get(versionId);
+    return v ? v.text : null;
+  };
+
+  return { websocket, getVersionText };
 }
