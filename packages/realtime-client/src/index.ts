@@ -223,21 +223,6 @@ function copyMissingMetaIds(base: any, desired: any): void {
   }
 }
 
-function isMetaIdObjectMutation(m: XnlMutation): boolean {
-  if (m.type !== "OBJECT_ADD" && m.type !== "OBJECT_UPDATE" && m.type !== "OBJECT_DELETE") return false;
-  if (!Array.isArray(m.path)) return false;
-
-  const path = m.path;
-  const n = path.length;
-  return (
-    n >= 2 &&
-    path[n - 2]?.type === "InstanceProperty" &&
-    path[n - 2]?.value === "metadata" &&
-    path[n - 1]?.type === "MapKey" &&
-    path[n - 1]?.value === "id"
-  );
-}
-
 function formatError(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
@@ -469,8 +454,7 @@ export function createPeerClient(opts: PeerClientOptions): PeerClient {
       return { ok: true, canonicalText };
     }
 
-    const rawMutations = diffNodes(baseNodes, desiredNodes, []);
-    const mutations = rawMutations.filter((m) => !isMetaIdObjectMutation(m));
+    const mutations = diffNodes(baseNodes, desiredNodes, [], { metadataIdMode: "identity" });
 
     if (mutations.length === 0) {
       state.dirty = false;

@@ -64,22 +64,7 @@ export type RealtimeBunServer = {
 };
 
 function sanitizeMutations(mutations: XnlMutation[]): XnlMutation[] {
-  const out: XnlMutation[] = mutations.map((m): XnlMutation => {
-    if (m.type !== "OBJECT_DELETE") return m;
-
-    const path = Array.isArray(m.path) ? (m.path as PathItem[]) : (parsePath(m.path) as PathItem[]);
-
-    const looksLikeDeleteMetaId =
-      path.length >= 2 &&
-      path[path.length - 2]?.type === "InstanceProperty" &&
-      path[path.length - 2]?.value === "metadata" &&
-      path[path.length - 1]?.type === "MapKey" &&
-      path[path.length - 1]?.value === "id";
-
-    if (!looksLikeDeleteMetaId) return m;
-
-    return { ...m, type: "OBJECT_UPDATE", valueAfter: m.valueBefore } as XnlMutation;
-  });
+  const out: XnlMutation[] = mutations.slice();
 
   const groups = new Map<string, Array<{ pos: number; idx: number; mutation: XnlMutation }>>();
 

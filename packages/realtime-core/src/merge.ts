@@ -666,7 +666,7 @@ export function applyIntent(baseText: string, mutations: XnlMutation[]): MergeRe
 
   const root = cloneJson(base.nodes);
 
-  const next = XNL.mutation.apply(root, mutations);
+  const next = XNL.mutation.apply(root, mutations, { metadataIdMode: "identity" });
   if (!Array.isArray(next)) {
     throw new Error("Root must remain array");
   }
