@@ -30,4 +30,83 @@ describe("mutation protocol", () => {
     const applied = applyMutations(clone, mutations);
     expect(applied).toEqual(newDoc);
   });
+
+  describe("metadataIdMode", () => {
+    it("diffNodes ignores metadata.id in identity mode", () => {
+      const oldNode = parseXnl(`<a id="m1">`).nodes[0];
+      const newNode = parseXnl(`<a id="m2">`).nodes[0];
+
+      const mutations = diffNodes(oldNode, newNode, [], { metadataIdMode: "identity" });
+      expect(mutations).toEqual([]);
+    });
+
+    it("diffNodes includes metadata.id in metadata mode", () => {
+      const oldNode = parseXnl(`<a id="m1">`).nodes[0];
+      const newNode = parseXnl(`<a id="m2">`).nodes[0];
+
+      const mutations = diffNodes(oldNode, newNode, [], { metadataIdMode: "metadata" });
+      expect(mutations).toEqual([
+        {
+          type: "OBJECT_UPDATE",
+          path: [
+            { type: "InstanceProperty", value: "metadata" },
+            { type: "MapKey", value: "id" },
+          ],
+          valueAfter: "m2",
+        },
+      ]);
+    });
+
+    it("applyMutations ignores metadata.id updates in identity mode", () => {
+      const oldNode = parseXnl(`<a id="m1">`).nodes[0];
+      const newNode = parseXnl(`<a id="m2">`).nodes[0];
+
+      const mutations = diffNodes(oldNode, newNode, [], { metadataIdMode: "metadata" });
+      const oldJson = JSON.parse(JSON.stringify(oldNode));
+
+      const clone = JSON.parse(JSON.stringify(oldNode));
+      const applied = applyMutations(clone, mutations, { metadataIdMode: "identity" });
+
+      expect(applied).toEqual(oldJson);
+    });
+
+    it("applyMutations applies metadata.id updates in metadata mode", () => {
+      const oldNode = parseXnl(`<a id="m1">`).nodes[0];
+      const newNode = parseXnl(`<a id="m2">`).nodes[0];
+
+      const mutations = diffNodes(oldNode, newNode, [], { metadataIdMode: "metadata" });
+      const newJson = JSON.parse(JSON.stringify(newNode));
+
+      const clone = JSON.parse(JSON.stringify(oldNode));
+      const applied = applyMutations(clone, mutations, { metadataIdMode: "metadata" });
+
+      expect(applied).toEqual(newJson);
+    });
+
+    it("applyMutations ignores metadata.id deletes in identity mode", () => {
+      const oldNode = parseXnl(`<a id="m1">`).nodes[0];
+      const newNode = parseXnl(`<a>`).nodes[0];
+
+      const mutations = diffNodes(oldNode, newNode, [], { metadataIdMode: "metadata" });
+      const oldJson = JSON.parse(JSON.stringify(oldNode));
+
+      const clone = JSON.parse(JSON.stringify(oldNode));
+      const applied = applyMutations(clone, mutations, { metadataIdMode: "identity" });
+
+      expect(applied).toEqual(oldJson);
+    });
+
+    it("applyMutations applies metadata.id deletes in metadata mode", () => {
+      const oldNode = parseXnl(`<a id="m1">`).nodes[0];
+      const newNode = parseXnl(`<a>`).nodes[0];
+
+      const mutations = diffNodes(oldNode, newNode, [], { metadataIdMode: "metadata" });
+      const newJson = JSON.parse(JSON.stringify(newNode));
+
+      const clone = JSON.parse(JSON.stringify(oldNode));
+      const applied = applyMutations(clone, mutations, { metadataIdMode: "metadata" });
+
+      expect(applied).toEqual(newJson);
+    });
+  });
 });

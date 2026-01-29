@@ -1,6 +1,6 @@
 import * as Parser from "./parser";
 import { stringify as xnlStringify } from "./formatter";
-import { parsePath, resolvePath, setPathValue, deleteAtPath, XnlPathError } from "./path";
+import { parsePath, resolvePath, setPathValue, deleteAtPath } from "./path";
 import { applyMutations, diffNodes } from "./mutation";
 import { loadFromString, resolveNode, batchLoad } from "./loader";
 export { parseXnl } from "./parser";
@@ -25,7 +25,7 @@ export type {
 } from "./types";
 export { isWord, wordToString } from "./types";
 export type { PathItem, PathItemType, XnlPath } from "./path";
-export type { XnlMutation, MutationType } from "./mutation";
+export type { XnlMutation, MutationType, XnlMutationOptions, MetadataIdMode } from "./mutation";
 export {
   parsePath,
   resolvePath,

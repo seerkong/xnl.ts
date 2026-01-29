@@ -98,8 +98,12 @@ interface XnlMutation {
     parentUniqueNameBefore?: string;
     parentUniqueNameAfter?: string;
 }
-declare function applyMutations(root: XnlNode, mutations: XnlMutation[]): XnlNode;
-declare function diffNodes(oldNode: XnlNode, newNode: XnlNode, basePath?: string | XnlPath): XnlMutation[];
+type MetadataIdMode = "identity" | "metadata";
+interface XnlMutationOptions {
+    metadataIdMode?: MetadataIdMode;
+}
+declare function applyMutations(root: XnlNode, mutations: XnlMutation[], opts?: XnlMutationOptions): XnlNode;
+declare function diffNodes(oldNode: XnlNode, newNode: XnlNode, basePath?: string | XnlPath, opts?: XnlMutationOptions): XnlMutation[];
 
 interface LoaderContext {
     prototypes: Record<string, Record<string, DataElementNode>>;
@@ -145,4 +149,4 @@ declare const XNL: {
     };
 };
 
-export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, MakeWord, type MutationType, type ParseWarning, type PathItem, type PathItemType, type SingleNodeResult, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlErrorCode, type XnlMutation, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, deleteAtPath, diffNodes, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolvePath, setPathValue, wordToString };
+export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, MakeWord, type MetadataIdMode, type MutationType, type ParseWarning, type PathItem, type PathItemType, type SingleNodeResult, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlErrorCode, type XnlMutation, type XnlMutationOptions, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, deleteAtPath, diffNodes, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolvePath, setPathValue, wordToString };

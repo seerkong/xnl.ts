@@ -1199,14 +1199,25 @@ function readId(node) {
 }
 
 // src/mutation/index.ts
-function applyMutations(root, mutations) {
+function resolveMetaIdMode(opts) {
+  return opts.metadataIdMode ?? "identity";
+}
+function isMetadataIdPath(path) {
+  const n = path.length;
+  return n >= 2 && path[n - 2]?.type === "InstanceProperty" && path[n - 2]?.value === "metadata" && path[n - 1]?.type === "MapKey" && path[n - 1]?.value === "id";
+}
+function isMetadataMapPath(path) {
+  const last = path[path.length - 1];
+  return last?.type === "InstanceProperty" && last.value === "metadata";
+}
+function applyMutations(root, mutations, opts = {}) {
   let current = root;
   for (const mutation of mutations) {
-    current = applySingle(current, mutation);
+    current = applySingle(current, mutation, opts);
   }
   return current;
 }
-function diffNodes(oldNode, newNode, basePath = []) {
+function diffNodes(oldNode, newNode, basePath = [], opts = {}) {
   const pathItems = Array.isArray(basePath) ? basePath : parsePath(basePath);
   if (!sameKind(oldNode, newNode)) {
     throw new XnlPathError("Root kinds must match to diff");
@@ -1215,23 +1226,26 @@ function diffNodes(oldNode, newNode, basePath = []) {
     return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathItems, valueAfter: newNode }];
   }
   if (Array.isArray(oldNode) && Array.isArray(newNode)) {
-    return diffArray(oldNode, newNode, pathItems);
+    return diffArray(oldNode, newNode, pathItems, void 0, void 0, opts);
   }
   if (isPlainObject3(oldNode) && isPlainObject3(newNode)) {
-    return diffMap(oldNode, newNode, pathItems);
+    return diffMap(oldNode, newNode, pathItems, void 0, void 0, opts);
   }
   if (isTextElement2(oldNode) && isTextElement2(newNode)) {
-    return diffTextElement(oldNode, newNode, pathItems);
+    return diffTextElement(oldNode, newNode, pathItems, opts);
   }
   if (isDataElement2(oldNode) && isDataElement2(newNode)) {
-    const mutations = diffDataElement(oldNode, newNode, pathItems);
+    const mutations = diffDataElement(oldNode, newNode, pathItems, opts);
     return reconcileMoves(mutations);
   }
   return [];
 }
-function applySingle(root, mutation) {
+function applySingle(root, mutation, opts) {
   const { type, path, valueAfter } = mutation;
   const pathItems = Array.isArray(path) ? path : parsePath(path);
+  if (resolveMetaIdMode(opts) === "identity" && isMetadataIdPath(pathItems)) {
+    return root;
+  }
   if (type === "TREE_MOVE" || type === "TREE_MOVE_SAME_LEVEL" || type === "TREE_MOVE_CROSS_LEVEL") {
     if (!mutation.targetUniqueName && !mutation.pathBefore) {
       throw new XnlPathError("TREE_MOVE requires targetUniqueName or pathBefore");
@@ -1249,7 +1263,7 @@ function applySingle(root, mutation) {
     if (moved === void 0 && mutation.targetUniqueName) {
       throw new XnlPathError(`TREE_MOVE could not find node '${mutation.targetUniqueName}' to move`);
     }
-    return applySingle(root, { ...mutation, type: "TREE_ADD", path, valueAfter: moved });
+    return applySingle(root, { ...mutation, type: "TREE_ADD", path, valueAfter: moved }, opts);
   }
   switch (type) {
     case "TREE_ADD":
@@ -1272,11 +1286,11 @@ function applySingle(root, mutation) {
       throw new XnlPathError(`Unknown mutation type ${type}`);
   }
 }
-function diffTextElement(oldNode, newNode, basePath) {
+function diffTextElement(oldNode, newNode, basePath, opts) {
   const mutations = [];
-  mutations.push(...diffMap(oldNode.metadata, newNode.metadata, [...basePath, ip("metadata")]));
+  mutations.push(...diffMap(oldNode.metadata, newNode.metadata, [...basePath, ip("metadata")], oldNode, newNode, opts));
   if (oldNode.attributes || newNode.attributes) {
-    mutations.push(...diffMap(oldNode.attributes ?? {}, newNode.attributes ?? {}, [...basePath, ip("attributes")]));
+    mutations.push(...diffMap(oldNode.attributes ?? {}, newNode.attributes ?? {}, [...basePath, ip("attributes")], oldNode, newNode, opts));
   }
   if (oldNode.text !== newNode.text) {
     mutations.push({
@@ -1294,25 +1308,25 @@ function diffTextElement(oldNode, newNode, basePath) {
   }
   return mutations;
 }
-function diffDataElement(oldNode, newNode, basePath) {
+function diffDataElement(oldNode, newNode, basePath, opts) {
   const mutations = [];
   const metaPath = [...basePath, ip("metadata")];
-  mutations.push(...diffMap(oldNode.metadata, newNode.metadata, metaPath, oldNode, newNode));
+  mutations.push(...diffMap(oldNode.metadata, newNode.metadata, metaPath, oldNode, newNode, opts));
   const attrPath = [...basePath, ip("attributes")];
-  mutations.push(...diffMap(oldNode.attributes ?? {}, newNode.attributes ?? {}, attrPath, oldNode, newNode));
+  mutations.push(...diffMap(oldNode.attributes ?? {}, newNode.attributes ?? {}, attrPath, oldNode, newNode, opts));
   if (oldNode.body || newNode.body) {
     mutations.push(
-      ...diffArray(oldNode.body ?? [], newNode.body ?? [], [...basePath, ip("body")], oldNode, newNode)
+      ...diffArray(oldNode.body ?? [], newNode.body ?? [], [...basePath, ip("body")], oldNode, newNode, opts)
     );
   }
   if (oldNode.extend || newNode.extend) {
-    mutations.push(...diffExtend(oldNode.extend, newNode.extend, [...basePath, ip("extend")], oldNode, newNode));
+    mutations.push(...diffExtend(oldNode.extend, newNode.extend, [...basePath, ip("extend")], oldNode, newNode, opts));
   }
   return mutations;
 }
-function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter) {
+function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
   const mutations = [];
-  const parentId = readMetaId(parentAfter) ?? readMetaId(parentBefore);
+  const parentId = resolveMetaIdMode(opts) === "identity" ? readMetaId(parentBefore) ?? readMetaId(parentAfter) : void 0;
   const pathBase = parentId ? [ms("id", parentId), ip("body")] : basePath;
   const oldById = {};
   const newById = {};
@@ -1352,9 +1366,10 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter) {
       continue;
     }
     if (oldItem !== void 0 && newItem !== void 0) {
+      const useIdentity = resolveMetaIdMode(opts) === "identity";
       const oldId = readMetaId(oldItem);
       const newId = readMetaId(newItem);
-      if (oldId && newId && oldId !== newId) {
+      if (useIdentity && oldId && newId && oldId !== newId) {
         mutations.push({
           type: "TREE_DELETE",
           path,
@@ -1374,39 +1389,46 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter) {
       if (isEqual(oldItem, newItem)) {
         continue;
       }
-      const nested = diffNodes(oldItem, newItem, path);
+      const nested = diffNodes(oldItem, newItem, path, opts);
       if (nested.length === 0) {
-        mutations.push({ type: "TREE_UPDATE", path, valueAfter: newItem, targetUniqueName: readMetaId(newItem) });
+        if (!useIdentity) {
+          mutations.push({ type: "TREE_UPDATE", path, valueAfter: newItem, targetUniqueName: readMetaId(newItem) });
+        }
       } else {
         mutations.push(...nested);
       }
     }
   }
-  const oldIds = oldArr.map(readMetaId).filter(Boolean);
-  const newIds = newArr.map(readMetaId).filter(Boolean);
-  if (oldIds.length && newIds.length) {
-    for (const id of oldIds) {
-      if (!(id in newById)) continue;
-      const oldIdx = oldById[id]?.index ?? -1;
-      const newIdx = newById[id]?.index ?? -1;
-      if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
-        mutations.push({
-          type: "TREE_MOVE_SAME_LEVEL",
-          pathBefore: [...pathBase, li(oldIdx)],
-          path: [...pathBase, li(newIdx)],
-          targetUniqueName: id,
-          parentUniqueNameBefore: readMetaId(parentBefore),
-          parentUniqueNameAfter: readMetaId(parentAfter)
-        });
+  if (resolveMetaIdMode(opts) === "identity") {
+    const oldIds = oldArr.map(readMetaId).filter(Boolean);
+    const newIds = newArr.map(readMetaId).filter(Boolean);
+    if (oldIds.length && newIds.length) {
+      for (const id of oldIds) {
+        if (!(id in newById)) continue;
+        const oldIdx = oldById[id]?.index ?? -1;
+        const newIdx = newById[id]?.index ?? -1;
+        if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
+          mutations.push({
+            type: "TREE_MOVE_SAME_LEVEL",
+            pathBefore: [...pathBase, li(oldIdx)],
+            path: [...pathBase, li(newIdx)],
+            targetUniqueName: id,
+            parentUniqueNameBefore: readMetaId(parentBefore),
+            parentUniqueNameAfter: readMetaId(parentAfter)
+          });
+        }
       }
     }
   }
   return mutations;
 }
-function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter) {
+function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
   const mutations = [];
   const keys = /* @__PURE__ */ new Set([...Object.keys(oldMap || {}), ...Object.keys(newMap || {})]);
   for (const key of keys) {
+    if (resolveMetaIdMode(opts) === "identity" && isMetadataMapPath(basePath) && key === "id") {
+      continue;
+    }
     const oldVal = (oldMap || {})[key];
     const newVal = (newMap || {})[key];
     const path = [...basePath, mk(key)];
@@ -1431,7 +1453,7 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter) {
       continue;
     }
     if (!isEqual(oldVal, newVal)) {
-      const nested = diffNodes(oldVal, newVal, path);
+      const nested = diffNodes(oldVal, newVal, path, opts);
       if (nested.length === 0) {
         mutations.push({ type: "OBJECT_UPDATE", path, valueAfter: newVal });
       } else {
@@ -1441,9 +1463,9 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter) {
   }
   return mutations;
 }
-function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter) {
+function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, opts) {
   const mutations = [];
-  const parentId = readMetaId(parentAfter) ?? readMetaId(parentBefore);
+  const parentId = resolveMetaIdMode(opts) === "identity" ? readMetaId(parentBefore) ?? readMetaId(parentAfter) : void 0;
   const pathBase = parentId ? [ms("id", parentId), ip("extend")] : basePath;
   const oldChildren = oldExtend?.children ?? {};
   const newChildren = newExtend?.children ?? {};
@@ -1473,7 +1495,7 @@ function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter) {
       continue;
     }
     if (oldChild && newChild) {
-      const nested = diffNodes(oldChild, newChild, childPath);
+      const nested = diffNodes(oldChild, newChild, childPath, opts);
       if (nested.length === 0) {
         if (!isEqual(oldChild, newChild)) {
           mutations.push({ type: "TREE_UPDATE", path: childPath, valueAfter: newChild });
