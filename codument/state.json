@@ -1,0 +1,12 @@
+{
+  "active_track": "refactor-xnl-metadata-id",
+  "current_phase": "P1",
+  "current_task": "T1.1",
+  "last_action": "track_created",
+  "timestamp": "2026-01-29T05:28:47Z",
+  "commit_mode": "auto",
+  "cli_tools": [
+    "opencode"
+  ],
+  "last_successful_step": "2.2_track_dir"
+}

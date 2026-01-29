@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>refactor-xnl-metadata-id</track_id>
+    <track_name>Refactor metadata.id handling via xnl.ts metadataIdMode</track_name>
+    <goal>Remove redundant metadata.id filters/sanitizers in apps/packages, make key diff/apply call sites explicit, and add vendor tests to lock behavior.</goal>
+    <created_at>2026-01-29T05:28:47Z</created_at>
+    <updated_at>2026-01-29T06:30:09Z</updated_at>
+    <status>new</status>
+    <commit_mode>auto</commit_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Tests (vendor/xnl.ts)">
+      <goal>Add unit tests covering metadataIdMode diff/apply behavior.</goal>
+      <tasks>
+        <task id="T1.1" name="Add metadataIdMode unit tests" status="TODO" priority="P0">
+          Add tests in vendor/xnl.ts verifying metadataIdMode identity vs metadata behavior for diffNodes and applyMutations.
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="false">Tests cover diffNodes identity ignores metadata.id mutations</criterion>
+            <criterion id="T1.1-AC2" checked="false">Tests cover diffNodes metadata includes metadata.id mutations</criterion>
+            <criterion id="T1.1-AC3" checked="false">Tests cover applyMutations identity ignores metadata.id mutation effects</criterion>
+            <criterion id="T1.1-AC4" checked="false">Tests cover applyMutations metadata applies metadata.id mutation effects</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>vendor/xnl.ts/src/mutation/index.ts</ref>
+            <ref>vendor/xnl.ts/tests/mutation.test.ts</ref>
+          </references>
+          <subtasks>
+            <subtask id="T1.1.1" name="Write failing tests (red)" status="TODO"/>
+            <subtask id="T1.1.2" name="Implement/adjust code to pass (green)" status="TODO"/>
+            <subtask id="T1.1.3" name="Refactor tests if needed" status="TODO"/>
+          </subtasks>
+        </task>
+
+        <task id="T1.2" name="Run vendor test suite" status="TODO" priority="P0">
+          Run vendor/xnl.ts tests to verify all pass.
+          <acceptance_criteria>
+            <criterion id="T1.2-AC1" checked="false">Command 'bun test' in vendor/xnl.ts exits 0</criterion>
+          </acceptance_criteria>
+          <subtasks>
+            <subtask id="T1.2.1" name="Run bun test (vendor/xnl.ts)" status="TODO"/>
+          </subtasks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="Refactor consumers">
+      <goal>Remove redundant metadata.id filters/sanitizers and make call sites explicit.</goal>
+      <tasks>
+        <task id="T2.1" name="Refactor realtime-client diff generation" status="TODO" priority="P0">
+          In packages/realtime-client, remove isMetaIdObjectMutation and the rawMutations filter; pass metadataIdMode: "identity" explicitly into diffNodes.
+          <acceptance_criteria>
+            <criterion id="T2.1-AC1" checked="false">realtime-client no longer defines isMetaIdObjectMutation</criterion>
+            <criterion id="T2.1-AC2" checked="false">diffNodes call explicitly passes metadataIdMode: "identity"</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>packages/realtime-client/src/index.ts</ref>
+          </references>
+          <subtasks>
+            <subtask id="T2.1.1" name="Update diffNodes call site" status="TODO"/>
+            <subtask id="T2.1.2" name="Remove redundant filter/helper" status="TODO"/>
+          </subtasks>
+        </task>
+
+        <task id="T2.2" name="Refactor realtime-server-bun sanitize" status="TODO" priority="P0">
+          In packages/realtime-server-bun, remove metadata.id delete->update rewriting; keep TREE_DELETE descending reordering.
+          <acceptance_criteria>
+            <criterion id="T2.2-AC1" checked="false">sanitizeMutations no longer inspects metadata.id path for delete->update rewriting</criterion>
+            <criterion id="T2.2-AC2" checked="false">TREE_DELETE descending reorder logic remains</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>packages/realtime-server-bun/src/index.ts</ref>
+          </references>
+          <subtasks>
+            <subtask id="T2.2.1" name="Remove metadata.id delete rewrite branch" status="TODO"/>
+            <subtask id="T2.2.2" name="Verify TREE_DELETE reorder still correct" status="TODO"/>
+          </subtasks>
+        </task>
+
+        <task id="T2.3" name="Make realtime-core apply explicit" status="TODO" priority="P1">
+          In packages/realtime-core, pass metadataIdMode: "identity" explicitly into XNL.mutation.apply.
+          <acceptance_criteria>
+            <criterion id="T2.3-AC1" checked="false">XNL.mutation.apply call passes metadataIdMode: "identity"</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>packages/realtime-core/src/merge.ts</ref>
+          </references>
+          <subtasks>
+            <subtask id="T2.3.1" name="Update apply call site" status="TODO"/>
+          </subtasks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P3" name="Build validation">
+      <goal>Refresh demo build output after refactor and ensure build succeeds.</goal>
+      <tasks>
+        <task id="T3.1" name="Run demo build" status="TODO" priority="P0">
+          Run apps/demo build to regenerate public artifacts (app.js/peer.js) based on updated packages.
+          <acceptance_criteria>
+            <criterion id="T3.1-AC1" checked="false">Command 'bun run build' (repo root) exits 0</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>apps/demo/package.json</ref>
+          </references>
+          <subtasks>
+            <subtask id="T3.1.1" name="Run bun run build" status="TODO"/>
+          </subtasks>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>
