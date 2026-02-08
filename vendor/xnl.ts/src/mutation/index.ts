@@ -104,7 +104,7 @@ function applySingle(root: XnlNode, mutation: XnlMutation, opts: XnlMutationOpti
         ? mutation.pathBefore
         : parsePath(mutation.pathBefore)
       : [];
-    let moved = mutation.targetUniqueName ? extractByMetaId(root, mutation.targetUniqueName) : undefined;
+    let moved = mutation.targetUniqueName ? extractByUniqueId(root, mutation.targetUniqueName) : undefined;
     if (moved === undefined && fromPath.length > 0) {
       try {
         const found = resolvePath(root, fromPath, { strict: false });
@@ -204,17 +204,17 @@ function diffArray(
   const mutations: XnlMutation[] = [];
 
   const parentId =
-    resolveMetaIdMode(opts) === "identity" ? readMetaId(parentBefore) ?? readMetaId(parentAfter) : undefined;
+    resolveMetaIdMode(opts) === "identity" ? readIdOrMetadaataId(parentBefore) ?? readIdOrMetadaataId(parentAfter) : undefined;
 
   const pathBase = parentId ? [ms("id", parentId) as PathItem, ip("body")] : basePath;
   const oldById: Record<string, { index: number; value: XnlNode }> = {};
   const newById: Record<string, { index: number; value: XnlNode }> = {};
   oldArr.forEach((item, idx) => {
-    const id = readMetaId(item);
+    const id = readIdOrMetadaataId(item);
     if (id) oldById[id] = { index: idx, value: item };
   });
   newArr.forEach((item, idx) => {
-    const id = readMetaId(item);
+    const id = readIdOrMetadaataId(item);
     if (id) newById[id] = { index: idx, value: item };
   });
 
@@ -224,32 +224,32 @@ function diffArray(
     const newItem = newArr[i];
     const path = [...pathBase, li(i)];
     if (oldItem === undefined && newItem !== undefined) {
-      const id = readMetaId(newItem);
+      const id = readIdOrMetadaataId(newItem);
       mutations.push({
         type: "TREE_ADD",
         path,
         valueAfter: newItem,
         targetUniqueName: id,
-        parentUniqueNameAfter: readMetaId(parentAfter),
+        parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
       });
       continue;
     }
     if (oldItem !== undefined && newItem === undefined) {
-      const id = readMetaId(oldItem);
+      const id = readIdOrMetadaataId(oldItem);
       mutations.push({
         type: "TREE_DELETE",
         path,
         valueBefore: oldItem,
         targetUniqueName: id,
-        parentUniqueNameBefore: readMetaId(parentBefore),
+        parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
       });
       continue;
     }
     if (oldItem !== undefined && newItem !== undefined) {
       const useIdentity = resolveMetaIdMode(opts) === "identity";
 
-      const oldId = readMetaId(oldItem);
-      const newId = readMetaId(newItem);
+      const oldId = readIdOrMetadaataId(oldItem);
+      const newId = readIdOrMetadaataId(newItem);
 
       if (useIdentity && oldId && newId && oldId !== newId) {
         mutations.push({
@@ -257,14 +257,14 @@ function diffArray(
           path,
           valueBefore: oldItem,
           targetUniqueName: oldId,
-          parentUniqueNameBefore: readMetaId(parentBefore),
+          parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
         });
         mutations.push({
           type: "TREE_ADD",
           path,
           valueAfter: newItem,
           targetUniqueName: newId,
-          parentUniqueNameAfter: readMetaId(parentAfter),
+          parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
         });
         continue;
       }
@@ -276,7 +276,7 @@ function diffArray(
       const nested = diffNodes(oldItem, newItem, path, opts);
       if (nested.length === 0) {
         if (!useIdentity) {
-          mutations.push({ type: "TREE_UPDATE", path, valueAfter: newItem, targetUniqueName: readMetaId(newItem) });
+          mutations.push({ type: "TREE_UPDATE", path, valueAfter: newItem, targetUniqueName: readIdOrMetadaataId(newItem) });
         }
       } else {
         mutations.push(...nested);
@@ -285,8 +285,8 @@ function diffArray(
   }
 
   if (resolveMetaIdMode(opts) === "identity") {
-    const oldIds = oldArr.map(readMetaId).filter(Boolean) as string[];
-    const newIds = newArr.map(readMetaId).filter(Boolean) as string[];
+    const oldIds = oldArr.map(readIdOrMetadaataId).filter(Boolean) as string[];
+    const newIds = newArr.map(readIdOrMetadaataId).filter(Boolean) as string[];
     if (oldIds.length && newIds.length) {
       for (const id of oldIds) {
         if (!(id in newById)) continue;
@@ -298,8 +298,8 @@ function diffArray(
             pathBefore: [...pathBase, li(oldIdx)],
             path: [...pathBase, li(newIdx)],
             targetUniqueName: id,
-            parentUniqueNameBefore: readMetaId(parentBefore),
-            parentUniqueNameAfter: readMetaId(parentAfter),
+            parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
+            parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
           });
         }
       }
@@ -330,8 +330,8 @@ function diffMap(
         type: "OBJECT_ADD",
         path,
         valueAfter: newVal,
-        targetUniqueName: readMetaId(newVal),
-        parentUniqueNameAfter: readMetaId(parentAfter),
+        targetUniqueName: readIdOrMetadaataId(newVal),
+        parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
       });
       continue;
     }
@@ -340,8 +340,8 @@ function diffMap(
         type: "OBJECT_DELETE",
         path,
         valueBefore: oldVal,
-        targetUniqueName: readMetaId(oldVal),
-        parentUniqueNameBefore: readMetaId(parentBefore),
+        targetUniqueName: readIdOrMetadaataId(oldVal),
+        parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
       });
       continue;
     }
@@ -368,7 +368,7 @@ function diffExtend(
   const mutations: XnlMutation[] = [];
 
   const parentId =
-    resolveMetaIdMode(opts) === "identity" ? readMetaId(parentBefore) ?? readMetaId(parentAfter) : undefined;
+    resolveMetaIdMode(opts) === "identity" ? readIdOrMetadaataId(parentBefore) ?? readIdOrMetadaataId(parentAfter) : undefined;
 
   const pathBase = parentId ? [ms("id", parentId) as PathItem, ip("extend")] : basePath;
   const oldChildren = oldExtend?.children ?? {};
@@ -383,8 +383,8 @@ function diffExtend(
         type: "TREE_ADD",
         path: childPath,
         valueAfter: newChild,
-        targetUniqueName: readMetaId(newChild),
-        parentUniqueNameAfter: readMetaId(parentAfter),
+        targetUniqueName: readIdOrMetadaataId(newChild),
+        parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
       });
       continue;
     }
@@ -393,8 +393,8 @@ function diffExtend(
         type: "TREE_DELETE",
         path: childPath,
         valueBefore: oldChild,
-        targetUniqueName: readMetaId(oldChild),
-        parentUniqueNameBefore: readMetaId(parentBefore),
+        targetUniqueName: readIdOrMetadaataId(oldChild),
+        parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
       });
       continue;
     }
@@ -481,37 +481,41 @@ const mk = (value: string): PathItem => ({ type: "MapKey", value });
 const li = (value: number | string): PathItem => ({ type: "ListIndex", value: String(value) });
 
 function ms(key: string, value: string): PathItem {
-  return { type: "MetadataSelector", value: `{${key}=${JSON.stringify(value)}}` } as PathItem;
+  return { type: "MetadataSelector", value: `<${key}=${JSON.stringify(value)}>` } as PathItem;
 }
 
-function readMetaId(node: any): string | undefined {
+function readIdOrMetadaataId(node: any): string | undefined {
   if (isDataElement(node) || isTextElement(node)) {
+    const nodeId = wordToString((node as any).id);
+    if (nodeId) return nodeId;
+
     const metaId = (node as any).metadata?.id;
     if (typeof metaId === "string") return metaId;
+    if (isWord(metaId)) return wordToString(metaId);
   }
   return undefined;
 }
 
-function extractByMetaId(root: any, id: string): any {
+function extractByUniqueId(root: any, id: string): any {
   if (Array.isArray(root)) {
-    const idx = root.findIndex((item) => readMetaId(item) === id);
+    const idx = root.findIndex((item) => readIdOrMetadaataId(item) === id);
     if (idx !== -1) {
       const [removed] = root.splice(idx, 1);
       return removed;
     }
     for (const item of root) {
-      const found = extractByMetaId(item, id);
+      const found = extractByUniqueId(item, id);
       if (found !== undefined) return found;
     }
   } else if (isDataElement(root)) {
     if (root.body) {
-      const idx = root.body.findIndex((item) => readMetaId(item) === id);
+      const idx = root.body.findIndex((item) => readIdOrMetadaataId(item) === id);
       if (idx !== -1) {
         const [removed] = root.body.splice(idx, 1);
         return removed;
       }
       for (const child of root.body) {
-        const found = extractByMetaId(child, id);
+        const found = extractByUniqueId(child, id);
         if (found !== undefined) return found;
       }
     }
@@ -519,12 +523,12 @@ function extractByMetaId(root: any, id: string): any {
       const tags = [...root.extend.order];
       for (const tag of tags) {
         const child = root.extend.children[tag];
-        if (readMetaId(child) === id) {
+        if (readIdOrMetadaataId(child) === id) {
           delete root.extend.children[tag];
           root.extend.order = root.extend.order.filter((t) => t !== tag);
           return child;
         }
-        const found = extractByMetaId(child, id);
+        const found = extractByUniqueId(child, id);
         if (found !== undefined) return found;
       }
     }

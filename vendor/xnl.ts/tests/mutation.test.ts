@@ -16,7 +16,7 @@ describe("mutation protocol", () => {
     const mutations = diffNodes(oldDoc, newDoc, "#flow1");
     const add = mutations.find((m) => m.type === "TREE_ADD") as XnlMutation;
     expect(add?.path).toEqual([
-      { type: "UniqueName", value: "flow1" },
+      { type: "MetadataSelector", value: '<id="flow1">' },
       { type: "InstanceProperty", value: "body" },
       { type: "ListIndex", value: "1" },
     ]);
@@ -107,6 +107,16 @@ describe("mutation protocol", () => {
       const applied = applyMutations(clone, mutations, { metadataIdMode: "metadata" });
 
       expect(applied).toEqual(newJson);
+    });
+
+    it("prefers node id over metadata.id for unique identity", () => {
+      const oldNode = parseXnl(`<root #root [ <a #custom.bizid id="custom-metadata-id"> ]>`).nodes[0];
+      const newNode = parseXnl(`<root #root [ ]>`).nodes[0];
+
+      const mutations = diffNodes(oldNode, newNode, "#root", { metadataIdMode: "identity" });
+      const deletion = mutations.find((m) => m.type === "TREE_DELETE");
+
+      expect(deletion?.targetUniqueName).toBe("custom.bizid");
     });
   });
 });

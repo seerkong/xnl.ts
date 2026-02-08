@@ -686,7 +686,7 @@ function parsePath(input) {
       i += length;
       continue;
     }
-    if (c === "{") {
+    if (c === "<") {
       const parsed = parseMetadataSelector(input, i);
       items.push(parsed.item);
       i = parsed.nextIndex;
@@ -725,10 +725,11 @@ function parsePath(input) {
   return items;
 }
 function resolvePath(target, path, options = {}) {
-  const { strict = true } = options;
+  const { strict = true, metadataIdMode } = options;
   const parsed = Array.isArray(path) ? path : parsePath(path);
   let current = target;
-  for (const item of parsed) {
+  for (let i = 0; i < parsed.length; i++) {
+    const item = parsed[i];
     if (item.type === "UniqueName") {
       const found = findByUniqueName(target, item.value);
       if (!found) {
@@ -739,12 +740,23 @@ function resolvePath(target, path, options = {}) {
       continue;
     }
     if (item.type === "MetadataSelector") {
-      const found = findByMetadataSelector(target, item.value);
-      if (!found) {
+      const isLast = i === parsed.length - 1;
+      if (metadataIdMode === "identity") {
+        const selector = parseMetadataSelectorValue(item.value);
+        const found = selector.key === "id" ? findByUniqueName(target, selector.value) ?? findByMetadataSelector(target, item.value) : findByMetadataSelector(target, item.value);
+        if (!found) {
+          if (strict) throw new XnlPathError(`MetadataSelector '${item.value}' not found`);
+          return void 0;
+        }
+        current = found;
+        continue;
+      }
+      const allFound = findAllByMetadataSelector(target, item.value);
+      if (allFound.length === 0) {
         if (strict) throw new XnlPathError(`MetadataSelector '${item.value}' not found`);
         return void 0;
       }
-      current = found;
+      current = isLast ? allFound : allFound[0];
       continue;
     }
     if (item.type === "InstanceProperty") {
@@ -929,7 +941,8 @@ function getParentAndLast(target, path, opts) {
       continue;
     }
     if (item.type === "MetadataSelector") {
-      const found = findByMetadataSelector(target, item.value);
+      const selector = parseMetadataSelectorValue(item.value);
+      const found = selector.key === "id" ? findByUniqueName(target, selector.value) ?? findByMetadataSelector(target, item.value) : findByMetadataSelector(target, item.value);
       if (!found) {
         if (strict) throw new XnlPathError(`MetadataSelector '${item.value}' not found`);
         return { parent: void 0, last };
@@ -1030,7 +1043,7 @@ function readUntilDelimiter(input, start) {
   let value = "";
   while (i < input.length) {
     const c = input[i];
-    if (c === ":" || c === "#" || c === "." || c === "{") break;
+    if (c === ":" || c === "#" || c === "." || c === "<") break;
     value += c;
     i++;
   }
@@ -1080,6 +1093,15 @@ function findByMetadataSelector(target, selector) {
   }
   return void 0;
 }
+function findAllByMetadataSelector(target, selector) {
+  const parsed = parseMetadataSelectorValue(selector);
+  const roots = isDocument2(target) ? target.nodes : [target];
+  const out = [];
+  for (const root of roots) {
+    collectInNodeByMeta(root, parsed.key, parsed.value, out);
+  }
+  return out;
+}
 function findInNodeByMeta(node, key, value) {
   if (isElementNode(node)) {
     const meta = node.metadata;
@@ -1117,16 +1139,48 @@ function findInNodeByMeta(node, key, value) {
   }
   return void 0;
 }
+function collectInNodeByMeta(node, key, value, out) {
+  if (isElementNode(node)) {
+    const meta = node.metadata;
+    const raw = meta ? meta[key] : void 0;
+    const rawStr = typeof raw === "string" ? raw : isWord(raw) ? wordToString(raw) : void 0;
+    if (rawStr === value) out.push(node);
+    if (node.kind === "DataElement") {
+      if (node.body) {
+        for (const child of node.body) {
+          collectInNodeByMeta(child, key, value, out);
+        }
+      }
+      if (node.extend) {
+        for (const tag of node.extend.order) {
+          const child = node.extend.children[tag];
+          if (!child) continue;
+          collectInNodeByMeta(child, key, value, out);
+        }
+      }
+    }
+    return;
+  }
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      collectInNodeByMeta(child, key, value, out);
+    }
+  } else if (isPlainObject2(node)) {
+    for (const k of Object.keys(node)) {
+      collectInNodeByMeta(node[k], key, value, out);
+    }
+  }
+}
 function parseMetadataSelectorValue(selector) {
-  const m = selector.match(/^\{([A-Za-z_][A-Za-z0-9_-]*)=("([^"]*)"|'([^']*)')\}$/);
+  const m = selector.match(/^<([A-Za-z_][A-Za-z0-9_-]*)=("([^"]*)"|'([^']*)')>$/);
   if (!m) throw new XnlPathError("Invalid metadata selector");
   const key = m[1];
   const value = m[3] ?? m[4] ?? "";
   return { key, value };
 }
 function parseMetadataSelector(input, start) {
-  if (input[start] !== "{") throw new XnlPathError("Metadata selector must start with '{'");
-  const end = input.indexOf("}", start);
+  if (input[start] !== "<") throw new XnlPathError("Metadata selector must start with '<'");
+  const end = input.indexOf(">", start);
   if (end === -1) throw new XnlPathError("Unterminated metadata selector");
   const raw = input.slice(start, end + 1);
   parseMetadataSelectorValue(raw);
@@ -1253,7 +1307,7 @@ function applySingle(root, mutation, opts) {
       throw new XnlPathError("TREE_MOVE requires targetUniqueName or pathBefore");
     }
     const fromPath = mutation.pathBefore ? Array.isArray(mutation.pathBefore) ? mutation.pathBefore : parsePath(mutation.pathBefore) : [];
-    let moved = mutation.targetUniqueName ? extractByMetaId(root, mutation.targetUniqueName) : void 0;
+    let moved = mutation.targetUniqueName ? extractByUniqueId(root, mutation.targetUniqueName) : void 0;
     if (moved === void 0 && fromPath.length > 0) {
       try {
         const found = resolvePath(root, fromPath, { strict: false });
@@ -1328,16 +1382,16 @@ function diffDataElement(oldNode, newNode, basePath, opts) {
 }
 function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
   const mutations = [];
-  const parentId = resolveMetaIdMode(opts) === "identity" ? readMetaId(parentBefore) ?? readMetaId(parentAfter) : void 0;
+  const parentId = resolveMetaIdMode(opts) === "identity" ? readIdOrMetadaataId(parentBefore) ?? readIdOrMetadaataId(parentAfter) : void 0;
   const pathBase = parentId ? [ms("id", parentId), ip("body")] : basePath;
   const oldById = {};
   const newById = {};
   oldArr.forEach((item, idx) => {
-    const id = readMetaId(item);
+    const id = readIdOrMetadaataId(item);
     if (id) oldById[id] = { index: idx, value: item };
   });
   newArr.forEach((item, idx) => {
-    const id = readMetaId(item);
+    const id = readIdOrMetadaataId(item);
     if (id) newById[id] = { index: idx, value: item };
   });
   const max = Math.max(oldArr.length, newArr.length);
@@ -1346,45 +1400,45 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
     const newItem = newArr[i];
     const path = [...pathBase, li(i)];
     if (oldItem === void 0 && newItem !== void 0) {
-      const id = readMetaId(newItem);
+      const id = readIdOrMetadaataId(newItem);
       mutations.push({
         type: "TREE_ADD",
         path,
         valueAfter: newItem,
         targetUniqueName: id,
-        parentUniqueNameAfter: readMetaId(parentAfter)
+        parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
       });
       continue;
     }
     if (oldItem !== void 0 && newItem === void 0) {
-      const id = readMetaId(oldItem);
+      const id = readIdOrMetadaataId(oldItem);
       mutations.push({
         type: "TREE_DELETE",
         path,
         valueBefore: oldItem,
         targetUniqueName: id,
-        parentUniqueNameBefore: readMetaId(parentBefore)
+        parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
       });
       continue;
     }
     if (oldItem !== void 0 && newItem !== void 0) {
       const useIdentity = resolveMetaIdMode(opts) === "identity";
-      const oldId = readMetaId(oldItem);
-      const newId = readMetaId(newItem);
+      const oldId = readIdOrMetadaataId(oldItem);
+      const newId = readIdOrMetadaataId(newItem);
       if (useIdentity && oldId && newId && oldId !== newId) {
         mutations.push({
           type: "TREE_DELETE",
           path,
           valueBefore: oldItem,
           targetUniqueName: oldId,
-          parentUniqueNameBefore: readMetaId(parentBefore)
+          parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
         });
         mutations.push({
           type: "TREE_ADD",
           path,
           valueAfter: newItem,
           targetUniqueName: newId,
-          parentUniqueNameAfter: readMetaId(parentAfter)
+          parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
         });
         continue;
       }
@@ -1394,7 +1448,7 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
       const nested = diffNodes(oldItem, newItem, path, opts);
       if (nested.length === 0) {
         if (!useIdentity) {
-          mutations.push({ type: "TREE_UPDATE", path, valueAfter: newItem, targetUniqueName: readMetaId(newItem) });
+          mutations.push({ type: "TREE_UPDATE", path, valueAfter: newItem, targetUniqueName: readIdOrMetadaataId(newItem) });
         }
       } else {
         mutations.push(...nested);
@@ -1402,8 +1456,8 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
     }
   }
   if (resolveMetaIdMode(opts) === "identity") {
-    const oldIds = oldArr.map(readMetaId).filter(Boolean);
-    const newIds = newArr.map(readMetaId).filter(Boolean);
+    const oldIds = oldArr.map(readIdOrMetadaataId).filter(Boolean);
+    const newIds = newArr.map(readIdOrMetadaataId).filter(Boolean);
     if (oldIds.length && newIds.length) {
       for (const id of oldIds) {
         if (!(id in newById)) continue;
@@ -1415,8 +1469,8 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
             pathBefore: [...pathBase, li(oldIdx)],
             path: [...pathBase, li(newIdx)],
             targetUniqueName: id,
-            parentUniqueNameBefore: readMetaId(parentBefore),
-            parentUniqueNameAfter: readMetaId(parentAfter)
+            parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
+            parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
           });
         }
       }
@@ -1439,8 +1493,8 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
         type: "OBJECT_ADD",
         path,
         valueAfter: newVal,
-        targetUniqueName: readMetaId(newVal),
-        parentUniqueNameAfter: readMetaId(parentAfter)
+        targetUniqueName: readIdOrMetadaataId(newVal),
+        parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
       });
       continue;
     }
@@ -1449,8 +1503,8 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
         type: "OBJECT_DELETE",
         path,
         valueBefore: oldVal,
-        targetUniqueName: readMetaId(oldVal),
-        parentUniqueNameBefore: readMetaId(parentBefore)
+        targetUniqueName: readIdOrMetadaataId(oldVal),
+        parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
       });
       continue;
     }
@@ -1467,7 +1521,7 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
 }
 function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, opts) {
   const mutations = [];
-  const parentId = resolveMetaIdMode(opts) === "identity" ? readMetaId(parentBefore) ?? readMetaId(parentAfter) : void 0;
+  const parentId = resolveMetaIdMode(opts) === "identity" ? readIdOrMetadaataId(parentBefore) ?? readIdOrMetadaataId(parentAfter) : void 0;
   const pathBase = parentId ? [ms("id", parentId), ip("extend")] : basePath;
   const oldChildren = oldExtend?.children ?? {};
   const newChildren = newExtend?.children ?? {};
@@ -1481,8 +1535,8 @@ function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, o
         type: "TREE_ADD",
         path: childPath,
         valueAfter: newChild,
-        targetUniqueName: readMetaId(newChild),
-        parentUniqueNameAfter: readMetaId(parentAfter)
+        targetUniqueName: readIdOrMetadaataId(newChild),
+        parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
       });
       continue;
     }
@@ -1491,8 +1545,8 @@ function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, o
         type: "TREE_DELETE",
         path: childPath,
         valueBefore: oldChild,
-        targetUniqueName: readMetaId(oldChild),
-        parentUniqueNameBefore: readMetaId(parentBefore)
+        targetUniqueName: readIdOrMetadaataId(oldChild),
+        parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
       });
       continue;
     }
@@ -1563,35 +1617,38 @@ var ip = (value) => ({ type: "InstanceProperty", value });
 var mk = (value) => ({ type: "MapKey", value });
 var li = (value) => ({ type: "ListIndex", value: String(value) });
 function ms(key, value) {
-  return { type: "MetadataSelector", value: `{${key}=${JSON.stringify(value)}}` };
+  return { type: "MetadataSelector", value: `<${key}=${JSON.stringify(value)}>` };
 }
-function readMetaId(node) {
+function readIdOrMetadaataId(node) {
   if (isDataElement2(node) || isTextElement2(node)) {
+    const nodeId = wordToString(node.id);
+    if (nodeId) return nodeId;
     const metaId = node.metadata?.id;
     if (typeof metaId === "string") return metaId;
+    if (isWord(metaId)) return wordToString(metaId);
   }
   return void 0;
 }
-function extractByMetaId(root, id) {
+function extractByUniqueId(root, id) {
   if (Array.isArray(root)) {
-    const idx = root.findIndex((item) => readMetaId(item) === id);
+    const idx = root.findIndex((item) => readIdOrMetadaataId(item) === id);
     if (idx !== -1) {
       const [removed] = root.splice(idx, 1);
       return removed;
     }
     for (const item of root) {
-      const found = extractByMetaId(item, id);
+      const found = extractByUniqueId(item, id);
       if (found !== void 0) return found;
     }
   } else if (isDataElement2(root)) {
     if (root.body) {
-      const idx = root.body.findIndex((item) => readMetaId(item) === id);
+      const idx = root.body.findIndex((item) => readIdOrMetadaataId(item) === id);
       if (idx !== -1) {
         const [removed] = root.body.splice(idx, 1);
         return removed;
       }
       for (const child of root.body) {
-        const found = extractByMetaId(child, id);
+        const found = extractByUniqueId(child, id);
         if (found !== void 0) return found;
       }
     }
@@ -1599,12 +1656,12 @@ function extractByMetaId(root, id) {
       const tags = [...root.extend.order];
       for (const tag of tags) {
         const child = root.extend.children[tag];
-        if (readMetaId(child) === id) {
+        if (readIdOrMetadaataId(child) === id) {
           delete root.extend.children[tag];
           root.extend.order = root.extend.order.filter((t) => t !== tag);
           return child;
         }
-        const found = extractByMetaId(child, id);
+        const found = extractByUniqueId(child, id);
         if (found !== void 0) return found;
       }
     }

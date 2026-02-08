@@ -21,6 +21,42 @@
 - **WHEN** 使用 `applyMutations(root, mutations, { metadataIdMode: "identity" })` 应用到现有文档
 - **THEN** 输出文档中的 `metadata.id` 值保持不变
 
+### Requirement: metadata selector 语法使用 `<key="value">`
+path 系统中的 MetadataSelector 应当（SHALL）采用与 XNL 节点外观同构的角括号语法 `<key="value">`，不再使用 `{key="value"}`。
+
+#### Scenario: 解析 `<id="...">` 为 MetadataSelector
+- **GIVEN** 一个 path 字符串 `<id="metadata-id-demo">:body::0`
+- **WHEN** 调用 `parsePath(...)`
+- **THEN** 返回的第一个 path item 类型为 `MetadataSelector`，值为 `<id="metadata-id-demo">`
+
+### Requirement: MetadataSelector 在 resolvePath 中遵循 metadataIdMode 语义
+对于 `resolvePath` 的 MetadataSelector：
+- 当 `metadataIdMode: "identity"` 时，应当（SHALL）返回单个节点；且当 selector 为 `<id="...">` 时，优先按节点 `id`（`#...`）匹配，再回退到 `metadata.id`
+- 当 `metadataIdMode` 未传或不是 `"identity"` 时，应当（SHALL）返回匹配节点数组
+
+#### Scenario: identity 模式返回单节点
+- **GIVEN** `a` 的 body 内有 `<b id="metadata-id-demo">`
+- **WHEN** 调用 `resolvePath(root, '<id="metadata-id-demo">', { metadataIdMode: "identity" })`
+- **THEN** 返回值是单个节点 `<b ...>`
+
+#### Scenario: 非 identity 模式返回数组
+- **GIVEN** `a` 的 body 内有 `<b id="metadata-id-demo">`
+- **WHEN** 调用 `resolvePath(root, '<id="metadata-id-demo">')`
+- **THEN** 返回值是数组，且结果为 `[<b ...>]`
+
+### Requirement: mutation identity 读取优先 `id`，再回退 `metadata.id`
+在 mutation diff/apply 体系中，唯一标识读取应当（SHALL）优先使用节点 `id`（`#...`），仅在其缺失时回退 `metadata.id`。
+
+#### Scenario: 同时存在 `id` 与 `metadata.id` 时选择 `id`
+- **GIVEN** 节点 `<a #custom.bizid id="custom-metadata-id">`
+- **WHEN** mutation 系统读取该节点唯一标识
+- **THEN** 唯一标识为 `custom.bizid`
+
+#### Scenario: `#custom.bizid` 可定位到节点
+- **GIVEN** 节点 `<a #custom.bizid id="custom-metadata-id">`
+- **WHEN** 调用 `resolvePath(root, '#custom.bizid')`
+- **THEN** 返回该 `a` 节点
+
 ### Requirement: realtime-client 不再依赖额外 filter 来丢弃 `metadata.id` 变更
 `@braid-demo/realtime-client` 在生成要发送到 server 的 mutations 时，应当（SHALL）不再依赖额外的 `isMetaIdObjectMutation` 过滤器来移除 `metadata.id` 变更，而是依赖 `xnl.ts` 的 `metadataIdMode: "identity"` 行为。
 

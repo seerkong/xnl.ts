@@ -20,8 +20,11 @@ export interface PathItem {
 
 export type XnlPath = PathItem[];
 
+export type MetadataSelectorMode = "identity" | "metadata";
+
 export interface ResolveOptions {
   strict?: boolean;
+  metadataIdMode?: MetadataSelectorMode;
 }
 
 export interface SetOptions extends ResolveOptions {
@@ -44,7 +47,7 @@ export function parsePath(input: string): XnlPath {
       i += length;
       continue;
     }
-    if (c === "{") {
+    if (c === "<") {
       const parsed = parseMetadataSelector(input, i);
       items.push(parsed.item);
       i = parsed.nextIndex;
@@ -84,11 +87,12 @@ export function parsePath(input: string): XnlPath {
 }
 
 export function resolvePath(target: XnlDocument | XnlNode, path: string | XnlPath, options: ResolveOptions = {}): any {
-  const { strict = true } = options;
+  const { strict = true, metadataIdMode } = options;
   const parsed = Array.isArray(path) ? path : parsePath(path);
   let current: any = target;
 
-  for (const item of parsed) {
+  for (let i = 0; i < parsed.length; i++) {
+    const item = parsed[i];
      if (item.type === "UniqueName") {
        const found = findByUniqueName(target, item.value);
        if (!found) {
@@ -99,12 +103,30 @@ export function resolvePath(target: XnlDocument | XnlNode, path: string | XnlPat
        continue;
      }
      if (item.type === "MetadataSelector") {
-       const found = findByMetadataSelector(target, item.value);
-       if (!found) {
+       const isLast = i === parsed.length - 1;
+       if (metadataIdMode === "identity") {
+         const selector = parseMetadataSelectorValue(item.value);
+         const found =
+           selector.key === "id"
+             ? findByUniqueName(target, selector.value) ?? findByMetadataSelector(target, item.value)
+             : findByMetadataSelector(target, item.value);
+         if (!found) {
+           if (strict) throw new XnlPathError(`MetadataSelector '${item.value}' not found`);
+           return undefined;
+         }
+         current = found;
+         continue;
+       }
+
+       const allFound = findAllByMetadataSelector(target, item.value);
+       if (allFound.length === 0) {
          if (strict) throw new XnlPathError(`MetadataSelector '${item.value}' not found`);
          return undefined;
        }
-       current = found;
+
+       // Preserve traversal semantics for non-terminal selectors while exposing all
+       // matches when the selector is terminal.
+       current = isLast ? allFound : allFound[0];
        continue;
      }
 
@@ -303,7 +325,11 @@ function getParentAndLast(
       continue;
     }
     if (item.type === "MetadataSelector") {
-      const found = findByMetadataSelector(target, item.value);
+      const selector = parseMetadataSelectorValue(item.value);
+      const found =
+        selector.key === "id"
+          ? findByUniqueName(target, selector.value) ?? findByMetadataSelector(target, item.value)
+          : findByMetadataSelector(target, item.value);
       if (!found) {
         if (strict) throw new XnlPathError(`MetadataSelector '${item.value}' not found`);
         return { parent: undefined, last };
@@ -405,7 +431,7 @@ function readUntilDelimiter(input: string, start: number): string {
   let value = "";
   while (i < input.length) {
     const c = input[i];
-    if (c === ":" || c === "#" || c === "." || c === "{") break;
+    if (c === ":" || c === "#" || c === "." || c === "<") break;
     value += c;
     i++;
   }
@@ -460,6 +486,16 @@ function findByMetadataSelector(target: XnlDocument | XnlNode, selector: string)
   return undefined;
 }
 
+function findAllByMetadataSelector(target: XnlDocument | XnlNode, selector: string): ElementNode[] {
+  const parsed = parseMetadataSelectorValue(selector);
+  const roots: XnlNode[] = isDocument(target) ? target.nodes : [target as XnlNode];
+  const out: ElementNode[] = [];
+  for (const root of roots) {
+    collectInNodeByMeta(root, parsed.key, parsed.value, out);
+  }
+  return out;
+}
+
 function findInNodeByMeta(node: XnlNode, key: string, value: string): ElementNode | undefined {
   if (isElementNode(node)) {
     const meta = (node as any).metadata as AttributeMap | undefined;
@@ -502,8 +538,43 @@ function findInNodeByMeta(node: XnlNode, key: string, value: string): ElementNod
   return undefined;
 }
 
+function collectInNodeByMeta(node: XnlNode, key: string, value: string, out: ElementNode[]): void {
+  if (isElementNode(node)) {
+    const meta = (node as any).metadata as AttributeMap | undefined;
+    const raw = meta ? (meta as any)[key] : undefined;
+    const rawStr = typeof raw === "string" ? raw : isWord(raw) ? wordToString(raw) : undefined;
+    if (rawStr === value) out.push(node);
+
+    if (node.kind === "DataElement") {
+      if (node.body) {
+        for (const child of node.body) {
+          collectInNodeByMeta(child, key, value, out);
+        }
+      }
+      if (node.extend) {
+        for (const tag of node.extend.order) {
+          const child = node.extend.children[tag];
+          if (!child) continue;
+          collectInNodeByMeta(child, key, value, out);
+        }
+      }
+    }
+    return;
+  }
+
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      collectInNodeByMeta(child, key, value, out);
+    }
+  } else if (isPlainObject(node)) {
+    for (const k of Object.keys(node)) {
+      collectInNodeByMeta((node as any)[k], key, value, out);
+    }
+  }
+}
+
 export function parseMetadataSelectorValue(selector: string): { key: string; value: string } {
-  const m = selector.match(/^\{([A-Za-z_][A-Za-z0-9_-]*)=("([^"]*)"|'([^']*)')\}$/);
+  const m = selector.match(/^<([A-Za-z_][A-Za-z0-9_-]*)=("([^"]*)"|'([^']*)')>$/);
   if (!m) throw new XnlPathError("Invalid metadata selector");
   const key = m[1];
   const value = m[3] ?? m[4] ?? "";
@@ -511,8 +582,8 @@ export function parseMetadataSelectorValue(selector: string): { key: string; val
 }
 
 function parseMetadataSelector(input: string, start: number): { item: PathItem; nextIndex: number } {
-  if (input[start] !== "{") throw new XnlPathError("Metadata selector must start with '{'");
-  const end = input.indexOf("}", start);
+  if (input[start] !== "<") throw new XnlPathError("Metadata selector must start with '<'");
+  const end = input.indexOf(">", start);
   if (end === -1) throw new XnlPathError("Unterminated metadata selector");
   const raw = input.slice(start, end + 1);
   parseMetadataSelectorValue(raw);

@@ -73,8 +73,10 @@ interface PathItem {
     value: string;
 }
 type XnlPath = PathItem[];
+type MetadataSelectorMode = "identity" | "metadata";
 interface ResolveOptions {
     strict?: boolean;
+    metadataIdMode?: MetadataSelectorMode;
 }
 interface SetOptions extends ResolveOptions {
     mode?: "insert" | "replace";

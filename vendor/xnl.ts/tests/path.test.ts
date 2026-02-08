@@ -13,6 +13,15 @@ describe("path protocol", () => {
     ]);
   });
 
+  it("parses metadata selector with angle syntax", () => {
+    const parsed = parsePath('<id="metadata-id-demo">:body::0');
+    expect(parsed).toEqual([
+      { type: "MetadataSelector", value: '<id="metadata-id-demo">' },
+      { type: "InstanceProperty", value: "body" },
+      { type: "ListIndex", value: "0" },
+    ]);
+  });
+
   it("resolves metadata and extend children", () => {
     const input = `<root #container {title="Root"} [
       <child #c1>
@@ -34,5 +43,31 @@ describe("path protocol", () => {
     setPathValue(nodes[0], "#container:body::1", newChild, { mode: "insert" });
     const ids = (resolvePath(nodes[0], "#container:body") as any[]).map((n) => wordToString((n as any).id));
     expect(ids).toEqual(["a1", "a2"]);
+  });
+
+  it("resolves metadata selector as single node in identity mode", () => {
+    const input = `<a [ <b id="metadata-id-demo"> ]>`;
+    const { nodes } = parseXnl(input);
+
+    const found = resolvePath(nodes[0], '<id="metadata-id-demo">', { metadataIdMode: "identity" }) as any;
+    expect(found.tag).toBe("b");
+  });
+
+  it("resolves metadata selector as array when mode is not identity", () => {
+    const input = `<a [ <b id="metadata-id-demo"> ]>`;
+    const { nodes } = parseXnl(input);
+
+    const found = resolvePath(nodes[0], '<id="metadata-id-demo">') as any[];
+    expect(Array.isArray(found)).toBe(true);
+    expect(found).toHaveLength(1);
+    expect(found[0]?.tag).toBe("b");
+  });
+
+  it("resolves #custom.bizid to node when id and metadata.id both exist", () => {
+    const input = `<a #custom.bizid id="custom-metadata-id">`;
+    const { nodes } = parseXnl(input);
+
+    const found = resolvePath(nodes[0], "#custom.bizid") as any;
+    expect(found.tag).toBe("a");
   });
 });
