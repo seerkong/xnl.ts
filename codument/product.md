@@ -1,8 +1,8 @@
-# braid-demo - 产品定义
+# @xnl/workspace - 产品定义
 
 ## 产品愿景
 
-braid-demo
+@xnl/workspace
 
 ## 目标用户
 

@@ -20,24 +20,24 @@
 - **不做** 大规模重构或引入新依赖。
 
 ## 变更内容（What Changes）
-- `@braid-demo/realtime-client`
+- `@xnl/collab-client`
   - 移除 `isMetaIdObjectMutation` 以及对 `rawMutations` 的过滤。
   - `diffNodes` 调用点显式传入 `{ metadataIdMode: "identity" }`。
-- `@braid-demo/realtime-server-bun`
+- `@xnl/collab-server-bun`
   - 在 `sanitizeMutations` 中移除针对 `metadata.id` 的 delete→update 改写逻辑（apply 阶段会忽略该字段）。
-  - 保留并继续使用“同父 list 的多次 TREE_DELETE 按 index 降序重排”的逻辑，避免 index shift。
-- `@braid-demo/realtime-core`
+  - 保留并继续使用"同父 list 的多次 TREE_DELETE 按 index 降序重排"的逻辑，避免 index shift。
+- `@xnl/collab-core`
   - `XNL.mutation.apply` 调用点显式传入 `{ metadataIdMode: "identity" }`。
-- `vendor/xnl.ts`
+- `packages/core`
   - 新增单测覆盖：`metadataIdMode` 在 diff/apply 中的 identity vs metadata 行为差异。
 
 ## 影响范围（Impact）
 - 受影响的功能规范：realtime diff/apply pipeline 中 `metadata.id` 的处理语义（视为 identity，不当业务字段）。
 - 受影响的代码模块：
-  - `packages/realtime-client`
-  - `packages/realtime-server-bun`
-  - `packages/realtime-core`
-  - `vendor/xnl.ts`（tests）
+  - `packages/collab-client`
+  - `packages/collab-server-bun`
+  - `packages/collab-core`
+  - `packages/core`（tests）
 - 验证/验收：
-  - 运行 `vendor/xnl.ts` 的测试
-  - 运行 `apps/demo` 的 build（刷新 demo 产物）
+  - 运行 `packages/core` 的测试
+  - 运行 `demo/realtime` 的 build（刷新 demo 产物）

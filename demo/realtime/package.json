@@ -1,0 +1,22 @@
+{
+  "name": "@xnl/collab-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/server.ts",
+    "build": "bun build src/client.ts --outfile public/app.js && bun build src/peer.ts --outfile public/peer.js",
+    "smoke:ws": "bun run src/ws-smoke.ts"
+  },
+  "dependencies": {
+    "@xnl/collab-client": "workspace:*",
+    "@xnl/collab-core": "workspace:*",
+    "@xnl/collab-protocol": "workspace:*",
+    "@xnl/collab-server-bun": "workspace:*",
+    "diff": "8.0.3",
+    "@xnl/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "bun-types": "latest"
+  }
+}

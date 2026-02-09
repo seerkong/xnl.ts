@@ -5,5 +5,5 @@
   "commit_mode": "auto",
   "created_at": "2026-01-29T05:28:47Z",
   "updated_at": "2026-01-29T06:30:09Z",
-  "description": "Refactor apps/demo & packages to leverage xnl.ts metadataIdMode (default identity) and remove redundant metadata.id mutation filters/sanitizers"
+  "description": "Refactor demo/realtime & packages to leverage xnl.ts metadataIdMode (default identity) and remove redundant metadata.id mutation filters/sanitizers"
 }

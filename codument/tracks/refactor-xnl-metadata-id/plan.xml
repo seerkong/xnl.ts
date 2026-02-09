@@ -11,11 +11,11 @@
   </metadata>
 
   <phases>
-    <phase id="P1" name="Tests (vendor/xnl.ts)">
+    <phase id="P1" name="Tests (packages/core)">
       <goal>Add unit tests covering metadataIdMode diff/apply behavior.</goal>
       <tasks>
         <task id="T1.1" name="Add metadataIdMode unit tests" status="TODO" priority="P0">
-          Add tests in vendor/xnl.ts verifying metadataIdMode identity vs metadata behavior for diffNodes and applyMutations.
+          Add tests in packages/core verifying metadataIdMode identity vs metadata behavior for diffNodes and applyMutations.
           <acceptance_criteria>
             <criterion id="T1.1-AC1" checked="false">Tests cover diffNodes identity ignores metadata.id mutations</criterion>
             <criterion id="T1.1-AC2" checked="false">Tests cover diffNodes metadata includes metadata.id mutations</criterion>
@@ -23,8 +23,8 @@
             <criterion id="T1.1-AC4" checked="false">Tests cover applyMutations metadata applies metadata.id mutation effects</criterion>
           </acceptance_criteria>
           <references>
-            <ref>vendor/xnl.ts/src/mutation/index.ts</ref>
-            <ref>vendor/xnl.ts/tests/mutation.test.ts</ref>
+            <ref>packages/core/src/mutation/index.ts</ref>
+            <ref>packages/core/tests/mutation.test.ts</ref>
           </references>
           <subtasks>
             <subtask id="T1.1.1" name="Write failing tests (red)" status="TODO"/>
@@ -34,12 +34,12 @@
         </task>
 
         <task id="T1.2" name="Run vendor test suite" status="TODO" priority="P0">
-          Run vendor/xnl.ts tests to verify all pass.
+          Run packages/core tests to verify all pass.
           <acceptance_criteria>
-            <criterion id="T1.2-AC1" checked="false">Command 'bun test' in vendor/xnl.ts exits 0</criterion>
+            <criterion id="T1.2-AC1" checked="false">Command 'bun test' in packages/core exits 0</criterion>
           </acceptance_criteria>
           <subtasks>
-            <subtask id="T1.2.1" name="Run bun test (vendor/xnl.ts)" status="TODO"/>
+            <subtask id="T1.2.1" name="Run bun test (packages/core)" status="TODO"/>
           </subtasks>
         </task>
       </tasks>
@@ -97,12 +97,12 @@
       <goal>Refresh demo build output after refactor and ensure build succeeds.</goal>
       <tasks>
         <task id="T3.1" name="Run demo build" status="TODO" priority="P0">
-          Run apps/demo build to regenerate public artifacts (app.js/peer.js) based on updated packages.
+          Run demo/realtime build to regenerate public artifacts (app.js/peer.js) based on updated packages.
           <acceptance_criteria>
             <criterion id="T3.1-AC1" checked="false">Command 'bun run build' (repo root) exits 0</criterion>
           </acceptance_criteria>
           <references>
-            <ref>apps/demo/package.json</ref>
+            <ref>demo/realtime/package.json</ref>
           </references>
           <subtasks>
             <subtask id="T3.1.1" name="Run bun run build" status="TODO"/>

@@ -58,7 +58,7 @@ path 系统中的 MetadataSelector 应当（SHALL）采用与 XNL 节点外观�
 - **THEN** 返回该 `a` 节点
 
 ### Requirement: realtime-client 不再依赖额外 filter 来丢弃 `metadata.id` 变更
-`@braid-demo/realtime-client` 在生成要发送到 server 的 mutations 时，应当（SHALL）不再依赖额外的 `isMetaIdObjectMutation` 过滤器来移除 `metadata.id` 变更，而是依赖 `xnl.ts` 的 `metadataIdMode: "identity"` 行为。
+`@xnl/collab-client` 在生成要发送到 server 的 mutations 时，应当（SHALL）不再依赖额外的 `isMetaIdObjectMutation` 过滤器来移除 `metadata.id` 变更，而是依赖 `xnl.ts` 的 `metadataIdMode: "identity"` 行为。
 
 #### Scenario: 仅修改 `metadata.id` 不产生可发送 mutations
 - **GIVEN** 用户输入导致 `metadata.id` 字段发生变化（例如删除/覆盖）
@@ -66,7 +66,7 @@ path 系统中的 MetadataSelector 应当（SHALL）采用与 XNL 节点外观�
 - **THEN** client 不会发送仅由 `metadata.id` 变化构成的 mutations
 
 ### Requirement: realtime-server-bun 不再需要把 `metadata.id` delete 改写为 update
-`@braid-demo/realtime-server-bun` 在 sanitize mutations 时，应当（SHALL）移除对 `metadata.id` delete 的特殊改写（delete → update），因为 apply 阶段会忽略 `metadata.id`。
+`@xnl/collab-server-bun` 在 sanitize mutations 时，应当（SHALL）移除对 `metadata.id` delete 的特殊改写（delete → update），因为 apply 阶段会忽略 `metadata.id`。
 
 #### Scenario: server 对 `metadata.id` delete 不做改写
 - **GIVEN** server 收到的 mutations 中包含对 `metadata.id` 的 `OBJECT_DELETE`
@@ -84,7 +84,7 @@ path 系统中的 MetadataSelector 应当（SHALL）采用与 XNL 节点外观�
 ## ADDED Requirements (Tests)
 
 ### Requirement: xnl.ts 对 `metadataIdMode` 的行为有单测覆盖
-`vendor/xnl.ts` 应当（SHALL）增加单测，覆盖 `metadataIdMode` 在 diff/apply 两侧的关键语义。
+`packages/core` 应当（SHALL）增加单测，覆盖 `metadataIdMode` 在 diff/apply 两侧的关键语义。
 
 #### Scenario: diff 在 identity 模式忽略 metadata.id
 - **GIVEN** old/new nodes 仅在 `metadata.id` 上不同

@@ -1,15 +1,14 @@
 {
-  "name": "braid-demo",
+  "name": "@xnl/workspace",
   "private": true,
   "type": "module",
   "workspaces": [
-    "apps/*",
-    "packages/*",
-    "vendor/*"
+    "demo/*",
+    "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --cwd apps/demo dev",
-    "build": "bun run --cwd apps/demo build",
-    "smoke:ws": "bun run --cwd apps/demo smoke:ws"
+    "dev": "bun run --cwd demo/realtime dev",
+    "build": "bun run --cwd demo/realtime build",
+    "smoke:ws": "bun run --cwd demo/realtime smoke:ws"
   }
 }

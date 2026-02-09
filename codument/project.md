@@ -1,8 +1,8 @@
-# braid-demo
+# @xnl/workspace
 
 ## 项目概述
 
-braid-demo
+@xnl/workspace
 
 
 ---

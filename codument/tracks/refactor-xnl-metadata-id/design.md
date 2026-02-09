@@ -28,7 +28,7 @@
   - 精简 `sanitizeMutations`：移除 `metadata.id` delete→update 改写，保留 TREE_DELETE 重排
 - `packages/realtime-core/src/merge.ts`
   - `XNL.mutation.apply` 显式传参
-- `vendor/xnl.ts/tests/*`
+- `packages/core/tests/*`
   - 新增/扩充测试
 
 ## 决策
@@ -59,7 +59,7 @@
 
 ## 迁移计划
 
-1. 先在 `vendor/xnl.ts` 补齐 `metadataIdMode` 的单测覆盖，保证语义可验证。
+1. 先在 `packages/core` 补齐 `metadataIdMode` 的单测覆盖，保证语义可验证。
 2. 修改 consumer 调用点显式传参（client diff / core apply）。
 3. 删除冗余 filter/sanitize 逻辑。
 4. 运行验收：vendor tests + demo build。
