@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>refactor-xnl-metadata-id</track_id>
+    <track_name>Refactor metadata.id handling via xnl.ts metadataIdMode</track_name>
+    <goal>Remove redundant metadata.id filters/sanitizers in apps/packages, make key diff/apply call sites explicit, and add vendor tests to lock behavior.</goal>
+    <created_at>2026-01-29T05:28:47Z</created_at>
+    <updated_at>2026-02-10T00:16:00Z</updated_at>
+    <status>completed</status>
+    <commit_mode>auto</commit_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Tests (packages/core)">
+      <goal>Add unit tests covering metadataIdMode diff/apply behavior.</goal>
+      <tasks>
+        <task id="T1.1" name="Add metadataIdMode unit tests" status="DONE" priority="P0">
+          Add tests in packages/core verifying metadataIdMode identity vs metadata behavior for diffNodes and applyMutations.
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Tests cover diffNodes identity ignores metadata.id mutations</criterion>
+            <criterion id="T1.1-AC2" checked="true">Tests cover diffNodes metadata includes metadata.id mutations</criterion>
+            <criterion id="T1.1-AC3" checked="true">Tests cover applyMutations identity ignores metadata.id mutation effects</criterion>
+            <criterion id="T1.1-AC4" checked="true">Tests cover applyMutations metadata applies metadata.id mutation effects</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>packages/core/src/mutation/index.ts</ref>
+            <ref>packages/core/tests/mutation.test.ts</ref>
+          </references>
+          <subtasks>
+            <subtask id="T1.1.1" name="Write failing tests (red)" status="DONE"/>
+            <subtask id="T1.1.2" name="Implement/adjust code to pass (green)" status="DONE"/>
+            <subtask id="T1.1.3" name="Refactor tests if needed" status="DONE"/>
+          </subtasks>
+          <notes>7 dedicated tests in mutation.test.ts (lines 34-121) cover all scenarios including delete operations and node id precedence over metadata.id</notes>
+        </task>
+
+        <task id="T1.2" name="Run vendor test suite" status="DONE" priority="P0">
+          Run packages/core tests to verify all pass.
+          <acceptance_criteria>
+            <criterion id="T1.2-AC1" checked="true">Command 'bun test' in packages/core exits 0</criterion>
+          </acceptance_criteria>
+          <subtasks>
+            <subtask id="T1.2.1" name="Run bun test (packages/core)" status="DONE"/>
+          </subtasks>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="Refactor consumers">
+      <goal>Remove redundant metadata.id filters/sanitizers and make call sites explicit.</goal>
+      <notes>Package names changed: realtime-client -> collab-client, realtime-server-bun -> collab-server-bun, realtime-core -> collab-core</notes>
+      <tasks>
+        <task id="T2.1" name="Refactor collab-client diff generation" status="DONE" priority="P0">
+          In packages/collab-client, remove isMetaIdObjectMutation and the rawMutations filter; pass metadataIdMode: "identity" explicitly into diffNodes.
+          <acceptance_criteria>
+            <criterion id="T2.1-AC1" checked="true">collab-client no longer defines isMetaIdObjectMutation</criterion>
+            <criterion id="T2.1-AC2" checked="true">diffNodes call explicitly passes metadataIdMode: "identity"</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>packages/collab-client/src/index.ts</ref>
+          </references>
+          <subtasks>
+            <subtask id="T2.1.1" name="Update diffNodes call site" status="DONE"/>
+            <subtask id="T2.1.2" name="Remove redundant filter/helper" status="DONE"/>
+          </subtasks>
+          <notes>Verified at line 457: diffNodes(baseNodes, desiredNodes, [], { metadataIdMode: "identity" })</notes>
+        </task>
+
+        <task id="T2.2" name="Refactor collab-server sanitize" status="DONE" priority="P0">
+          In packages/collab-server, remove metadata.id delete->update rewriting; keep TREE_DELETE descending reordering.
+          <acceptance_criteria>
+            <criterion id="T2.2-AC1" checked="true">sanitizeMutations no longer inspects metadata.id path for delete->update rewriting</criterion>
+            <criterion id="T2.2-AC2" checked="true">TREE_DELETE descending reorder logic remains</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>packages/collab-server/src/index.ts</ref>
+          </references>
+          <subtasks>
+            <subtask id="T2.2.1" name="Remove metadata.id delete rewrite branch" status="DONE"/>
+            <subtask id="T2.2.2" name="Verify TREE_DELETE reorder still correct" status="DONE"/>
+          </subtasks>
+          <notes>sanitizeMutations (lines 59-99) only handles TREE_DELETE descending reorder. No metadata.id handling exists.</notes>
+        </task>
+
+        <task id="T2.3" name="Make collab-core apply explicit" status="DONE" priority="P1">
+          In packages/collab-core, pass metadataIdMode: "identity" explicitly into XNL.mutation.apply.
+          <acceptance_criteria>
+            <criterion id="T2.3-AC1" checked="true">XNL.mutation.apply call passes metadataIdMode: "identity"</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>packages/collab-core/src/merge.ts</ref>
+          </references>
+          <subtasks>
+            <subtask id="T2.3.1" name="Update apply call site" status="DONE"/>
+          </subtasks>
+          <notes>Verified at line 669: XNL.mutation.apply(root, mutations, { metadataIdMode: "identity" })</notes>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P3" name="Build validation">
+      <goal>Refresh demo build output after refactor and ensure build succeeds.</goal>
+      <tasks>
+        <task id="T3.1" name="Run demo build" status="DONE" priority="P0">
+          Run demo/realtime build to regenerate public artifacts (app.js/peer.js) based on updated packages.
+          <acceptance_criteria>
+            <criterion id="T3.1-AC1" checked="true">Command 'bun run build' (repo root) exits 0</criterion>
+          </acceptance_criteria>
+          <references>
+            <ref>demo/realtime/package.json</ref>
+          </references>
+          <subtasks>
+            <subtask id="T3.1.1" name="Run bun run build" status="DONE"/>
+          </subtasks>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>

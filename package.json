@@ -1,5 +1,5 @@
 {
-  "name": "@xnl/workspace",
+  "name": "xnl-workspace",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -7,7 +7,11 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --cwd demo/realtime dev",
+    "dev": "bun run --cwd demo/realtime dev-bun",
+    "dev-bun": "bun run --cwd demo/realtime dev-bun",
+    "dev-elysia": "bun run --cwd demo/realtime dev-elysia",
+    "build:packages": "bun run --filter './packages/*' build",
+    "test:packages": "bun run --filter './packages/*' test",
     "build": "bun run --cwd demo/realtime build",
     "smoke:ws": "bun run --cwd demo/realtime smoke:ws"
   }

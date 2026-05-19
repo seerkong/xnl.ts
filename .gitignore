@@ -3,6 +3,9 @@
 .gemini
 .eidolon
 .serena
+.sparrow
+.opencode
+.tmp
 data.sqlite
 # runtime state for the demo app (do not commit)
 data/default.json

@@ -83,11 +83,21 @@
 1. **找到track：** 找到补充需求所属的进行中的track
 2. **更正plan.xml：** 在所属的plan.xml，合适的位置，按照`plan-xml-spec.md`的规范，新增内容，初始化状态
 
+### 决策采集工作流
+当某个 track 存在需要用户确认的决策问题时：
+1. **创建或更新 decisions.md：** 在 `codument/tracks/<track_id>/decisions.md` 记录问题、选项、用户答复、最终决策和理由
+   - 如果在后续实现、测试、验证过程中出现新的决策补充，也继续追加到同一个 `decisions.md`
+2. **统一标题格式：** 问题标题使用 `### 1. 【P0】文件内容来源` 这类格式；字母只用于选项，不用于问题标题
+3. **按数量选择交互方式：**
+   - 待确认问题 `<= 5`，且环境支持一次性多问题 ToolCall：优先使用一次性多问题 ToolCall 收集答复
+   - 待确认问题 `> 5`，或环境不支持一次性多问题 ToolCall：引导用户直接编辑 `decisions.md`
+4. **结果回写：** 无论通过 ToolCall 还是文档编辑获得答复，都必须回写 `decisions.md`
+
 
 ### 阶段完成验证协议
 
-**触发器：** 完成某个阶段的最后一个任务后立即执行
-**执行条件：** 仅当该 `<phase>` 下存在 `<confirm protocol="yield-human-confirm" .../>` 或 `<confirm protocol="yield-ai-confirm" .../>` 且 when 包含 `after`（见 `codument/std/protocols.md`）
+**触发器（严格）：** 仅当某个阶段的最后一个任务完成，且该 `<phase>` 下存在 `<confirm protocol="yield-human-confirm" .../>` 或 `<confirm protocol="yield-gap-loop" .../>` 且 `when` 包含 `after`（或 `both`）时，才执行本协议。
+**否则：** 不要执行本协议，不要等待用户反馈，直接进入下一阶段。
 
 1. **宣布协议开始：** 通知用户阶段已完成，验证和检查点协议开始
 
@@ -107,8 +117,8 @@
    - 生成分步验证计划，包括命令和预期结果
 
 5. **等待用户反馈：**
-   - 请求确认："这是否符合预期？请用 yes 确认或提供反馈。"（使用 **Protocol: ask-single-question-free**）
-   - 等待用户响应
+   - 若协议为 `yield-human-confirm`：请求确认："这是否符合预期？请回复 'yes' 确认，或直接给出需要修改的反馈点。"（必须使用 **ask-single-question-free**；如支持则用 ToolCall 发起该问题）
+   - 若协议为 `yield-gap-loop`：不要在当前 agent 内继续修正；当前 agent 结束并把控制权交回父层，由父层 fresh-spawn 新的 gap-loop 子代理或等价的 fresh child context
 
 6. **创建检查点提交：**
    - 暂存所有更改
@@ -195,6 +205,54 @@ git commit -m "test(utils): Add tests for parseTaskDetails function"
 - 记录经验教训
 - 优化用户满意度
 - 保持简单和可维护
+
+## 波次执行工作流
+
+当 plan.xml 中 `<execution_mode>` 为 `wave` 时，使用波次执行工作流替代标准顺序执行。
+
+### 核心模型
+
+- **阶段（Phase）严格串行**：P1 完成后才能开始 P2
+- **波次（Wave）DAG 并行**：同一阶段内的波次按依赖关系组成有向无环图（DAG），无依赖的波次可并行执行
+- **波次标签格式**：`WAVE-P{n}-{序号}`（如 `WAVE-P1-01`、`WAVE-P2-03`）
+- **wave 属性在 task 级别**：每个 task 通过 `wave="WAVE-P1-01"` 声明所属波次
+- **波次依赖声明**：在 `<phase>` 内通过 `<waves><wave id="..." depends_on="..."/></waves>` 声明 DAG
+
+### 波次执行流程
+
+1. **讨论阶段**（`/codument:discuss`）
+   - 针对当前阶段进行深度讨论
+   - 生成 `context.md` 记录讨论结论和上下文
+
+2. **波次规划**（`/codument:plan-wave`）
+   - 分析任务间的依赖关系
+   - 将任务分配到波次，构建 DAG
+   - 更新 plan.xml 中的 `<waves>` 和 task 的 `wave` 属性
+
+3. **波次执行**（`/codument:execute-wave`）
+   - 按拓扑排序确定波次执行顺序
+   - 同一波次内的任务通过 `Task()` 分派给子代理并行执行
+   - 每个子代理获得独立的 200k 上下文窗口
+   - 编排器保持轻量（~10-15% 上下文），通过 `state.md` 传递跨波次知识
+   - 支持指定单个阶段执行：`/codument:execute-wave <track-id> P2`
+
+4. **独立验证**（`/codument:verify`）
+   - 启动独立验证子代理
+   - 目标倒推验证：从目标出发，逐层验证实现
+   - 三级验证：存在性 → 实质性 → 连通性
+
+### 波次执行状态追踪
+
+波次执行过程中维护以下文件：
+- `state.md`：当前执行状态、已完成波次、跨波次知识摘要
+- `phases/P{n}/index.md`：阶段级产出汇总
+- `waves/WAVE-P{n}-{序号}/index.md`：波次级产出详情
+
+### 上下文工程
+
+- `<context_files>` 替代旧的 `<references>` 标签，声明阶段级上下文文件
+- 编排器在分派任务时，将 `context_files` + `state.md` 摘要注入子代理上下文
+- 子任务可通过 `<detail_ref>` 链接到外部详情文件
 
 ## 其他项目级workflow
 请阅读 `codument/workflows/` 目录下的更多文件，了解更多的本项目专属工作流

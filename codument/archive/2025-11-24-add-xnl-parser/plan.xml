@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>add-xnl-parser</track_id>
+    <track_name>XNL Parser Package</track_name>
+    <goal>Convert archived OpenSpec change add-xnl-parser into Codument archive format.</goal>
+    <created_at>2025-11-24T00:00:00Z</created_at>
+    <updated_at>2025-11-24T00:00:00Z</updated_at>
+    <status>completed</status>
+    <type>migration</type>
+    <commit_mode>manual</commit_mode>
+    <validation_mode>yield-human-confirm</validation_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Implementation">
+      <goal>Implementation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T1.1" name="Define public parse API and AST/type definitions (aligning with XNL content types)." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Define public parse API and AST/type definitions (aligning with XNL content types).</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.2" name="Implement parsing of nodes and bodies for `{&gt;`, `[&gt;`, `{[&gt;`, `(&gt;`, and `&gt;` blocks with structural validation." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.2-AC1" checked="true">Implement parsing of nodes and bodies for `{&gt;`, `[&gt;`, `{[&gt;`, `(&gt;`, and `&gt;` blocks with structural validation.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.3" name="Parse attribute value forms `{ ... }`, `[ ... ]`, `( ... )`, raw blocks, and plain scalars into typed values." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.3-AC1" checked="true">Parse attribute value forms `{ ... }`, `[ ... ]`, `( ... )`, raw blocks, and plain scalars into typed values.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.4" name="Preserve `(&gt;` raw code content verbatim while still enforcing tag pairing." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.4-AC1" checked="true">Preserve `(&gt;` raw code content verbatim while still enforcing tag pairing.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.5" name="Export package entry points and build outputs usable in Node and browser environments with generated `.d.ts`." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.5-AC1" checked="true">Export package entry points and build outputs usable in Node and browser environments with generated `.d.ts`.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.6" name="Add unit tests covering successful parses, error conditions (mismatched tags, duplicate child names, invalid mixes), and attribute parsing." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.6-AC1" checked="true">Add unit tests covering successful parses, error conditions (mismatched tags, duplicate child names, invalid mixes), and attribute parsing.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.7" name="Document the parser API and expected error semantics for initial consumers." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.7-AC1" checked="true">Document the parser API and expected error semantics for initial consumers.</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>

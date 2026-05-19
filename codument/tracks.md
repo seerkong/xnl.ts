@@ -10,4 +10,3 @@
 
 | Track ID | 名称 | 状态 | 创建时间 |
 |----------|------|------|----------|
-| refactor-xnl-metadata-id | Refactor metadata.id handling via xnl.ts metadataIdMode | new | 2026-01-29T05:28:47Z |

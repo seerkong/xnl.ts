@@ -114,38 +114,61 @@ q4: <answer>
 **Message Template (recommended):**
 "Confirm (human) <phase/task> <id>: <name>. When=<before|after>. Summary: <summary>. Continue? (Y/N)"
 
-## Protocol: yield-ai-confirm
-**ID:** yield-ai-confirm
+## Protocol: yield-gap-loop
+**ID:** yield-gap-loop
 
-**Trigger:** A `<confirm protocol="yield-ai-confirm" when="..." ai-agent="..." status="..." />` element exists under the current `<phase>` or `<task>` in plan.xml.
+**Trigger:** A `<confirm protocol="yield-gap-loop" when="..." status="..." />` element exists under the current `<phase>` or `<task>` in plan.xml.
 
 **Attributes:**
 - `when` (required): `before` | `after` | `both`
-- `ai-agent` (required): subagent name to execute the confirmation review
 - `status` (required): `TODO` | `IN_PROGRESS` | `DONE` | `BLOCKED` | `CANCELLED`
 
-**Prompt Requirements (caller MUST include):**
-- `workspace_dir`: absolute path to the workspace root
-- `track_dir`: absolute path to the current track directory
+**Related Metadata:**
+- `<validation_mode>yield-gap-loop</validation_mode>`
+- `<validation_granularity>`: `final_phase` or `every_phase`
+- `<gap_loop_round>`: current round counter, initialized to `0` and incremented by the parent orchestrator before each fresh round
 
 **Behavior:**
-1. Invoke the specified subagent (`ai-agent`) to review intent or completed work.
-2. The prompt MUST pass `workspace_dir` and `track_dir`.
-3. Subagent output MUST be issues-first: blocking issues, then non-blocking issues, then a brief summary.
-4. Apply when logic:
-   - when=before: review intent and plan before executing.
-   - when=after: review completed work before proceeding.
-   - when=both: perform both reviews.
+1. The current execution agent reaches the confirm point and yields control to its parent orchestrator.
+2. If the current execution is embedded in a higher-level orchestration environment that already implements `yield-gap-loop`, that higher-level orchestrator takes precedence as the parent orchestrator.
+3. If the user explicitly invoked `codument:gap-loop` for a track whose `plan.xml` is not yet configured for gap-loop mode, the effective parent orchestrator MUST normalize `plan.xml` before round 1:
+   - set `<validation_mode>yield-gap-loop</validation_mode>`
+   - fill `<validation_granularity>` by preserving the existing phase-confirm coverage when it is clear, otherwise default to `final_phase`
+   - initialize `<gap_loop_round>0</gap_loop_round>` if it is missing
+   - migrate the relevant `<confirm>` protocol(s) to `yield-gap-loop`
+   - add any missing phase-level `yield-gap-loop` confirms required by the final granularity
+4. The effective parent orchestrator MUST start a fresh gap-loop child agent for the relevant track or phase.
+5. The fresh child agent performs one complete round of:
+   - target comparison
+   - gap report generation
+   - optional `plan.xml` / `spec.md` / `design.md` updates
+   - optional first-pass repair
+6. The fresh child agent MUST end by returning only structured XML.
+7. Before starting each fresh round, the parent orchestrator MUST update `<gap_loop_round>` to the next round number.
+8. The parent orchestrator handles the XML result:
+   - `NO_GAP`: mark the current `<confirm>` as `DONE` and continue, unless this was round 1 with no prior gap-loop reports; in that special case, start one more fresh verification round before marking `DONE`
+   - `FIX_APPLIED`: keep the confirm unresolved and start another fresh gap-loop child for recheck
+   - `BLOCKED`: mark the current `<confirm>` as `BLOCKED` and stop for user input
+9. Downstream workers or member agents MUST NOT start a competing nested gap-loop when an upper-layer orchestrator has already claimed ownership of the protocol for the current scope.
+10. Apply when logic:
+   - when=before: run a fresh gap loop before executing the guarded scope
+   - when=after: run a fresh gap loop after completing the guarded scope
+   - when=both: do both
 
 **Status Handling:**
 - Set `status=IN_PROGRESS` when starting a confirm.
-- If no blocking issues, set `status=DONE`.
-- If blocking issues are found, set `status=BLOCKED`, apply changes, then re-run confirm until `status=DONE`.
+- If the gap-loop child returns `NO_GAP`, set `status=DONE` only after any required first-round verification has also passed.
+- If the gap-loop child returns `FIX_APPLIED`, keep the confirm unresolved and re-run with a new child agent.
+- If the gap-loop child returns `BLOCKED`, set `status=BLOCKED`.
 
 **Response Handling:**
-- If blocking issues are found, stop and surface them to the user for direction.
-- If only non-blocking issues (or none), proceed automatically and note risks.
-- If the subagent fails or returns no result, set `status=BLOCKED` and request human confirmation.
+- The gap-loop child must not continue into the next round by itself.
+- Each recheck round must use a fresh child agent or fresh child session.
+- `FIX_APPLIED` is never a stopping condition for the parent orchestrator.
+- If round 1 returns `NO_GAP` and there are no prior gap-loop reports for the current scope, the parent orchestrator must treat that result as provisional and run one more fresh verification round.
+- If an upper-layer orchestration workflow already owns gap-loop for the current scope, lower-layer workers must hand control back to that workflow instead of creating an internal nested loop.
+- If the track was not previously in gap-loop mode, the parent orchestrator must finish normalizing `plan.xml` before it launches round 1.
+- If the child fails or returns malformed / missing XML, set `status=BLOCKED` and request human input.
 
 **Message Template (recommended):**
-"Confirm (ai:<ai-agent>) <phase/task> <id>: <name>. When=<before|after>. Issues-first report: <blocking> / <non-blocking>. Proceeding unless blocking issues."
+"Confirm (gap-loop) <phase/task> <id>: <name>. When=<before|after>. Yield control to parent orchestrator and start a fresh gap-loop child round."

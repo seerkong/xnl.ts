@@ -1,15 +1,32 @@
 {
-  "name": "@xnl/collab-client",
-  "private": true,
-  "version": "0.0.0",
+  "name": "xnl-collab-client",
+  "version": "0.1.0",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean --sourcemap --target es2020",
+    "test": "tsc --noEmit",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@xnl/collab-core": "workspace:*",
-    "@xnl/collab-protocol": "workspace:*",
-    "@xnl/core": "workspace:*"
+    "xnl-collab-core": "workspace:*",
+    "xnl-collab-protocol": "workspace:*",
+    "xnl-core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.2.4",
+    "typescript": "^5.6.3"
   }
 }

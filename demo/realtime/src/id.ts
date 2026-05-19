@@ -1,1 +1,1 @@
-export { makeId, ulid } from "@xnl/collab-core";
+export { makeId, ulid } from "xnl-collab-core";

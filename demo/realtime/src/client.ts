@@ -1,5 +1,5 @@
-import { createPeerClient, type PeerClient } from "@xnl/collab-client";
-import { XNL, parseXnl, isWord, wordToString, type DataElementNode, type TextElementNode, type XnlMutation } from "@xnl/core";
+import { createPeerClient, type PeerClient } from "xnl-collab-client";
+import { XNL, parseXnl, isWord, wordToString, type DataElementNode, type TextElementNode, type XnlMutation } from "xnl-core";
 import { type ServerToClientMessage, type VersionId, type VersionSummary } from "./shared-protocol";
 
 function requireElement(id: string): HTMLElement {

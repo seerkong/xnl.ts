@@ -5,13 +5,13 @@ Node + browser-friendly parser for the XNL (Extensible Notation Language) format
 ## Install
 
 ```bash
-npm install @xnl/core
+npm install xnl-core
 ```
 
 ## Usage
 
 ```ts
-import { XNL, parseXnl, stringify } from "@xnl/core";
+import { XNL, parseXnl, stringify } from "xnl-core";
 
 // Parse many
 const { nodes, warnings } = XNL.parseMany(`<item a=1 { b = 2 } [ 3 4 ]>`);
@@ -56,7 +56,7 @@ Errors are thrown as `XnlParseError` with `code`, line/column, and tag/marker co
 Example:
 
 ```ts
-import { parseXnl, XnlParseError } from "@xnl/core";
+import { parseXnl, XnlParseError } from "xnl-core";
 
 try {
   parseXnl("<wrap ( <a> <a> )>");

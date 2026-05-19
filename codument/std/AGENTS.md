@@ -12,6 +12,11 @@
 - 验证：`codument validate [track-id] --strict`
 - 等待批准：提案获批前不要开始实现
 
+### 外部 CLI validate 回退规则
+
+- 当提示词要求运行外部 `codument validate ...` 命令时，如果当前系统中找不到 `codument` 可执行命令，则可跳过这个外部 CLI validate 步骤，不要因此阻塞当前工作流。
+- 跳过时需要在输出中明确说明：外部 `codument validate` 未执行，原因是系统中找不到 `codument` 命令。
+
 ## 工作阶段
 
 ### 阶段一：创建变更追踪
@@ -39,7 +44,7 @@
 6. 编写 `proposal.md` 说明背景和动机、变更什么、“要做”和“不做”、 变更内容、影响范围
 7. 按需编写 `design.md` 说明上下文、方案概览、影响范围与修改点、决策、风险/权衡、兼容性设计、迁移计划、待解决问题
 8. 编写 `plan.xml` 结构化任务清单
-9. 运行 `codument validate <id> --strict` 验证后再提交审批
+9. 尝试运行 `codument validate <id> --strict` 验证后再提交审批；如果系统找不到 `codument` 命令，可跳过该外部 CLI validate 步骤，并明确说明已跳过
 
 ### 阶段二：实现变更
 
@@ -58,7 +63,7 @@
 部署后，创建归档：
 - 将 `tracks/[id]/` 移动到 `archive/YYYY-MM-DD-[id]/`
 - 如果能力发生变化，更新 `specs/`
-- 运行 `codument validate --strict` 确认归档的变更通过检查
+- 尝试运行 `codument validate --strict` 确认归档的变更通过检查；如果系统找不到 `codument` 命令，可跳过该外部 CLI validate 步骤，并明确说明已跳过
 
 ## 开始任何任务前
 
@@ -74,7 +79,7 @@
 - 始终检查能力是否已存在
 - 优先修改现有规范而不是创建重复
 - 使用 `codument show [spec]` 审查当前状态
-- 如果需求模糊，先问 1-2 个澄清问题再动手（使用 **Protocol: ask-single-question-free** 或 **Protocol: ask-multi-question-free**）
+- 如果需求模糊，先问 1-2 个澄清问题再动手（使用 **ask-single-question-free** 或 **ask-multi-question-free**）
 
 ## CLI 命令
 
@@ -88,7 +93,16 @@ codument archive <track-id>    # 归档已完成的变更
 
 # 项目管理
 codument init [path]           # 初始化 Codument
+codument upgrade-workspace      # 升级工作区内置标准文件与命令
+codument upgrade-track <id>     # 升级单个 track 到支持波次的新版本
 codument status                # 查看项目状态
+
+# 波次执行命令
+/codument:discuss <track-id>    # 阶段级讨论，生成 context.md
+/codument:plan-wave <track-id>  # 规划波次 DAG，更新 plan.xml
+/codument:execute-wave <track-id> [phase]  # 按波次 DAG 执行任务
+/codument:gap-loop <track-id> [--background <path>]... [--phase <phase-id>]  # fresh agent gap 分析与修正闭环
+/codument:verify <track-id>     # 独立验证子代理模式
 
 # 调试
 codument show [track] --json
@@ -101,8 +115,6 @@ codument validate [track] --strict
 - `--type track|spec` - 消除歧义
 - `--strict` - 全面验证
 - `--yes`/`-y` - 跳过确认提示
-
-## 目录结构
 
 ## 目录结构
 
@@ -119,10 +131,22 @@ codument/
 │       └── design.md       # 技术设计（可选）
 ├── tracks/                 # 变更追踪 - 待实现的变更
 │   └── [track-id]/
+│       ├── analysis/       # 创建/规划阶段 analysis 产物（planning-with-files 外部记忆）
+│       │   ├── findings.md    # 分析中直接找到的事实、约束、问题与结论
+│       │   └── knowledge.md   # 阅读后沉淀出的知识上下文、术语与机制理解
 │       ├── proposal.md     # 为什么、是什么、影响
 │       ├── spec.md         # 规范增量（ADDED/MODIFIED/REMOVED）
-│       ├── plan.xml       # 结构化任务清单
-│       └── design.md       # 技术决策（可选）
+│       ├── plan.xml        # 结构化任务清单
+│       ├── decisions.md    # 决策问题、选项、结论与理由（需要决策时创建）
+│       ├── design.md       # 技术决策（可选）
+│       ├── context.md      # 波次执行上下文（波次模式）
+│       ├── state.md        # 波次执行状态追踪（波次模式）
+│       ├── phases/         # 阶段级产出（波次模式）
+│       │   └── P{n}/
+│       │       └── index.md
+│       └── waves/          # 波次级产出（波次模式）
+│           └── WAVE-P{n}-{序号}/
+│               └── index.md
 └── archive/                # 已完成的变更
     └── YYYY-MM-DD-[id]/
 ```
@@ -194,6 +218,8 @@ codument/
 ```
 
 4. **编写 plan.xml：**
+
+顺序执行模式（默认）：
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <plan>
@@ -211,11 +237,48 @@ codument/
       <goal>搭建认证基础架构</goal>
       <tasks>
         <task id="T1.1" name="创建用户数据模型" status="TODO" priority="P0">
-          定义 User 模型结构并实现基本 CRUD 操作
+          <description>定义 User 模型结构并实现基本 CRUD 操作</description>
           <subtasks>
             <subtask id="T1.1.1" name="编写测试用例" status="TODO"/>
             <subtask id="T1.1.2" name="实现 User 模型" status="TODO"/>
           </subtasks>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>
+```
+
+波次执行模式（DAG 并行）：
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>add-wave-feature</track_id>
+    <track_name>添加波次功能</track_name>
+    <goal>实现波次并行执行</goal>
+    <created_at>2026-01-01</created_at>
+    <status>new</status>
+    <commit_mode>auto</commit_mode>
+    <execution_mode>wave</execution_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="基础设施">
+      <goal>搭建基础架构</goal>
+      <context_files>
+        <file>src/core/index.ts</file>
+      </context_files>
+      <waves>
+        <wave id="WAVE-P1-01" depends_on=""/>
+        <wave id="WAVE-P1-02" depends_on="WAVE-P1-01"/>
+      </waves>
+      <tasks>
+        <task id="T1.1" name="创建数据模型" status="TODO" priority="P0" wave="WAVE-P1-01">
+          <description>定义模型结构</description>
+        </task>
+        <task id="T1.2" name="创建 API 路由" status="TODO" priority="P0" wave="WAVE-P1-02">
+          <description>实现 REST API</description>
         </task>
       </tasks>
     </phase>
@@ -240,9 +303,9 @@ codument/
 - 目标：[...]
 - 非目标：[...]
 
-## 决策
-- 决策：[是什么以及为什么]
-- 备选方案：[考虑过的选项及理由]
+## 决策摘要
+- 详见 `decisions.md`
+- 已确认的关键决策：[...]
 
 ## 风险 / 权衡
 - [风险] → 缓解措施
@@ -378,7 +441,7 @@ codument show [track] --json
 1. 首先阅读 project.md 和 product.md
 2. 检查相关规范
 3. 查看最近的归档
-4. 请求澄清（使用 **Protocol: ask-single-question-free** 或 **Protocol: ask-multi-question-free**）
+4. 请求澄清（使用 **ask-single-question-free** 或 **ask-multi-question-free**）
 
 ## 快速参考
 
@@ -388,10 +451,14 @@ codument show [track] --json
 - `archive/` - 已完成的变更
 
 ### 文件用途
+- `analysis/` - track 分析阶段的持久化上下文（findings/knowledge）；用于记录“找到的内容 / 关键发现 / 知识上下文”，避免长对话或多轮工具调用导致关键信息丢失；不引用 `.` 开头隐藏目录的文件
 - `proposal.md` - 为什么和是什么
 - `plan.xml` - 结构化实现步骤
-- `design.md` - 技术决策
+- `decisions.md` - 决策问题、选项、用户答复、最终结论与理由
+- `design.md` - 方案设计与决策摘要
 - `spec.md` - 需求和行为
+- `context.md` - 波次执行上下文（波次模式）
+- `state.md` - 波次执行状态追踪（波次模式）
 
 ### CLI 精要
 ```bash
@@ -399,6 +466,13 @@ codument list              # 正在进行什么？
 codument show [item]       # 查看详情
 codument validate --strict # 正确吗？
 codument archive <id>      # 标记完成
+
+# 波次执行
+/codument:discuss <id>      # 阶段讨论
+/codument:plan-wave <id>    # 规划波次 DAG
+/codument:execute-wave <id> # 执行波次
+/codument:gap-loop <id>     # fresh agent gap 分析与修正
+/codument:verify <id>       # 独立验证
 ```
 
 记住：规范是真相，变更追踪是提案。保持同步。
@@ -410,7 +484,7 @@ codument archive <id>      # 标记完成
 在开始任何 track 实现时，首先检查是否存在中断状态：
 
 1. **检查 plan.xml**：查找状态为 `IN_PROGRESS` 的任务
-2. **检查 tracks.md**：查找状态为 `[~]` 的 track
+2. **检查 track metadata**：扫描 `codument/tracks/` 并查找 plan.xml metadata.status 为 `in_progress` 的 track
 3. **检查 state.json**：查找保存的恢复点
 
 ### 恢复流程
@@ -427,7 +501,7 @@ codument archive <id>      # 标记完成
 > B. 重新开始当前任务
 > C. 跳过当前任务，继续下一个
 > D. 从头开始整个 Track"
-（使用 **Protocol: ask-single-question-closed**）
+（使用 **ask-single-question-closed**）
 
 
 ### 保存恢复点
@@ -461,24 +535,23 @@ Codument 使用三层确认机制确保重要决策得到用户认可：
 #### 第一层：规范确认
 
 在创建 track 时：
-1. **spec.md 确认**：展示起草的规范，等待用户确认或修改（使用 **Protocol: ask-single-question-free**）
-2. **plan.xml 确认**：展示任务计划，等待用户确认或修改（使用 **Protocol: ask-single-question-free**）
-3. **提交模式确认**：询问用户选择 auto 或 manual 模式（使用 **Protocol: ask-single-question-closed**）
+1. **spec.md 确认**：展示起草的规范，等待用户确认或修改（使用 **ask-single-question-free**）
+2. **plan.xml + 模式确认**：在同一轮交互中确认任务计划，并选择提交模式（auto/manual）与校验模式（`yield-human-confirm` 或 `yield-gap-loop`）；仅在 `yield-gap-loop` 下继续选择粒度（使用 **ask-single-question-free**）
 
 #### 第二层：阶段/任务确认（可配置）
 
 在实现过程中：
-1. **阶段完成确认**：仅当 `<phase>` 下存在 `<confirm protocol="yield-human-confirm" .../>` 或 `<confirm protocol="yield-ai-confirm" .../>` 且 when 包含 `after`
+1. **阶段完成确认**：仅当 `<phase>` 下存在 `<confirm protocol="yield-human-confirm" .../>` 或 `<confirm protocol="yield-gap-loop" .../>` 且 when 包含 `after`
 2. **任务执行前确认**：仅当 `<task>` 下存在 `<confirm ... when="before"/>` 或 `when="both"`
 3. **任务执行后确认**：仅当 `<task>` 下存在 `<confirm ... when="after"/>` 或 `when="both"`
-4. **确认行为**：见 `codument/std/protocols.md`（必须更新 `<confirm>` 的 `status`；未通过需修复并重复 review 直到 `DONE`）
+4. **确认行为**：见 `codument/std/protocols.md`（必须更新 `<confirm>` 的 `status`；`yield-gap-loop` 必须由父层 fresh-spawn 新子代理完成每一轮复检）
 
 #### 第三层：项目文档确认
 
 在 track 完成后：
-1. **product.md 更新确认**：如需更新，展示 diff 等待确认（使用 **Protocol: ask-single-question-closed**）
-2. **project.md 更新确认**：如需更新，展示 diff 等待确认（使用 **Protocol: ask-single-question-closed**）
-3. **归档/删除确认**：询问用户选择处理方式（使用 **Protocol: ask-single-question-closed**）
+1. **product.md 更新确认**：如需更新，展示 diff 等待确认（使用 **ask-single-question-closed**）
+2. **project.md 更新确认**：如需更新，展示 diff 等待确认（使用 **ask-single-question-closed**）
+3. **归档/删除确认**：询问用户选择处理方式（使用 **ask-single-question-closed**）
 
 ### 确认原则
 
@@ -487,4 +560,3 @@ Codument 使用三层确认机制确保重要决策得到用户认可：
 3. **展示影响**：在确认前展示操作的影响范围
 4. **允许修改**：用户可以要求修改而非简单确认
 5. **记录决策**：重要决策记录在相关文件中
-

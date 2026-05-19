@@ -10,4 +10,4 @@ export {
   type VersionId,
   type VersionKind,
   type VersionSummary,
-} from "@xnl/collab-protocol";
+} from "xnl-collab-protocol";

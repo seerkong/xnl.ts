@@ -8,7 +8,7 @@ import {
   type TextElementNode,
   type XnlMutation,
   type XnlNode,
-} from "@xnl/core";
+} from "xnl-core";
 import {
   isClientToServerMessage,
   jsonParseMessage,
@@ -16,8 +16,8 @@ import {
   type ClientToServerMessage,
   type ServerToClientMessage,
   type VersionId,
-} from "@xnl/collab-protocol";
-import { ulid } from "@xnl/collab-core";
+} from "xnl-collab-protocol";
+import { ulid } from "xnl-collab-core";
 
 export type PeerClientStatus = "disconnected" | "connecting" | "connected";
 

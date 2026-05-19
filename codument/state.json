@@ -3,9 +3,13 @@
   "current_phase": "P1",
   "current_task": "T1.1",
   "last_action": "track_created",
-  "timestamp": "2026-01-29T05:28:47Z",
+  "timestamp": "2026-05-17T15:31:42.417Z",
   "commit_mode": "auto",
   "cli_tools": [
+    "claude",
+    "codex",
+    "eidolon",
+    "sparrow",
     "opencode"
   ],
   "last_successful_step": "2.2_track_dir"

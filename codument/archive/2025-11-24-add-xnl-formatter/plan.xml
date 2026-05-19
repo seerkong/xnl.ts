@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>add-xnl-formatter</track_id>
+    <track_name>Add XNL formatter and unified XNL API</track_name>
+    <goal>Convert archived OpenSpec change add-xnl-formatter into Codument archive format.</goal>
+    <created_at>2025-11-24T00:00:00Z</created_at>
+    <updated_at>2025-11-24T00:00:00Z</updated_at>
+    <status>completed</status>
+    <type>migration</type>
+    <commit_mode>manual</commit_mode>
+    <validation_mode>yield-human-confirm</validation_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Implementation">
+      <goal>Implementation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T1.1" name="Design formatting rules (indentation, spacing, attribute ordering, raw/text preservation) aligned with XNL grammar." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Design formatting rules (indentation, spacing, attribute ordering, raw/text preservation) aligned with XNL grammar.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.2" name="Implement `XNL.stringify` supporting default single-line and configurable pretty output (indent/spacing options)." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.2-AC1" checked="true">Implement `XNL.stringify` supporting default single-line and configurable pretty output (indent/spacing options).</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.3" name="Add `XNL.parseMulti`, `XNL.parseSingle`, and `XNL.parseUnique` wrappers that delegate to existing parse helpers and return warnings." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.3-AC1" checked="true">Add `XNL.parseMulti`, `XNL.parseSingle`, and `XNL.parseUnique` wrappers that delegate to existing parse helpers and return warnings.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.4" name="Export new APIs from package entry points and update README/examples." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.4-AC1" checked="true">Export new APIs from package entry points and update README/examples.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.5" name="Add tests for stringify (compact and pretty) and XNL.* parse wrappers." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.5-AC1" checked="true">Add tests for stringify (compact and pretty) and XNL.* parse wrappers.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.6" name="Ensure `npm run build` and `npm run test` pass." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.6-AC1" checked="true">Ensure `npm run build` and `npm run test` pass.</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>

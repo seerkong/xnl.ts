@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>improve-xnl-error-messages</track_id>
+    <track_name>improve parser error messaging</track_name>
+    <goal>Convert archived OpenSpec change improve-xnl-error-messages into Codument archive format.</goal>
+    <created_at>2025-11-29T00:00:00Z</created_at>
+    <updated_at>2025-11-29T00:00:00Z</updated_at>
+    <status>completed</status>
+    <type>migration</type>
+    <commit_mode>manual</commit_mode>
+    <validation_mode>yield-human-confirm</validation_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Specification">
+      <goal>Specification tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T1.1" name="Update xnl-parser spec with detailed error messaging requirements and scenarios" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Update xnl-parser spec with detailed error messaging requirements and scenarios</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="Design">
+      <goal>Design tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T2.1" name="Outline error reporting strategy (context strings, tag names, position mapping) in design.md" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.1-AC1" checked="true">Outline error reporting strategy (context strings, tag names, position mapping) in design.md</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P3" name="Implementation">
+      <goal>Implementation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T3.1" name="Enhance parser to attach offending tag/token info in XnlParseError messages and codes" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T3.1-AC1" checked="true">Enhance parser to attach offending tag/token info in XnlParseError messages and codes</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T3.2" name="Add tests covering common syntax failures and expected messages" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T3.2-AC1" checked="true">Add tests covering common syntax failures and expected messages</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T3.3" name="Refresh docs/readme snippets for new error detail" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T3.3-AC1" checked="true">Refresh docs/readme snippets for new error detail</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P4" name="Validation">
+      <goal>Validation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T4.1" name="Run `npm test`" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T4.1-AC1" checked="true">Run `npm test`</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T4.2" name="Run `npm run build`" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T4.2-AC1" checked="true">Run `npm run build`</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>

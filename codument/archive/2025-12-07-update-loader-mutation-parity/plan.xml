@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>update-loader-mutation-parity</track_id>
+    <track_name>Align loader and mutation with dslsuite parity</track_name>
+    <goal>Convert archived OpenSpec change update-loader-mutation-parity into Codument archive format.</goal>
+    <created_at>2025-12-07T00:00:00Z</created_at>
+    <updated_at>2025-12-07T00:00:00Z</updated_at>
+    <status>completed</status>
+    <type>migration</type>
+    <commit_mode>manual</commit_mode>
+    <validation_mode>yield-human-confirm</validation_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Implementation">
+      <goal>Implementation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T1.1" name="Update xnl-loader spec to cover typed/scoped prefabs and remove markers; update xnl-mutation spec for move detection/fields." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Update xnl-loader spec to cover typed/scoped prefabs and remove markers; update xnl-mutation spec for move detection/fields.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.2" name="Implement loader prefab lookup/merge with `&lt;delta remove=true&gt;` handling for map/array entries and scoped typed prefabs." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.2-AC1" checked="true">Implement loader prefab lookup/merge with `&lt;delta remove=true&gt;` handling for map/array entries and scoped typed prefabs.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.3" name="Extend mutation model/diff/apply to emit/handle move mutations using `metadata.id`, including dslsuite-style metadata fields." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.3-AC1" checked="true">Extend mutation model/diff/apply to emit/handle move mutations using `metadata.id`, including dslsuite-style metadata fields.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.4" name="Add/align tests and fixtures mirroring dslsuite loader/mutation cases." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.4-AC1" checked="true">Add/align tests and fixtures mirroring dslsuite loader/mutation cases.</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="Validation">
+      <goal>Validation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T2.1" name="Run `npm run build`." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.1-AC1" checked="true">Run `npm run build`.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T2.2" name="Run `npm test`. (fails in this environment: `crypto.getRandomValues is not a function`)" status="TODO" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.2-AC1" checked="false">Run `npm test`. (fails in this environment: `crypto.getRandomValues is not a function`)</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>

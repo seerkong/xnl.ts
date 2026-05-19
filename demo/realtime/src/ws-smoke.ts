@@ -1,4 +1,4 @@
-import { diffNodes, isWord, parseXnl, wordToString, type DataElementNode, XNL } from "@xnl/core";
+import { diffNodes, isWord, parseXnl, wordToString, type DataElementNode, XNL } from "xnl-core";
 import {
   jsonParseMessage,
   jsonStringifyMessage,

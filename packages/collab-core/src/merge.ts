@@ -11,7 +11,7 @@ import {
   type XnlMutation,
   type XnlWord,
   wordToString,
-} from "@xnl/core";
+} from "xnl-core";
 import { diffChars } from "diff";
 import { makeId } from "./id";
 

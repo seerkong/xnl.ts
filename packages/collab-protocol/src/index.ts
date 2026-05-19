@@ -1,4 +1,4 @@
-import type { XnlMutation } from "@xnl/core";
+import type { XnlMutation } from "xnl-core";
 
 export type DocId = string;
 export type ClientId = string;

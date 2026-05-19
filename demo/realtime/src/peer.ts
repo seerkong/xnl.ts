@@ -1,4 +1,4 @@
-import { createPeerClient } from "@xnl/collab-client";
+import { createPeerClient } from "xnl-collab-client";
 
 function requireElement(id: string): HTMLElement {
   const el = document.getElementById(id);

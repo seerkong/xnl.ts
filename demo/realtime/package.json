@@ -1,19 +1,23 @@
 {
-  "name": "@xnl/collab-demo",
+  "name": "xnl-collab-demo",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run src/server.ts",
+    "dev-bun": "bun run src/server.ts",
+    "dev-elysia": "bun run src/server-elysia.ts",
     "build": "bun build src/client.ts --outfile public/app.js && bun build src/peer.ts --outfile public/peer.js",
     "smoke:ws": "bun run src/ws-smoke.ts"
   },
   "dependencies": {
-    "@xnl/collab-client": "workspace:*",
-    "@xnl/collab-core": "workspace:*",
-    "@xnl/collab-protocol": "workspace:*",
-    "@xnl/collab-server-bun": "workspace:*",
+    "xnl-collab-client": "workspace:*",
+    "xnl-collab-core": "workspace:*",
+    "xnl-collab-protocol": "workspace:*",
+    "xnl-collab-server-bun": "workspace:*",
+    "xnl-collab-server-elysia": "workspace:*",
     "diff": "8.0.3",
-    "@xnl/core": "workspace:*"
+    "xnl-core": "workspace:*",
+    "@sinclair/typebox": "^0.34.15",
+    "elysia": "^1.2.12"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

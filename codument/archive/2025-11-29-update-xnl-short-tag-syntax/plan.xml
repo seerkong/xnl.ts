@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>update-xnl-short-tag-syntax</track_id>
+    <track_name>Short-tag XNL syntax</track_name>
+    <goal>Convert archived OpenSpec change update-xnl-short-tag-syntax into Codument archive format.</goal>
+    <created_at>2025-11-29T00:00:00Z</created_at>
+    <updated_at>2025-11-29T00:00:00Z</updated_at>
+    <status>completed</status>
+    <type>migration</type>
+    <commit_mode>manual</commit_mode>
+    <validation_mode>yield-human-confirm</validation_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Specification and design">
+      <goal>Specification and design tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T1.1" name="Finalize short-tag grammar and AST shape in design.md" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Finalize short-tag grammar and AST shape in design.md</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.2" name="Update spec deltas for xnl-parser and xnl-formatter" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.2-AC1" checked="true">Update spec deltas for xnl-parser and xnl-formatter</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="Implementation">
+      <goal>Implementation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T2.1" name="Update types to new node sections (metadata/attributes/body/extend/text) and value literal rules" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.1-AC1" checked="true">Update types to new node sections (metadata/attributes/body/extend/text) and value literal rules</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T2.2" name="Rework parser to new delimiters, inline metadata parsing, extend uniqueness, and text markers" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.2-AC1" checked="true">Rework parser to new delimiters, inline metadata parsing, extend uniqueness, and text markers</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T2.3" name="Adjust formatter to emit new short-tag syntax for all sections and text blocks" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.3-AC1" checked="true">Adjust formatter to emit new short-tag syntax for all sections and text blocks</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T2.4" name="Update documentation and examples to match new syntax" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.4-AC1" checked="true">Update documentation and examples to match new syntax</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P3" name="Verification">
+      <goal>Verification tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T3.1" name="Add/adjust tests for parser, formatter, and sample conversions" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T3.1-AC1" checked="true">Add/adjust tests for parser, formatter, and sample conversions</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T3.2" name="Run `npm run test` and `npm run build`" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T3.2-AC1" checked="true">Run `npm run test` and `npm run build`</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>update-xnl-parse-many</track_id>
+    <track_name>Rename parseMulti to parseMany and update API/docs</track_name>
+    <goal>Convert archived OpenSpec change update-xnl-parse-many into Codument archive format.</goal>
+    <created_at>2025-11-24T00:00:00Z</created_at>
+    <updated_at>2025-11-24T00:00:00Z</updated_at>
+    <status>completed</status>
+    <type>migration</type>
+    <commit_mode>manual</commit_mode>
+    <validation_mode>yield-human-confirm</validation_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Implementation">
+      <goal>Implementation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T1.1" name="Update XNL namespace to expose `parseMany` instead of `parseMulti`." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Update XNL namespace to expose `parseMany` instead of `parseMulti`.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.2" name="Adjust specs, README, and examples to reference `parseMany`." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.2-AC1" checked="true">Adjust specs, README, and examples to reference `parseMany`.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.3" name="Update tests to use the new name and ensure coverage remains intact." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.3-AC1" checked="true">Update tests to use the new name and ensure coverage remains intact.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.4" name="Run `npm run build` and `npm run test` to confirm the rename is clean." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.4-AC1" checked="true">Run `npm run build` and `npm run test` to confirm the rename is clean.</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>

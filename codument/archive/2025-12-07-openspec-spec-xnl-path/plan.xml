@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>openspec-spec-xnl-path</track_id>
+    <track_name>Archive OpenSpec xnl-path specification snapshot</track_name>
+    <goal>Preserve the current OpenSpec xnl-path capability specification as an archived Codument track.</goal>
+    <created_at>2025-12-07T00:00:00Z</created_at>
+    <updated_at>2025-12-07T00:00:00Z</updated_at>
+    <status>completed</status>
+    <type>migration</type>
+    <commit_mode>manual</commit_mode>
+    <validation_mode>yield-human-confirm</validation_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Specification snapshot">
+      <goal>Convert current OpenSpec capability spec to Codument archive format.</goal>
+      <tasks>
+        <task id="T1.1" name="Archive xnl-path OpenSpec spec snapshot" status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Current xnl-path spec content is preserved in spec.md</criterion>
+            <criterion id="T1.1-AC2" checked="true">Archive directory date uses the latest OpenSpec archived change date for this capability</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>

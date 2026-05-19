@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { createRealtimeBunServer, type RealtimeWSData } from "@xnl/collab-server-bun";
+import { createRealtimeBunServer, type RealtimeWSData } from "xnl-collab-server-bun";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const PUBLIC_DIR = join(import.meta.dir, "..", "public");
@@ -54,4 +54,4 @@ const server = Bun.serve<RealtimeWSData>({
   },
 });
 
-console.log(`@xnl/collab-demo server listening on http://localhost:${server.port}`);
+console.log(`xnl-collab-demo server listening on http://localhost:${server.port}`);

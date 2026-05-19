@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>add-xnl-path-mutation-loader</track_id>
+    <track_name>Add XNL path/mutation/loader protocols</track_name>
+    <goal>Convert archived OpenSpec change add-xnl-path-mutation-loader into Codument archive format.</goal>
+    <created_at>2025-12-07T00:00:00Z</created_at>
+    <updated_at>2025-12-07T00:00:00Z</updated_at>
+    <status>completed</status>
+    <type>migration</type>
+    <commit_mode>manual</commit_mode>
+    <validation_mode>yield-human-confirm</validation_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Path protocol">
+      <goal>Path protocol tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T1.1" name="Implement XNL path parser/resolver covering metadata/attributes/body/extend nodes." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Implement XNL path parser/resolver covering metadata/attributes/body/extend nodes.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.2" name="Add unit tests for path parsing/resolution (maps, arrays, extend children, missing paths)." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.2-AC1" checked="true">Add unit tests for path parsing/resolution (maps, arrays, extend children, missing paths).</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="Mutation protocol">
+      <goal>Mutation protocol tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T2.1" name="Define mutation data shapes (types/enums) scoped to XNL nodes and supported path item types." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.1-AC1" checked="true">Define mutation data shapes (types/enums) scoped to XNL nodes and supported path item types.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T2.2" name="Implement mutation apply helpers for object/array/extend/text/body updates using the path protocol." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.2-AC1" checked="true">Implement mutation apply helpers for object/array/extend/text/body updates using the path protocol.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T2.3" name="Implement diffing for two XNL roots (same kind) to produce mutation lists; cover adds/updates/deletes/moves relevant to XNL structures." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.3-AC1" checked="true">Implement diffing for two XNL roots (same kind) to produce mutation lists; cover adds/updates/deletes/moves relevant to XNL structures.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T2.4" name="Add mutation protocol tests using `.xnl` fixtures for apply and diff." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.4-AC1" checked="true">Add mutation protocol tests using `.xnl` fixtures for apply and diff.</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P3" name="Dataloader protocol">
+      <goal>Dataloader protocol tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T3.1" name="Implement prototype resolution using metadata system fields (proto/extendType/export/remove) on `DataElementNode` with Prefabs-style storage." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T3.1-AC1" checked="true">Implement prototype resolution using metadata system fields (proto/extendType/export/remove) on `DataElementNode` with Prefabs-style storage.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T3.2" name="Support batch transform/export map APIs and ensure system metadata is cleaned after resolution." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T3.2-AC1" checked="true">Support batch transform/export map APIs and ensure system metadata is cleaned after resolution.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T3.3" name="Add dataloader tests with `.xnl` fixtures covering proto overrides, removals, and exports." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T3.3-AC1" checked="true">Add dataloader tests with `.xnl` fixtures covering proto overrides, removals, and exports.</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P4" name="Wiring and validation">
+      <goal>Wiring and validation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T4.1" name="Expose new path/mutation/loader entry points from the public API and document brief usage." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T4.1-AC1" checked="true">Expose new path/mutation/loader entry points from the public API and document brief usage.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T4.2" name="Add required fixtures under `tests/resources`." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T4.2-AC1" checked="true">Add required fixtures under `tests/resources`.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T4.3" name="Run `npm run build` and `npm run test` to validate." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T4.3-AC1" checked="true">Run `npm run build` and `npm run test` to validate.</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>

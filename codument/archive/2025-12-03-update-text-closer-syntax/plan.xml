@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plan>
+  <metadata>
+    <track_id>update-text-closer-syntax</track_id>
+    <track_name>Use slash-prefixed text closers `&lt;/#...&gt;`</track_name>
+    <goal>Convert archived OpenSpec change update-text-closer-syntax into Codument archive format.</goal>
+    <created_at>2025-12-03T00:00:00Z</created_at>
+    <updated_at>2025-12-03T00:00:00Z</updated_at>
+    <status>completed</status>
+    <type>migration</type>
+    <commit_mode>manual</commit_mode>
+    <validation_mode>yield-human-confirm</validation_mode>
+  </metadata>
+
+  <phases>
+    <phase id="P1" name="Implementation">
+      <goal>Implementation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T1.1" name="Update xnl-parser spec/EBNF and formatter spec to document slash-prefixed text closers." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.1-AC1" checked="true">Update xnl-parser spec/EBNF and formatter spec to document slash-prefixed text closers.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.2" name="Change parser text-body parsing to require `&lt;/#marker?&gt;`, including error messages/dedent markers." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.2-AC1" checked="true">Change parser text-body parsing to require `&lt;/#marker?&gt;`, including error messages/dedent markers.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.3" name="Update formatter emission and any helpers to output `&lt;/#marker?&gt;` and adjust related tests/fixtures." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.3-AC1" checked="true">Update formatter emission and any helpers to output `&lt;/#marker?&gt;` and adjust related tests/fixtures.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T1.4" name="Refresh parser/formatter unit tests for the new closer syntax and add/adjust coverage for mismatched markers." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T1.4-AC1" checked="true">Refresh parser/formatter unit tests for the new closer syntax and add/adjust coverage for mismatched markers.</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+
+    <phase id="P2" name="Validation">
+      <goal>Validation tasks converted from OpenSpec checklist.</goal>
+      <tasks>
+        <task id="T2.1" name="Run `npm run build`." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.1-AC1" checked="true">Run `npm run build`.</criterion>
+          </acceptance_criteria>
+        </task>
+
+        <task id="T2.2" name="Run `npm test`." status="DONE" priority="P0">
+          <acceptance_criteria>
+            <criterion id="T2.2-AC1" checked="true">Run `npm test`.</criterion>
+          </acceptance_criteria>
+        </task>
+      </tasks>
+    </phase>
+  </phases>
+</plan>
