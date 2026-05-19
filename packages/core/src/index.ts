@@ -1,5 +1,6 @@
 import * as Parser from "./parser";
 import { stringify as xnlStringify } from "./formatter";
+import { stringify as xnlLineBlockStringify } from "./lineBlockFormatter";
 import { parsePath, resolvePath, setPathValue, deleteAtPath } from "./path";
 import { applyMutations, diffNodes } from "./mutation";
 import { loadFromString, resolveNode, batchLoad } from "./loader";
@@ -25,6 +26,7 @@ export type {
 } from "./types";
 export { isWord, wordToString } from "./types";
 export type { PathItem, PathItemType, XnlPath } from "./path";
+export { stringify as stringifyLineBlock } from "./lineBlockFormatter";
 export type { XnlMutation, MutationType, XnlMutationOptions, MetadataIdMode } from "./mutation";
 export {
   parsePath,
@@ -42,6 +44,7 @@ export const XNL = {
   parseSingle: Parser.parseXnlSingleNode,
   parseUnique: Parser.parseUniqueChildren,
   stringify: xnlStringify,
+  stringifyLineBlock: xnlLineBlockStringify,
   path: {
     parse: parsePath,
     resolve: resolvePath,

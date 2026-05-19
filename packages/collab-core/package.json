@@ -1,6 +1,6 @@
 {
   "name": "xnl-collab-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -15,6 +15,10 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:seerkong/xnl.ts.git"
+  },
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean --sourcemap --target es2020",
     "test": "tsc --noEmit",

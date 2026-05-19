@@ -72,6 +72,12 @@ describe("parseXnl", () => {
     expect(() => parseXnl(`<t ( <a> ) ?>hi</?>`)).toThrowError(/text block not allowed with array\/extend/i);
   });
 
+  it("accepts text markers that start with digits", () => {
+    const { nodes } = parseXnl(`<t ?01KT>hi</?01KT>`);
+    expect((nodes[0] as any).textMarker).toBe("01KT");
+    expect((nodes[0] as any).text).toBe("hi");
+  });
+
   it("parses bare identifier literals as words", () => {
     const doc = parseXnl(`<a v=abc.d>`).nodes[0] as any;
     expect(doc.metadata.v.kind).toBe("Word");
@@ -109,4 +115,3 @@ describe("parseXnl", () => {
     expect(warnings).toHaveLength(1);
   });
 });
-

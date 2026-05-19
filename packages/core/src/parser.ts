@@ -405,8 +405,16 @@ function parseWordLiteral(state: ParseState): XnlWord {
 }
 
 function readOptionalMarker(state: ParseState): string | undefined {
-  if (!isIdentifierStart(peek(state))) return undefined;
-  return readIdentifier(state, "Expected marker");
+  if (!isMarkerStart(peek(state))) return undefined;
+  return readMarker(state);
+}
+
+function readMarker(state: ParseState): string {
+  const start = state.pos;
+  while (!eof(state) && isIdentifierChar(state.input[state.pos])) {
+    state.pos++;
+  }
+  return state.input.slice(start, state.pos);
 }
 
 function readKey(state: ParseState, message: string): string {
@@ -543,6 +551,10 @@ function isIdentifierStart(ch: string | undefined): boolean {
 function isIdentifierChar(ch: string | undefined): boolean {
   if (!ch) return false;
   return /[A-Za-z0-9_-]/.test(ch);
+}
+
+function isMarkerStart(ch: string | undefined): boolean {
+  return isIdentifierStart(ch) || isDigit(ch);
 }
 
 function isWhitespace(ch: string): boolean {

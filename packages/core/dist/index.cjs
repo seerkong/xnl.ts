@@ -375,8 +375,15 @@ function parseWordLiteral(state) {
   return { kind: "Word", namespace: parts, name };
 }
 function readOptionalMarker(state) {
-  if (!isIdentifierStart(peek(state))) return void 0;
-  return readIdentifier(state, "Expected marker");
+  if (!isMarkerStart(peek(state))) return void 0;
+  return readMarker(state);
+}
+function readMarker(state) {
+  const start = state.pos;
+  while (!eof(state) && isIdentifierChar(state.input[state.pos])) {
+    state.pos++;
+  }
+  return state.input.slice(start, state.pos);
 }
 function readKey(state, message) {
   const ch = peek(state);
@@ -491,6 +498,9 @@ function isIdentifierChar(ch) {
   if (!ch) return false;
   return /[A-Za-z0-9_-]/.test(ch);
 }
+function isMarkerStart(ch) {
+  return isIdentifierStart(ch) || isDigit(ch);
+}
 function isWhitespace(ch) {
   return ch === " " || ch === "	" || ch === "\n" || ch === "\r";
 }
@@ -535,24 +545,24 @@ function isDocument(value) {
 }
 function serializeNode(node, state) {
   if (isComment(node)) {
-    const pad = state.pretty ? state.indent.repeat(state.depth) : "";
-    return `${pad}<!-- ${node.value} -->`;
+    const pad2 = state.pretty ? state.indent.repeat(state.depth) : "";
+    return `${pad2}<!-- ${node.value} -->`;
   }
   if (isElement(node)) {
-    const pad = state.pretty ? state.indent.repeat(state.depth) : "";
+    const pad2 = state.pretty ? state.indent.repeat(state.depth) : "";
     if (node.kind === "TextElement") {
       const metaStr2 = serializeInlineAttributes(node.metadata, state);
       const attrStr = node.attributes ? ` ${serializeAttributeBlock(node.attributes, state)}` : "";
       const idPart2 = node.id ? ` #${formatWord(node.id)}` : "";
       const marker = node.textMarker ?? "";
-      return `${pad}<${node.tag}${idPart2}${metaStr2}${attrStr} ?${marker}>${node.text ?? ""}</?${marker}>`;
+      return `${pad2}<${node.tag}${idPart2}${metaStr2}${attrStr} ?${marker}>${node.text ?? ""}</?${marker}>`;
     }
     const metaStr = serializeInlineAttributes(node.metadata, state);
     const attrPart = node.attributes ? ` ${serializeAttributeBlock(node.attributes, state)}` : "";
     const bodyPart = node.body ? ` ${serializeArrayBlock(node.body, state)}` : "";
     const extendPart = node.extend ? ` ${serializeExtendBlock(node.extend, state)}` : "";
     const idPart = node.id ? ` #${formatWord(node.id)}` : "";
-    return `${pad}<${node.tag}${idPart}${metaStr}${attrPart}${bodyPart}${extendPart}>`;
+    return `${pad2}<${node.tag}${idPart}${metaStr}${attrPart}${bodyPart}${extendPart}>`;
   }
   if (Array.isArray(node)) {
     return serializeArrayLiteral(node, state);
@@ -575,9 +585,9 @@ function serializeAttributeBlock(attrs, state) {
     return `{ ${entries} }`;
   }
   const nextDepth = state.depth + 1;
-  const pad = state.indent.repeat(nextDepth);
+  const pad2 = state.indent.repeat(nextDepth);
   const lines = Object.entries(attrs).map(
-    ([k, v]) => `${pad}${serializeKey(k)} = ${serializeValueNode(v, { ...state, depth: nextDepth })}`
+    ([k, v]) => `${pad2}${serializeKey(k)} = ${serializeValueNode(v, { ...state, depth: nextDepth })}`
   );
   const closingPad = state.indent.repeat(state.depth);
   return `{
@@ -590,8 +600,8 @@ function serializeArrayBlock(items, state) {
     return `[ ${serialized} ]`;
   }
   const nextDepth = state.depth + 1;
-  const pad = state.indent.repeat(nextDepth);
-  const lines = items.map((item) => `${pad}${serializeValueNode(item, { ...state, depth: nextDepth })}`);
+  const pad2 = state.indent.repeat(nextDepth);
+  const lines = items.map((item) => `${pad2}${serializeValueNode(item, { ...state, depth: nextDepth })}`);
   const closingPad = state.indent.repeat(state.depth);
   return `[
 ${lines.join("\n")}
@@ -603,8 +613,8 @@ function serializeExtendBlock(extend, state) {
     return `( ${children} )`;
   }
   const nextDepth = state.depth + 1;
-  const pad = state.indent.repeat(nextDepth);
-  const childStrings = extend.order.map((name) => `${pad}${serializeNode(extend.children[name], { ...state, depth: nextDepth })}`);
+  const pad2 = state.indent.repeat(nextDepth);
+  const childStrings = extend.order.map((name) => `${pad2}${serializeNode(extend.children[name], { ...state, depth: nextDepth })}`);
   const closingPad = state.indent.repeat(state.depth);
   return `(
 ${childStrings.join("\n")}
@@ -628,9 +638,9 @@ function serializeObjectLiteral(obj, state) {
     return `{ ${Object.entries(obj).map(([k, v]) => `${serializeKey(k)} = ${serializeValueNode(v, state)}`).join(" ")} }`;
   }
   const nextDepth = state.depth + 1;
-  const pad = state.indent.repeat(nextDepth);
+  const pad2 = state.indent.repeat(nextDepth);
   const lines = Object.entries(obj).map(
-    ([k, v]) => `${pad}${serializeKey(k)} = ${serializeValueNode(v, { ...state, depth: nextDepth })}`
+    ([k, v]) => `${pad2}${serializeKey(k)} = ${serializeValueNode(v, { ...state, depth: nextDepth })}`
   );
   const closingPad = state.indent.repeat(state.depth);
   return `{
@@ -642,8 +652,8 @@ function serializeArrayLiteral(arr, state) {
     return `[${arr.map((v) => serializeValueNode(v, state)).join(" ")}]`;
   }
   const nextDepth = state.depth + 1;
-  const pad = state.indent.repeat(nextDepth);
-  const lines = arr.map((v) => `${pad}${serializeValueNode(v, { ...state, depth: nextDepth })}`);
+  const pad2 = state.indent.repeat(nextDepth);
+  const lines = arr.map((v) => `${pad2}${serializeValueNode(v, { ...state, depth: nextDepth })}`);
   const closingPad = state.indent.repeat(state.depth);
   return `[
 ${lines.join("\n")}
@@ -667,6 +677,191 @@ function escapeString(value) {
 }
 function formatWord(word) {
   return wordToString(word) ?? "";
+}
+
+// src/lineBlockFormatter.ts
+var ULID_ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+var lastUlidTime = -1;
+var lastUlidRandom = [];
+function stringify2(value, options = {}) {
+  const state = {
+    indent: typeof options.indent === "string" ? options.indent : " ".repeat(options.indent ?? 2),
+    depth: 0,
+    textMarkerFactory: options.textMarkerFactory ?? makeUlid
+  };
+  if (isDocument2(value)) {
+    return value.nodes.map((node) => serializeNode2(node, state)).join("\n");
+  }
+  return serializeNode2(value, state);
+}
+function serializeNode2(node, state) {
+  if (isComment2(node)) return `${pad(state)}<!-- ${node.value} -->`;
+  if (isElement2(node)) return serializeElement(node, state);
+  return `${pad(state)}${serializeInlineValue(node, state)}`;
+}
+function serializeElement(node, state) {
+  if (node.kind === "TextElement") return serializeTextElement(node, state);
+  return serializeDataElement(node, state);
+}
+function serializeTextElement(node, state) {
+  const marker = node.textMarker ?? state.textMarkerFactory();
+  const open = [
+    `<${node.tag}`,
+    serializeId(node.id),
+    serializeMetadata(node.metadata, state),
+    node.attributes ? ` ${serializeAttributeBlock2(node.attributes, state)}` : "",
+    ` ?${marker}>`
+  ].join("");
+  const text = node.text ?? "";
+  const currentPad = pad(state);
+  const alignedText = text.replace(/\r?\n/g, (lineBreak) => `${lineBreak}${currentPad}`);
+  return `${currentPad}${open}${alignedText}</?${marker}>`;
+}
+function serializeDataElement(node, state) {
+  const open = [
+    `<${node.tag}`,
+    serializeId(node.id),
+    serializeMetadata(node.metadata, state),
+    node.attributes ? ` ${serializeAttributeBlock2(node.attributes, state)}` : ""
+  ].join("");
+  const sections = [];
+  if (node.body) sections.push(serializeArrayBlock2(node.body, state));
+  if (node.extend) sections.push(serializeExtendBlock2(node.extend, state));
+  if (sections.length === 0) return `${pad(state)}${open}>`;
+  if (sections.length === 1) return `${pad(state)}${open} ${sections[0]}>`;
+  return `${pad(state)}${open} ${sections.join(" ")}>`;
+}
+function serializeArrayBlock2(items, state) {
+  if (items.length === 0) return "[]";
+  const nextState = { ...state, depth: state.depth + 1 };
+  const lines = items.map((item) => serializeNode2(item, nextState));
+  return `[
+${lines.join("\n")}
+${pad(state)}]`;
+}
+function serializeExtendBlock2(extend, state) {
+  if (extend.order.length === 0) return "()";
+  const nextState = { ...state, depth: state.depth + 1 };
+  const lines = extend.order.map((name) => serializeElement(extend.children[name], nextState));
+  return `(
+${lines.join("\n")}
+${pad(state)})`;
+}
+function serializeMetadata(attrs, state) {
+  const entries = Object.entries(attrs);
+  if (entries.length === 0) return "";
+  return " " + entries.map(([key, value]) => `${serializeKey2(key)}=${serializeInlineValue(value, state)}`).join(" ");
+}
+function serializeAttributeBlock2(attrs, state) {
+  const entries = Object.entries(attrs).map(([key, value]) => `${serializeKey2(key)} = ${serializeInlineValue(value, state)}`).join(" ");
+  return `{ ${entries} }`;
+}
+function serializeInlineValue(value, state) {
+  if (isComment2(value)) return `<!-- ${value.value} -->`;
+  if (isElement2(value)) return serializeInlineElement(value, state);
+  if (isWord(value)) return formatWord2(value);
+  if (Array.isArray(value)) return serializeInlineArray(value, state);
+  if (isPlainObject2(value)) return serializeInlineObject(value, state);
+  return serializePrimitive2(value);
+}
+function serializeInlineElement(node, state) {
+  const marker = node.kind === "TextElement" ? node.textMarker ?? state.textMarkerFactory() : void 0;
+  const open = [
+    `<${node.tag}`,
+    serializeId(node.id),
+    serializeMetadata(node.metadata, state),
+    node.attributes ? ` ${serializeAttributeBlock2(node.attributes, state)}` : ""
+  ].join("");
+  if (node.kind === "TextElement") return `${open} ?${marker}>${node.text ?? ""}</?${marker}>`;
+  const sections = [];
+  if (node.body) sections.push(serializeInlineArrayBlock(node.body, state));
+  if (node.extend) sections.push(serializeInlineExtendBlock(node.extend, state));
+  if (sections.length === 0) return `${open}>`;
+  return `${open} ${sections.join(" ")}>`;
+}
+function serializeInlineArrayBlock(items, state) {
+  return `[ ${items.map((item) => serializeInlineValue(item, state)).join(" ")} ]`;
+}
+function serializeInlineExtendBlock(extend, state) {
+  return `( ${extend.order.map((name) => serializeInlineElement(extend.children[name], state)).join(" ")} )`;
+}
+function serializeInlineObject(value, state) {
+  const entries = Object.entries(value).map(([key, child]) => `${serializeKey2(key)} = ${serializeInlineValue(child, state)}`).join(" ");
+  return `{ ${entries} }`;
+}
+function serializeInlineArray(value, state) {
+  return `[${value.map((child) => serializeInlineValue(child, state)).join(" ")}]`;
+}
+function serializePrimitive2(value) {
+  if (value === null) return "null";
+  if (typeof value === "string") return `"${escapeString2(value)}"`;
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+function serializeId(id) {
+  const value = formatWord2(id);
+  return value ? ` #${value}` : "";
+}
+function formatWord2(word) {
+  return wordToString(word) ?? "";
+}
+function serializeKey2(key) {
+  if (/^[A-Za-z_][A-Za-z0-9_-]*$/.test(key)) return key;
+  return `"${escapeString2(key)}"`;
+}
+function escapeString2(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\t/g, "\\t").replace(/\r/g, "\\r");
+}
+function pad(state) {
+  return state.indent.repeat(state.depth);
+}
+function isDocument2(value) {
+  return value && Array.isArray(value.nodes);
+}
+function isElement2(value) {
+  return typeof value === "object" && value !== null && (value.kind === "DataElement" || value.kind === "TextElement");
+}
+function isComment2(value) {
+  return typeof value === "object" && value !== null && value.kind === "Comment";
+}
+function isPlainObject2(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const kind = value.kind;
+  return kind !== "DataElement" && kind !== "TextElement" && kind !== "Comment" && kind !== "Word";
+}
+function makeUlid(now = Date.now()) {
+  if (now > lastUlidTime) {
+    lastUlidTime = now;
+    lastUlidRandom = nextRandom();
+  } else {
+    lastUlidRandom = incrementRandom(lastUlidRandom);
+  }
+  return encodeTime(lastUlidTime, 10) + encodeRandom(lastUlidRandom);
+}
+function encodeTime(time, length) {
+  let out = "";
+  for (let index = length - 1; index >= 0; index--) {
+    out = ULID_ENCODING.charAt(time % 32) + out;
+    time = Math.floor(time / 32);
+  }
+  return out;
+}
+function encodeRandom(values) {
+  return values.map((value) => ULID_ENCODING.charAt(value)).join("");
+}
+function nextRandom() {
+  return Array.from({ length: 16 }, () => Math.random() * 32 | 0);
+}
+function incrementRandom(values) {
+  const next = [...values];
+  for (let index = next.length - 1; index >= 0; index--) {
+    if (next[index] < 31) {
+      next[index] += 1;
+      return next;
+    }
+    next[index] = 0;
+  }
+  return next;
 }
 
 // src/path/index.ts
@@ -764,7 +959,7 @@ function resolvePath(target, path, options = {}) {
         current = current[item.value];
       } else if (current && isTextElement(current)) {
         current = current[item.value];
-      } else if (isPlainObject2(current) || isDocument2(current)) {
+      } else if (isPlainObject3(current) || isDocument3(current)) {
         current = current[item.value];
       } else {
         if (strict) throw new XnlPathError(`InstanceProperty '${item.value}' not allowed on current node`);
@@ -782,7 +977,7 @@ function resolvePath(target, path, options = {}) {
         current = child;
         continue;
       }
-      if (!isPlainObject2(current)) {
+      if (!isPlainObject3(current)) {
         if (strict) throw new XnlPathError("MapKey requires a map/object target");
         return void 0;
       }
@@ -880,7 +1075,7 @@ function deleteAtPath(target, path, options = {}) {
   const { parent, last } = getParentAndLast(target, parsed, { strict, createMissing: false });
   switch (last.type) {
     case "InstanceProperty":
-      if (isPlainObject2(parent) || isDataElement(parent) || isTextElement(parent) || isDocument2(parent)) {
+      if (isPlainObject3(parent) || isDataElement(parent) || isTextElement(parent) || isDocument3(parent)) {
         if (!(last.value in parent) && strict) {
           throw new XnlPathError(`InstanceProperty '${last.value}' not found`);
         }
@@ -964,8 +1159,8 @@ function getParentAndLast(target, path, opts) {
         current = current[item.value];
       } else if (current && isTextElement(current)) {
         current = current[item.value];
-      } else if (isPlainObject2(current) || isDocument2(current)) {
-        if (current[item.value] === void 0 && createMissing && isPlainObject2(current)) {
+      } else if (isPlainObject3(current) || isDocument3(current)) {
+        if (current[item.value] === void 0 && createMissing && isPlainObject3(current)) {
           current[item.value] = {};
         }
         current = current[item.value];
@@ -1077,7 +1272,7 @@ function readWhile(input, start, pred) {
   return out;
 }
 function findByUniqueName(target, id) {
-  const roots = isDocument2(target) ? target.nodes : [target];
+  const roots = isDocument3(target) ? target.nodes : [target];
   for (const root of roots) {
     const found = findInNode(root, id);
     if (found) return found;
@@ -1086,7 +1281,7 @@ function findByUniqueName(target, id) {
 }
 function findByMetadataSelector(target, selector) {
   const parsed = parseMetadataSelectorValue(selector);
-  const roots = isDocument2(target) ? target.nodes : [target];
+  const roots = isDocument3(target) ? target.nodes : [target];
   for (const root of roots) {
     const found = findInNodeByMeta(root, parsed.key, parsed.value);
     if (found) return found;
@@ -1095,7 +1290,7 @@ function findByMetadataSelector(target, selector) {
 }
 function findAllByMetadataSelector(target, selector) {
   const parsed = parseMetadataSelectorValue(selector);
-  const roots = isDocument2(target) ? target.nodes : [target];
+  const roots = isDocument3(target) ? target.nodes : [target];
   const out = [];
   for (const root of roots) {
     collectInNodeByMeta(root, parsed.key, parsed.value, out);
@@ -1131,7 +1326,7 @@ function findInNodeByMeta(node, key, value) {
       const found = findInNodeByMeta(child, key, value);
       if (found) return found;
     }
-  } else if (isPlainObject2(node)) {
+  } else if (isPlainObject3(node)) {
     for (const k of Object.keys(node)) {
       const found = findInNodeByMeta(node[k], key, value);
       if (found) return found;
@@ -1165,7 +1360,7 @@ function collectInNodeByMeta(node, key, value, out) {
     for (const child of node) {
       collectInNodeByMeta(child, key, value, out);
     }
-  } else if (isPlainObject2(node)) {
+  } else if (isPlainObject3(node)) {
     for (const k of Object.keys(node)) {
       collectInNodeByMeta(node[k], key, value, out);
     }
@@ -1212,7 +1407,7 @@ function findInNode(node, id) {
       const found = findInNode(child, id);
       if (found) return found;
     }
-  } else if (isPlainObject2(node)) {
+  } else if (isPlainObject3(node)) {
     for (const key of Object.keys(node)) {
       const found = findInNode(node[key], id);
       if (found) return found;
@@ -1232,14 +1427,14 @@ function isTextElement(node) {
 function isExtendBody(value) {
   return value && typeof value === "object" && Array.isArray(value.order) && value.children;
 }
-function isDocument2(value) {
+function isDocument3(value) {
   return value && typeof value === "object" && Array.isArray(value.nodes);
 }
-function isPlainObject2(value) {
+function isPlainObject3(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) && !isElementNode(value) && !isExtendBody(value) && !isWord(value);
 }
 function ensureMap(value, strict) {
-  if (!isPlainObject2(value)) {
+  if (!isPlainObject3(value)) {
     if (strict) throw new XnlPathError("Target is not a map/object");
   }
 }
@@ -1278,13 +1473,13 @@ function diffNodes(oldNode, newNode, basePath = [], opts = {}) {
   if (!sameKind(oldNode, newNode)) {
     throw new XnlPathError("Root kinds must match to diff");
   }
-  if (isValueLiteral(oldNode) || isComment2(oldNode)) {
+  if (isValueLiteral(oldNode) || isComment3(oldNode)) {
     return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathItems, valueAfter: newNode }];
   }
   if (Array.isArray(oldNode) && Array.isArray(newNode)) {
     return diffArray(oldNode, newNode, pathItems, void 0, void 0, opts);
   }
-  if (isPlainObject3(oldNode) && isPlainObject3(newNode)) {
+  if (isPlainObject4(oldNode) && isPlainObject4(newNode)) {
     return diffMap(oldNode, newNode, pathItems, void 0, void 0, opts);
   }
   if (isTextElement2(oldNode) && isTextElement2(newNode)) {
@@ -1576,7 +1771,7 @@ function sameKind(a, b) {
   if (isDataElement2(a) && isDataElement2(b)) return true;
   if (isTextElement2(a) && isTextElement2(b)) return true;
   if (Array.isArray(a) && Array.isArray(b)) return true;
-  if (isPlainObject3(a) && isPlainObject3(b)) return true;
+  if (isPlainObject4(a) && isPlainObject4(b)) return true;
   if (isValueLiteral(a) && isValueLiteral(b)) return true;
   return typeof a === typeof b;
 }
@@ -1590,7 +1785,7 @@ function isEqual(a, b) {
     if (a.length !== b.length) return false;
     return a.every((item, idx) => isEqual(item, b[idx]));
   }
-  if (isPlainObject3(a) && isPlainObject3(b)) {
+  if (isPlainObject4(a) && isPlainObject4(b)) {
     const keysA = Object.keys(a);
     const keysB = Object.keys(b);
     if (keysA.length !== keysB.length) return false;
@@ -1598,7 +1793,7 @@ function isEqual(a, b) {
   }
   return false;
 }
-function isPlainObject3(value) {
+function isPlainObject4(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) && !isDataElement2(value) && !isTextElement2(value) && !isWord(value);
 }
 function isDataElement2(node) {
@@ -1610,7 +1805,7 @@ function isTextElement2(node) {
 function isValueLiteral(node) {
   return typeof node === "string" || typeof node === "number" || typeof node === "boolean" || node === null || isWord(node);
 }
-function isComment2(node) {
+function isComment3(node) {
   return node && node.kind === "Comment";
 }
 var ip = (value) => ({ type: "InstanceProperty", value });
@@ -1945,7 +2140,7 @@ function cloneNode(node) {
   if (isWord(node)) {
     return cloneWord(node);
   }
-  if (isPlainObject4(node)) {
+  if (isPlainObject5(node)) {
     const out = {};
     for (const key of Object.keys(node)) {
       out[key] = cloneNode(node[key]);
@@ -1971,7 +2166,7 @@ function mergeMaps(ctx, base, override, scope) {
       continue;
     }
     const resolvedValue = resolveValue(ctx, value, scope);
-    if (isPlainObject4(resolvedValue) && isPlainObject4(result[key])) {
+    if (isPlainObject5(resolvedValue) && isPlainObject5(result[key])) {
       result[key] = mergeMaps(ctx, result[key], resolvedValue, scope);
     } else if (Array.isArray(resolvedValue) && Array.isArray(result[key])) {
       result[key] = mergeArray(ctx, result[key], resolvedValue, scope);
@@ -1992,7 +2187,7 @@ function mergeArray(ctx, baseArr, overrideArr, scope) {
     const resolved = resolveValue(ctx, value, scope);
     if (i < result.length) {
       const baseVal = result[i];
-      if (isPlainObject4(baseVal) && isPlainObject4(resolved)) {
+      if (isPlainObject5(baseVal) && isPlainObject5(resolved)) {
         result[i] = mergeMaps(ctx, baseVal, resolved, scope);
       } else if (Array.isArray(baseVal) && Array.isArray(resolved)) {
         result[i] = mergeArray(ctx, baseVal, resolved, scope);
@@ -2047,7 +2242,7 @@ function isDataElement3(node) {
 function isTextElement3(node) {
   return node && node.kind === "TextElement";
 }
-function isPlainObject4(value) {
+function isPlainObject5(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) && !isDataElement3(value) && !isWord(value);
 }
 function resolveValue(ctx, value, scope) {
@@ -2064,7 +2259,7 @@ function resolveValue(ctx, value, scope) {
   if (Array.isArray(value)) {
     return value.map((v) => resolveValue(ctx, v, scope));
   }
-  if (isPlainObject4(value)) {
+  if (isPlainObject5(value)) {
     const out = {};
     for (const key of Object.keys(value)) {
       out[key] = resolveValue(ctx, value[key], scope);
@@ -2136,6 +2331,7 @@ var XNL = {
   parseSingle: parseXnlSingleNode,
   parseUnique: parseUniqueChildren,
   stringify,
+  stringifyLineBlock: stringify2,
   path: {
     parse: parsePath,
     resolve: resolvePath,
@@ -2171,6 +2367,7 @@ exports.parseXnl = parseXnl;
 exports.parseXnlSingleNode = parseXnlSingleNode;
 exports.resolvePath = resolvePath;
 exports.setPathValue = setPathValue;
+exports.stringifyLineBlock = stringify2;
 exports.wordToString = wordToString;
 //# sourceMappingURL=index.cjs.map
 //# sourceMappingURL=index.cjs.map

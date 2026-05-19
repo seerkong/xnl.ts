@@ -1,6 +1,6 @@
 {
   "name": "xnl-core",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "description": "XNL (Extensible Notation Language) parser for Node and browser with TypeScript types.",
   "type": "module",
   "main": "dist/index.cjs",
@@ -28,6 +28,10 @@
     "typescript",
     "xml"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:seerkong/xnl.ts.git"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.7.4",

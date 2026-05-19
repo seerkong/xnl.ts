@@ -1,6 +1,7 @@
 .claude
 .codex
 .gemini
+.github
 .eidolon
 .serena
 .sparrow
@@ -22,6 +23,7 @@ testdata/
 logs
 *.log
 npm-debug.log*
+.npm-cache
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*

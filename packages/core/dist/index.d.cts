@@ -65,7 +65,13 @@ interface StringifyOptions {
     pretty?: boolean;
     indent?: number | string;
 }
-declare function stringify(value: XnlDocument | XnlNode, options?: StringifyOptions): string;
+declare function stringify$1(value: XnlDocument | XnlNode, options?: StringifyOptions): string;
+
+interface LineBlockStringifyOptions {
+    indent?: number | string;
+    textMarkerFactory?: () => string;
+}
+declare function stringify(value: XnlDocument | XnlNode, options?: LineBlockStringifyOptions): string;
 
 type PathItemType = "UniqueName" | "MetadataSelector" | "InstanceProperty" | "MapKey" | "ListIndex";
 interface PathItem {
@@ -133,7 +139,8 @@ declare const XNL: {
     parseMany: typeof parseXnl;
     parseSingle: typeof parseXnlSingleNode;
     parseUnique: typeof parseUniqueChildren;
-    stringify: typeof stringify;
+    stringify: typeof stringify$1;
+    stringifyLineBlock: typeof stringify;
     path: {
         parse: typeof parsePath;
         resolve: typeof resolvePath;
@@ -151,4 +158,4 @@ declare const XNL: {
     };
 };
 
-export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, MakeWord, type MetadataIdMode, type MutationType, type ParseWarning, type PathItem, type PathItemType, type SingleNodeResult, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlErrorCode, type XnlMutation, type XnlMutationOptions, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, deleteAtPath, diffNodes, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolvePath, setPathValue, wordToString };
+export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, MakeWord, type MetadataIdMode, type MutationType, type ParseWarning, type PathItem, type PathItemType, type SingleNodeResult, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlErrorCode, type XnlMutation, type XnlMutationOptions, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, deleteAtPath, diffNodes, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolvePath, setPathValue, stringify as stringifyLineBlock, wordToString };
