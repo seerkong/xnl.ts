@@ -1,0 +1,50 @@
+[
+  {
+    "type": "CONTENT_UPDATE",
+    "path": "vfs:///src/main.ts",
+    "expectedId": "f_main_cm",
+    "payload": {
+      "content": "export const v = 2;",
+      "fileType": "text"
+    }
+  },
+  {
+    "type": "META_UPDATE",
+    "path": "vfs:///src/main.ts",
+    "expectedId": "f_main_cm",
+    "payload": {
+      "attributeMutation": [
+        {
+          "type": "OBJECT_ADD",
+          "path": ":attributes::'owner'",
+          "valueAfter": "team-b"
+        }
+      ]
+    }
+  },
+  {
+    "type": "EXTEND_UPDATE",
+    "path": "vfs:///src/main.ts",
+    "expectedId": "f_main_cm",
+    "payload": {
+      "extendMutation": [
+        {
+          "type": "OBJECT_UPDATE",
+          "path": ":extend",
+          "valueAfter": {
+            "order": ["ColorExt"],
+            "children": {
+              "ColorExt": {
+                "kind": "DataElement",
+                "tag": "ColorExt",
+                "metadata": {
+                  "color": "blue"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+]

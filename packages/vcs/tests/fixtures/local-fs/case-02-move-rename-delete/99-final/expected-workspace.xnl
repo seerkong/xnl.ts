@@ -1,0 +1,5 @@
+<ExpectedWorkspace [
+    <Node path="vfs:///docs" kind="folder" id="d_docs">
+    <Node path="vfs:///docs/intro.md" kind="file" id="f_intro" fileType="text" content="Intro\n">
+    <Node path="vfs:///legacy.txt" kind="file" id="f_old" fileType="text" content="Old\n">
+]>

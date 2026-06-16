@@ -15,12 +15,10 @@ describe("mutation protocol", () => {
   it("diffs additions and metadata updates", () => {
     const mutations = diffNodes(oldDoc, newDoc, "#flow1");
     const add = mutations.find((m) => m.type === "TREE_ADD") as XnlMutation;
-    expect(add?.path).toEqual([
-      { type: "MetadataSelector", value: '<id="flow1">' },
-      { type: "InstanceProperty", value: "body" },
-      { type: "ListIndex", value: "1" },
-    ]);
-    const statusUpdate = mutations.find((m) => m.type === "OBJECT_UPDATE" && (m.path as any[])[2].value === "status");
+    expect(add?.path).toBe("<id='flow1'>:body::1");
+    const statusUpdate = mutations.find(
+      (m) => m.type === "OBJECT_UPDATE" && typeof m.path === "string" && m.path.endsWith("::'status'"),
+    );
     expect(statusUpdate).toBeTruthy();
   });
 
@@ -48,10 +46,7 @@ describe("mutation protocol", () => {
       expect(mutations).toEqual([
         {
           type: "OBJECT_UPDATE",
-          path: [
-            { type: "InstanceProperty", value: "metadata" },
-            { type: "MapKey", value: "id" },
-          ],
+          path: ":metadata::'id'",
           valueAfter: "m2",
         },
       ]);

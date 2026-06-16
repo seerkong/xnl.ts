@@ -1472,7 +1472,7 @@ function diffNodes(oldNode, newNode, basePath = [], opts = {}) {
     throw new XnlPathError("Root kinds must match to diff");
   }
   if (isValueLiteral(oldNode) || isComment3(oldNode)) {
-    return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathItems, valueAfter: newNode }];
+    return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueAfter: newNode }];
   }
   if (Array.isArray(oldNode) && Array.isArray(newNode)) {
     return diffArray(oldNode, newNode, pathItems, void 0, void 0, opts);
@@ -1544,14 +1544,14 @@ function diffTextElement(oldNode, newNode, basePath, opts) {
   if (oldNode.text !== newNode.text) {
     mutations.push({
       type: "TREE_UPDATE",
-      path: [...basePath, ip("text")],
+      path: pathToDsl([...basePath, ip("text")]),
       valueAfter: newNode.text
     });
   }
   if (oldNode.textMarker !== newNode.textMarker) {
     mutations.push({
       type: "TREE_UPDATE",
-      path: [...basePath, ip("textMarker")],
+      path: pathToDsl([...basePath, ip("textMarker")]),
       valueAfter: newNode.textMarker
     });
   }
@@ -1596,7 +1596,7 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
       const id = readIdOrMetadaataId(newItem);
       mutations.push({
         type: "TREE_ADD",
-        path,
+        path: pathToDsl(path),
         valueAfter: newItem,
         targetUniqueName: id,
         parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
@@ -1607,7 +1607,7 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
       const id = readIdOrMetadaataId(oldItem);
       mutations.push({
         type: "TREE_DELETE",
-        path,
+        path: pathToDsl(path),
         valueBefore: oldItem,
         targetUniqueName: id,
         parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
@@ -1621,14 +1621,14 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
       if (useIdentity && oldId && newId && oldId !== newId) {
         mutations.push({
           type: "TREE_DELETE",
-          path,
+          path: pathToDsl(path),
           valueBefore: oldItem,
           targetUniqueName: oldId,
           parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
         });
         mutations.push({
           type: "TREE_ADD",
-          path,
+          path: pathToDsl(path),
           valueAfter: newItem,
           targetUniqueName: newId,
           parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
@@ -1641,7 +1641,12 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
       const nested = diffNodes(oldItem, newItem, path, opts);
       if (nested.length === 0) {
         if (!useIdentity) {
-          mutations.push({ type: "TREE_UPDATE", path, valueAfter: newItem, targetUniqueName: readIdOrMetadaataId(newItem) });
+          mutations.push({
+            type: "TREE_UPDATE",
+            path: pathToDsl(path),
+            valueAfter: newItem,
+            targetUniqueName: readIdOrMetadaataId(newItem)
+          });
         }
       } else {
         mutations.push(...nested);
@@ -1659,8 +1664,8 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
         if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
           mutations.push({
             type: "TREE_MOVE_SAME_LEVEL",
-            pathBefore: [...pathBase, li(oldIdx)],
-            path: [...pathBase, li(newIdx)],
+            pathBefore: pathToDsl([...pathBase, li(oldIdx)]),
+            path: pathToDsl([...pathBase, li(newIdx)]),
             targetUniqueName: id,
             parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
             parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
@@ -1684,7 +1689,7 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
     if (oldVal === void 0 && newVal !== void 0) {
       mutations.push({
         type: "OBJECT_ADD",
-        path,
+        path: pathToDsl(path),
         valueAfter: newVal,
         targetUniqueName: readIdOrMetadaataId(newVal),
         parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
@@ -1694,7 +1699,7 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
     if (oldVal !== void 0 && newVal === void 0) {
       mutations.push({
         type: "OBJECT_DELETE",
-        path,
+        path: pathToDsl(path),
         valueBefore: oldVal,
         targetUniqueName: readIdOrMetadaataId(oldVal),
         parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
@@ -1704,7 +1709,7 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
     if (!isEqual(oldVal, newVal)) {
       const nested = diffNodes(oldVal, newVal, path, opts);
       if (nested.length === 0) {
-        mutations.push({ type: "OBJECT_UPDATE", path, valueAfter: newVal });
+        mutations.push({ type: "OBJECT_UPDATE", path: pathToDsl(path), valueAfter: newVal });
       } else {
         mutations.push(...nested);
       }
@@ -1726,7 +1731,7 @@ function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, o
     if (!oldChild && newChild) {
       mutations.push({
         type: "TREE_ADD",
-        path: childPath,
+        path: pathToDsl(childPath),
         valueAfter: newChild,
         targetUniqueName: readIdOrMetadaataId(newChild),
         parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
@@ -1736,7 +1741,7 @@ function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, o
     if (oldChild && !newChild) {
       mutations.push({
         type: "TREE_DELETE",
-        path: childPath,
+        path: pathToDsl(childPath),
         valueBefore: oldChild,
         targetUniqueName: readIdOrMetadaataId(oldChild),
         parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
@@ -1747,7 +1752,7 @@ function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, o
       const nested = diffNodes(oldChild, newChild, childPath, opts);
       if (nested.length === 0) {
         if (!isEqual(oldChild, newChild)) {
-          mutations.push({ type: "TREE_UPDATE", path: childPath, valueAfter: newChild });
+          mutations.push({ type: "TREE_UPDATE", path: pathToDsl(childPath), valueAfter: newChild });
         }
       } else {
         mutations.push(...nested);
@@ -1759,11 +1764,34 @@ function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, o
   if (!isEqual(oldOrder, newOrder)) {
     mutations.push({
       type: "TREE_UPDATE",
-      path: [...basePath, ip("order")],
+      path: pathToDsl([...basePath, ip("order")]),
       valueAfter: newOrder
     });
   }
   return mutations;
+}
+function pathToDsl(path) {
+  let out = "";
+  for (const item of path) {
+    if (item.type === "UniqueName") {
+      out += `#${item.value}`;
+      continue;
+    }
+    if (item.type === "MetadataSelector") {
+      out += item.value;
+      continue;
+    }
+    if (item.type === "InstanceProperty") {
+      out += `:${item.value}`;
+      continue;
+    }
+    if (item.type === "MapKey") {
+      out += `::'${item.value}'`;
+      continue;
+    }
+    out += `::${item.value}`;
+  }
+  return out;
 }
 function sameKind(a, b) {
   if (isDataElement2(a) && isDataElement2(b)) return true;
@@ -1810,7 +1838,7 @@ var ip = (value) => ({ type: "InstanceProperty", value });
 var mk = (value) => ({ type: "MapKey", value });
 var li = (value) => ({ type: "ListIndex", value: String(value) });
 function ms(key, value) {
-  return { type: "MetadataSelector", value: `<${key}=${JSON.stringify(value)}>` };
+  return { type: "MetadataSelector", value: `<${key}='${value}'>` };
 }
 function readIdOrMetadaataId(node) {
   if (isDataElement2(node) || isTextElement2(node)) {

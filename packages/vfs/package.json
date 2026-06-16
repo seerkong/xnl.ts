@@ -1,0 +1,29 @@
+{
+  "name": "xnl-vfs",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./persistence-mode": "./src/persistence-mode.ts",
+    "./local-fs-persistence": "./src/local-fs-persistence.ts",
+    "./indexeddb-persistence": "./src/indexeddb-persistence.ts"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "xnl-core": "workspace:*",
+    "xnl-collab-core": "workspace:*",
+    "diff": "8.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "tsup": "^8.2.4",
+    "typescript": "^5.6.3",
+    "vitest": "^1.6.0"
+  }
+}

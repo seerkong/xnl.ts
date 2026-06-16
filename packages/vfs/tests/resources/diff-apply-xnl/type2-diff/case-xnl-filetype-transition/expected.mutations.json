@@ -1,0 +1,11 @@
+[
+  {
+    "type": "CONTENT_UPDATE",
+    "path": "vfs:///src/config.txt",
+    "expectedId": "f_config_xft",
+    "payload": {
+      "contentMutation": [],
+      "fileType": "xnl"
+    }
+  }
+]

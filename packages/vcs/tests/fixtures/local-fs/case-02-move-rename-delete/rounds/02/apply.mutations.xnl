@@ -1,0 +1,5 @@
+<MutationBatch round=2 [
+    <Mutation type="MOVE" path="vfs:///docs/guide/intro.md" targetPath="vfs:///docs/intro.md" expectedId="f_intro">
+    <Mutation type="FOLDER_DELETE" path="vfs:///docs/guide" expectedId="d_guide">
+    <Mutation type="FILE_DELETE" path="vfs:///docs/todo.md" expectedId="f_todo">
+]>

@@ -1,0 +1,31 @@
+[
+  {
+    "type": "CONTENT_UPDATE",
+    "path": "vfs:///src/flow.xnl",
+    "expectedId": "f_flow_xap",
+    "payload": {
+      "contentMutation": [
+        {
+          "type": "OBJECT_UPDATE",
+          "path": "::0:metadata::'version'",
+          "valueAfter": "2"
+        }
+      ],
+      "fileType": "xnl"
+    }
+  },
+  {
+    "type": "META_UPDATE",
+    "path": "vfs:///src/flow.xnl",
+    "expectedId": "f_flow_xap",
+    "payload": {
+      "attributeMutation": [
+        {
+          "type": "OBJECT_ADD",
+          "path": ":attributes::'owner'",
+          "valueAfter": "team-y"
+        }
+      ]
+    }
+  }
+]

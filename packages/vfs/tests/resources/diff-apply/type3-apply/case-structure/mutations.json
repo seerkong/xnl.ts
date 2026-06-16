@@ -1,0 +1,49 @@
+[
+  {
+    "type": "RENAME",
+    "path": "vfs:///src/a.txt",
+    "targetPath": "vfs:///src/a-renamed.txt",
+    "expectedId": "f_a_st"
+  },
+  {
+    "type": "EXTEND_UPDATE",
+    "path": "vfs:///src/a-renamed.txt",
+    "expectedId": "f_a_st",
+    "payload": {
+      "extendMutation": [
+        {
+          "type": "OBJECT_UPDATE",
+          "path": ":extend",
+          "valueAfter": {
+            "order": ["ColorExt"],
+            "children": {
+              "ColorExt": {
+                "kind": "DataElement",
+                "tag": "ColorExt",
+                "metadata": {
+                  "color": "orange"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "type": "FILE_CREATE",
+    "path": "vfs:///src/new.txt",
+    "expectedId": "f_new_st",
+    "payload": {
+      "content": "N1",
+      "fileType": "text",
+      "attributeMutation": [
+        {
+          "type": "OBJECT_UPDATE",
+          "path": ":attributes::'owner'",
+          "valueAfter": "team-c"
+        }
+      ]
+    }
+  }
+]

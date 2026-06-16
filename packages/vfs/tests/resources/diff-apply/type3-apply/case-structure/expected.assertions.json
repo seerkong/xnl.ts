@@ -1,0 +1,31 @@
+{
+  "nodes": [
+    {
+      "path": "vfs:///src",
+      "kind": "folder",
+      "id": "d_src_st",
+      "fileType": null,
+      "content": null,
+      "owner": "infra",
+      "extendColor": null
+    },
+    {
+      "path": "vfs:///src/a-renamed.txt",
+      "kind": "file",
+      "id": "f_a_st",
+      "fileType": "text",
+      "content": "A1\n",
+      "owner": "team-a",
+      "extendColor": "orange"
+    },
+    {
+      "path": "vfs:///src/new.txt",
+      "kind": "file",
+      "id": "f_new_st",
+      "fileType": "text",
+      "content": "N1",
+      "owner": "team-c",
+      "extendColor": null
+    }
+  ]
+}

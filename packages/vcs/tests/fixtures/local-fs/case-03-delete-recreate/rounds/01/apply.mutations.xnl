@@ -1,0 +1,3 @@
+<MutationBatch round=1 [
+    <Mutation type="FILE_DELETE" path="vfs:///tmp.txt" expectedId="f_tmp">
+]>

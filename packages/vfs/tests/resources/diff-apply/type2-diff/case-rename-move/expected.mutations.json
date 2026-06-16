@@ -1,0 +1,39 @@
+[
+  {
+    "type": "RENAME",
+    "path": "vfs:///src/app.ts",
+    "targetPath": "vfs:///src/app-renamed.ts",
+    "expectedId": "f_app_rm"
+  },
+  {
+    "type": "MOVE",
+    "path": "vfs:///src/util.ts",
+    "targetPath": "vfs:///lib/util.ts",
+    "expectedId": "f_util_rm"
+  },
+  {
+    "type": "CONTENT_UPDATE",
+    "path": "vfs:///lib/util.ts",
+    "expectedId": "f_util_rm",
+    "payload": {
+      "content": "export const util = 2;\n",
+      "fileType": "text"
+    }
+  },
+  {
+    "type": "FILE_CREATE",
+    "path": "vfs:///lib/extra.ts",
+    "expectedId": "f_extra_rm",
+    "payload": {
+      "content": "export const extra = true;\n",
+      "fileType": "text",
+      "attributeMutation": [
+        {
+          "type": "OBJECT_ADD",
+          "path": ":attributes::'owner'",
+          "valueAfter": "team-a"
+        }
+      ]
+    }
+  }
+]

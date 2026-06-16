@@ -69,7 +69,7 @@ export function diffNodes(
     throw new XnlPathError("Root kinds must match to diff");
   }
   if (isValueLiteral(oldNode) || isComment(oldNode)) {
-    return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathItems, valueAfter: newNode }];
+    return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueAfter: newNode }];
   }
   if (Array.isArray(oldNode) && Array.isArray(newNode)) {
     return diffArray(oldNode, newNode, pathItems, undefined, undefined, opts);
@@ -156,14 +156,14 @@ function diffTextElement(
   if (oldNode.text !== newNode.text) {
     mutations.push({
       type: "TREE_UPDATE",
-      path: [...basePath, ip("text")],
+      path: pathToDsl([...basePath, ip("text")]),
       valueAfter: newNode.text,
     });
   }
   if (oldNode.textMarker !== newNode.textMarker) {
     mutations.push({
       type: "TREE_UPDATE",
-      path: [...basePath, ip("textMarker")],
+      path: pathToDsl([...basePath, ip("textMarker")]),
       valueAfter: newNode.textMarker,
     });
   }
@@ -227,7 +227,7 @@ function diffArray(
       const id = readIdOrMetadaataId(newItem);
       mutations.push({
         type: "TREE_ADD",
-        path,
+        path: pathToDsl(path),
         valueAfter: newItem,
         targetUniqueName: id,
         parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
@@ -238,7 +238,7 @@ function diffArray(
       const id = readIdOrMetadaataId(oldItem);
       mutations.push({
         type: "TREE_DELETE",
-        path,
+        path: pathToDsl(path),
         valueBefore: oldItem,
         targetUniqueName: id,
         parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
@@ -254,14 +254,14 @@ function diffArray(
       if (useIdentity && oldId && newId && oldId !== newId) {
         mutations.push({
           type: "TREE_DELETE",
-          path,
+          path: pathToDsl(path),
           valueBefore: oldItem,
           targetUniqueName: oldId,
           parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
         });
         mutations.push({
           type: "TREE_ADD",
-          path,
+          path: pathToDsl(path),
           valueAfter: newItem,
           targetUniqueName: newId,
           parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
@@ -276,7 +276,12 @@ function diffArray(
       const nested = diffNodes(oldItem, newItem, path, opts);
       if (nested.length === 0) {
         if (!useIdentity) {
-          mutations.push({ type: "TREE_UPDATE", path, valueAfter: newItem, targetUniqueName: readIdOrMetadaataId(newItem) });
+          mutations.push({
+            type: "TREE_UPDATE",
+            path: pathToDsl(path),
+            valueAfter: newItem,
+            targetUniqueName: readIdOrMetadaataId(newItem),
+          });
         }
       } else {
         mutations.push(...nested);
@@ -295,8 +300,8 @@ function diffArray(
         if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
           mutations.push({
             type: "TREE_MOVE_SAME_LEVEL",
-            pathBefore: [...pathBase, li(oldIdx)],
-            path: [...pathBase, li(newIdx)],
+            pathBefore: pathToDsl([...pathBase, li(oldIdx)]),
+            path: pathToDsl([...pathBase, li(newIdx)]),
             targetUniqueName: id,
             parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
             parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
@@ -328,7 +333,7 @@ function diffMap(
     if (oldVal === undefined && newVal !== undefined) {
       mutations.push({
         type: "OBJECT_ADD",
-        path,
+        path: pathToDsl(path),
         valueAfter: newVal,
         targetUniqueName: readIdOrMetadaataId(newVal),
         parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
@@ -338,7 +343,7 @@ function diffMap(
     if (oldVal !== undefined && newVal === undefined) {
       mutations.push({
         type: "OBJECT_DELETE",
-        path,
+        path: pathToDsl(path),
         valueBefore: oldVal,
         targetUniqueName: readIdOrMetadaataId(oldVal),
         parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
@@ -348,7 +353,7 @@ function diffMap(
     if (!isEqual(oldVal, newVal)) {
       const nested = diffNodes(oldVal, newVal, path, opts);
       if (nested.length === 0) {
-        mutations.push({ type: "OBJECT_UPDATE", path, valueAfter: newVal });
+        mutations.push({ type: "OBJECT_UPDATE", path: pathToDsl(path), valueAfter: newVal });
       } else {
         mutations.push(...nested);
       }
@@ -381,7 +386,7 @@ function diffExtend(
     if (!oldChild && newChild) {
       mutations.push({
         type: "TREE_ADD",
-        path: childPath,
+        path: pathToDsl(childPath),
         valueAfter: newChild,
         targetUniqueName: readIdOrMetadaataId(newChild),
         parentUniqueNameAfter: readIdOrMetadaataId(parentAfter),
@@ -391,7 +396,7 @@ function diffExtend(
     if (oldChild && !newChild) {
       mutations.push({
         type: "TREE_DELETE",
-        path: childPath,
+        path: pathToDsl(childPath),
         valueBefore: oldChild,
         targetUniqueName: readIdOrMetadaataId(oldChild),
         parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
@@ -402,7 +407,7 @@ function diffExtend(
       const nested = diffNodes(oldChild, newChild, childPath, opts);
       if (nested.length === 0) {
         if (!isEqual(oldChild, newChild)) {
-          mutations.push({ type: "TREE_UPDATE", path: childPath, valueAfter: newChild });
+          mutations.push({ type: "TREE_UPDATE", path: pathToDsl(childPath), valueAfter: newChild });
         }
       } else {
         mutations.push(...nested);
@@ -415,11 +420,35 @@ function diffExtend(
   if (!isEqual(oldOrder, newOrder)) {
     mutations.push({
       type: "TREE_UPDATE",
-      path: [...basePath, ip("order")],
+      path: pathToDsl([...basePath, ip("order")]),
       valueAfter: newOrder,
     });
   }
   return mutations;
+}
+
+function pathToDsl(path: XnlPath): string {
+  let out = "";
+  for (const item of path) {
+    if (item.type === "UniqueName") {
+      out += `#${item.value}`;
+      continue;
+    }
+    if (item.type === "MetadataSelector") {
+      out += item.value;
+      continue;
+    }
+    if (item.type === "InstanceProperty") {
+      out += `:${item.value}`;
+      continue;
+    }
+    if (item.type === "MapKey") {
+      out += `::'${item.value}'`;
+      continue;
+    }
+    out += `::${item.value}`;
+  }
+  return out;
 }
 
 function sameKind(a: XnlNode, b: XnlNode): boolean {
@@ -481,7 +510,7 @@ const mk = (value: string): PathItem => ({ type: "MapKey", value });
 const li = (value: number | string): PathItem => ({ type: "ListIndex", value: String(value) });
 
 function ms(key: string, value: string): PathItem {
-  return { type: "MetadataSelector", value: `<${key}=${JSON.stringify(value)}>` } as PathItem;
+  return { type: "MetadataSelector", value: `<${key}='${value}'>` } as PathItem;
 }
 
 function readIdOrMetadaataId(node: any): string | undefined {

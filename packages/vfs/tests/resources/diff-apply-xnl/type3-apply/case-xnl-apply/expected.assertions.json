@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "path": "vfs:///src",
+      "kind": "folder",
+      "id": "d_src_xap",
+      "fileType": null,
+      "content": null,
+      "owner": "team-x"
+    },
+    {
+      "path": "vfs:///src/flow.xnl",
+      "kind": "file",
+      "id": "f_flow_xap",
+      "fileType": "xnl",
+      "content": "<Flow version=\"2\">",
+      "owner": "team-y"
+    }
+  ]
+}

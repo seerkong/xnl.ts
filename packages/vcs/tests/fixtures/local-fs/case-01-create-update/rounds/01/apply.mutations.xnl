@@ -1,0 +1,6 @@
+<MutationBatch round=1 [
+    <Mutation type="CONTENT_UPDATE" path="vfs:///src/a.txt" expectedId="f_a" content="A1" fileType="text">
+    <Mutation type="META_UPDATE" path="vfs:///src/a.txt" expectedId="f_a" metaOwner="team-a">
+    <Mutation type="EXTEND_UPDATE" path="vfs:///src/a.txt" expectedId="f_a" extendColor="red">
+    <Mutation type="FILE_CREATE" path="vfs:///src/b.txt" expectedId="f_b" content="B" fileType="text">
+]>

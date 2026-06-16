@@ -1,0 +1,22 @@
+{
+  "nodes": [
+    {
+      "path": "vfs:///src",
+      "kind": "folder",
+      "id": "d_src_cm",
+      "fileType": null,
+      "content": null,
+      "owner": "team-a",
+      "extendColor": null
+    },
+    {
+      "path": "vfs:///src/main.ts",
+      "kind": "file",
+      "id": "f_main_cm",
+      "fileType": "text",
+      "content": "export const v = 2;",
+      "owner": "team-b",
+      "extendColor": "blue"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+[
+  {
+    "type": "RENAME",
+    "path": "vfs:///src/schema.xnl",
+    "targetPath": "vfs:///src/schema-v2.xnl",
+    "expectedId": "f_schema_xrn"
+  }
+]

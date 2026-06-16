@@ -1,0 +1,5 @@
+<MutationBatch round=1 [
+    <Mutation type="FOLDER_CREATE" path="vfs:///docs/guide" expectedId="d_guide">
+    <Mutation type="MOVE" path="vfs:///docs/intro.md" targetPath="vfs:///docs/guide/intro.md" expectedId="f_intro">
+    <Mutation type="RENAME" path="vfs:///old.txt" targetPath="vfs:///legacy.txt" expectedId="f_old">
+]>

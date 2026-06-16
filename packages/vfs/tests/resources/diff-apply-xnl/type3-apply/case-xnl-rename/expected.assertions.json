@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "path": "vfs:///src",
+      "kind": "folder",
+      "id": "d_src_xrn",
+      "fileType": null,
+      "content": null,
+      "owner": "team-x"
+    },
+    {
+      "path": "vfs:///src/schema-v2.xnl",
+      "kind": "file",
+      "id": "f_schema_xrn",
+      "fileType": "xnl",
+      "content": "<Schema version=\"1\">\n",
+      "owner": "team-x"
+    }
+  ]
+}

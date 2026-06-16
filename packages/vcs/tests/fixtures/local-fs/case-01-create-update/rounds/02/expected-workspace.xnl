@@ -1,0 +1,5 @@
+<ExpectedWorkspace [
+    <Node path="vfs:///src" kind="folder" id="d_src">
+    <Node path="vfs:///src/a.txt" kind="file" id="f_a" fileType="text" content="A1" metaOwner="team-a" extendColor="red">
+    <Node path="vfs:///src/b.txt" kind="file" id="f_b" fileType="text" content="B2" metaOwner="team-b" extendColor="blue">
+]>

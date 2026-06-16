@@ -1,0 +1,37 @@
+[
+  {
+    "type": "FILE_DELETE",
+    "path": "vfs:///old.txt",
+    "expectedId": "f_old_cd"
+  },
+  {
+    "type": "FOLDER_CREATE",
+    "path": "vfs:///archive",
+    "expectedId": "d_archive_cd",
+    "payload": {
+      "attributeMutation": [
+        {
+          "type": "OBJECT_ADD",
+          "path": ":attributes::'owner'",
+          "valueAfter": "team-b"
+        }
+      ]
+    }
+  },
+  {
+    "type": "FILE_CREATE",
+    "path": "vfs:///archive/log.txt",
+    "expectedId": "f_log_cd",
+    "payload": {
+      "content": "new line\n",
+      "fileType": "text",
+      "attributeMutation": [
+        {
+          "type": "OBJECT_ADD",
+          "path": ":attributes::'owner'",
+          "valueAfter": "team-b"
+        }
+      ]
+    }
+  }
+]

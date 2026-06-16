@@ -1,0 +1,17 @@
+[
+  {
+    "type": "CONTENT_UPDATE",
+    "path": "vfs:///docs/schema.xnl",
+    "expectedId": "f_schema_xu",
+    "payload": {
+      "contentMutation": [
+        {
+          "type": "OBJECT_UPDATE",
+          "path": "::0:metadata::'version'",
+          "valueAfter": "2"
+        }
+      ],
+      "fileType": "xnl"
+    }
+  }
+]

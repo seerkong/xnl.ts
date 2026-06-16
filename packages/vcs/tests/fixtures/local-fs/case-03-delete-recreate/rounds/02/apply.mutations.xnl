@@ -1,0 +1,3 @@
+<MutationBatch round=2 [
+    <Mutation type="FILE_CREATE" path="vfs:///tmp.txt" expectedId="f_tmp2" content="new" fileType="text">
+]>

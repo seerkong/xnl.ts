@@ -1,0 +1,3 @@
+<ExpectedWorkspace [
+    <Node path="vfs:///tmp.txt" kind="file" id="f_tmp2" fileType="text" content="new">
+]>
