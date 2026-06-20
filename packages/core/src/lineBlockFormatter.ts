@@ -13,12 +13,20 @@ import { isWord, wordToString } from "./types";
 export interface LineBlockStringifyOptions {
   indent?: number | string;
   textMarkerFactory?: () => string;
+  /**
+   * Block text style: render every (non-inline) TextElement with its content on its
+   * own line(s) between the open marker and `</?marker>`, indented to the element's
+   * level — even single-line content. Pairs with the parser's `textBlockStyle` option
+   * for stable round-trips. Default false keeps the legacy inline-open rendering.
+   */
+  textBlockStyle?: boolean;
 }
 
 interface StringifyState {
   indent: string;
   depth: number;
   textMarkerFactory: () => string;
+  textBlockStyle: boolean;
 }
 
 const ULID_ENCODING = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -30,6 +38,7 @@ export function stringify(value: XnlDocument | XnlNode, options: LineBlockString
     indent: typeof options.indent === "string" ? options.indent : " ".repeat(options.indent ?? 2),
     depth: 0,
     textMarkerFactory: options.textMarkerFactory ?? makeUlid,
+    textBlockStyle: options.textBlockStyle ?? false,
   };
   if (isDocument(value)) {
     return value.nodes.map((node) => serializeNode(node, state)).join("\n");
@@ -59,6 +68,14 @@ function serializeTextElement(node: TextElementNode, state: StringifyState): str
   ].join("");
   const text = node.text ?? "";
   const currentPad = pad(state);
+  if (state.textBlockStyle && text !== "") {
+    // block style: open marker, content on its own indented line(s), then </?marker>
+    const body = text
+      .split(/\r?\n/)
+      .map((line) => (line === "" ? "" : `${currentPad}${line}`))
+      .join("\n");
+    return `${currentPad}${open}\n${body}\n${currentPad}</?${marker}>`;
+  }
   const alignedText = text.replace(/\r?\n/g, (lineBreak) => `${lineBreak}${currentPad}`);
   return `${currentPad}${open}${alignedText}</?${marker}>`;
 }

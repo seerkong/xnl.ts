@@ -4,6 +4,7 @@ import { stringify as xnlLineBlockStringify } from "./lineBlockFormatter";
 import { parsePath, resolvePath, setPathValue, deleteAtPath } from "./path";
 import { applyMutations, diffNodes } from "./mutation";
 import { loadFromString, resolveNode, batchLoad } from "./loader";
+import { resolveImports, resolveVfsSrc } from "./import";
 export { parseXnl } from "./parser";
 export { parseXnlSingleNode, parseUniqueChildren } from "./parser";
 export { XnlParseError } from "./errors";
@@ -37,6 +38,14 @@ export {
 } from "./path";
 export { applyMutations, diffNodes } from "./mutation";
 export { loadFromString, resolveNode as loadNode, batchLoad } from "./loader";
+export { resolveImports, resolveVfsSrc, XnlImportError } from "./import";
+export type {
+  ImportResolver,
+  ResolveImportsOptions,
+  ResolveImportsResult,
+  ImportSymbols,
+  XnlImportErrorCode,
+} from "./import";
 export { GetWordFullName, MakeWord } from "./NodeHelper";
 
 export const XNL = {
@@ -59,5 +68,9 @@ export const XNL = {
     loadFromString,
     loadNode: resolveNode,
     batchLoad,
+  },
+  import: {
+    resolve: resolveImports,
+    resolveVfsSrc,
   },
 };

@@ -29,14 +29,20 @@ var XnlParseError = class extends Error {
 };
 
 // src/parser.ts
-function parseXnl(input) {
+function parseXnl(input, options = {}) {
   const warnings = [];
-  const nodes = parseNodesFromString(input, warnings);
+  const nodes = parseNodesFromString(input, warnings, options);
   return { nodes, warnings };
 }
-function parseXnlSingleNode(input) {
+function parseXnlSingleNode(input, options = {}) {
   const warnings = [];
-  const state = { input, pos: 0, length: input.length, warnings };
+  const state = {
+    input,
+    pos: 0,
+    length: input.length,
+    warnings,
+    textBlockStyle: options.textBlockStyle ?? false
+  };
   skipWhitespaceAndComments(state);
   const node = parseNode(state);
   skipWhitespaceAndComments(state);
@@ -52,8 +58,14 @@ function parseUniqueChildren(name, input, metadata = {}, attributes = {}) {
   const node = { kind: "DataElement", tag: name, id: void 0, metadata, attributes, extend };
   return { node, warnings };
 }
-function parseNodesFromString(input, warnings) {
-  const state = { input, pos: 0, length: input.length, warnings };
+function parseNodesFromString(input, warnings, options = {}) {
+  const state = {
+    input,
+    pos: 0,
+    length: input.length,
+    warnings,
+    textBlockStyle: options.textBlockStyle ?? false
+  };
   const nodes = [];
   skipWhitespaceAndComments(state);
   while (!eof(state)) {
@@ -232,7 +244,10 @@ function parseTextBody(state, name) {
       );
     }
     const closingIndent = indentationBefore(state.input, idx);
-    const content = stripComments(dedentContent(state.input.slice(start, idx), closingIndent));
+    let content = stripComments(dedentContent(state.input.slice(start, idx), closingIndent));
+    if (state.textBlockStyle && content.endsWith("\n")) {
+      content = content.slice(0, -1);
+    }
     state.pos = i + 1;
     return { text: content, textMarker: marker ?? void 0 };
   }
@@ -687,7 +702,8 @@ function stringify2(value, options = {}) {
   const state = {
     indent: typeof options.indent === "string" ? options.indent : " ".repeat(options.indent ?? 2),
     depth: 0,
-    textMarkerFactory: options.textMarkerFactory ?? makeUlid
+    textMarkerFactory: options.textMarkerFactory ?? makeUlid,
+    textBlockStyle: options.textBlockStyle ?? false
   };
   if (isDocument2(value)) {
     return value.nodes.map((node) => serializeNode2(node, state)).join("\n");
@@ -714,6 +730,12 @@ function serializeTextElement(node, state) {
   ].join("");
   const text = node.text ?? "";
   const currentPad = pad(state);
+  if (state.textBlockStyle && text !== "") {
+    const body = text.split(/\r?\n/).map((line) => line === "" ? "" : `${currentPad}${line}`).join("\n");
+    return `${currentPad}${open}
+${body}
+${currentPad}</?${marker}>`;
+  }
   const alignedText = text.replace(/\r?\n/g, (lineBreak) => `${lineBreak}${currentPad}`);
   return `${currentPad}${open}${alignedText}</?${marker}>`;
 }
@@ -2340,6 +2362,157 @@ function asString(value) {
   return void 0;
 }
 
+// src/import/index.ts
+var XnlImportError = class extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "XnlImportError";
+    this.code = code;
+  }
+};
+var VFS_PREFIX = "vfs://";
+function isDataElement4(node) {
+  return Boolean(node && typeof node === "object" && node.kind === "DataElement");
+}
+function readStringMeta2(meta, key) {
+  const v = meta?.[key];
+  if (typeof v === "string") return v;
+  if (isWord(v)) return wordToString(v) ?? void 0;
+  return void 0;
+}
+function joinAndNormalize(...parts) {
+  const segs = [];
+  for (const part of parts) {
+    for (const s of part.split("/")) {
+      if (s === "" || s === ".") continue;
+      if (s === "..") {
+        if (segs.length) segs.pop();
+        continue;
+      }
+      segs.push(s);
+    }
+  }
+  return "/" + segs.join("/");
+}
+function resolveVfsSrc(src, opts) {
+  if (!src.startsWith(VFS_PREFIX)) {
+    throw new XnlImportError("INVALID_IMPORT", `Import src must be a vfs:// path: ${src}`);
+  }
+  const rest = src.slice(VFS_PREFIX.length);
+  if (rest === "@" || rest.startsWith("@/")) {
+    return joinAndNormalize(opts.workspaceRoot, rest.startsWith("@/") ? rest.slice(2) : "");
+  }
+  if (rest.startsWith("./") || rest.startsWith("../") || rest === "..") {
+    return joinAndNormalize(opts.baseDir, rest);
+  }
+  return joinAndNormalize(opts.workspaceRoot, rest);
+}
+function collectExports(content) {
+  const doc = parseXnl(content);
+  const batch = doc.nodes.filter(isDataElement4);
+  const { exports: exports$1 } = batchLoad([batch]);
+  return exports$1;
+}
+function loadImportTarget(target, resolver) {
+  if (resolver.isDir(target)) {
+    const entries = (resolver.readDir(target) ?? []).filter((e) => e.endsWith(".xnl")).sort();
+    const out = [];
+    for (const entry of entries) {
+      const p = joinAndNormalize(target, entry);
+      const content2 = resolver.readFile(p);
+      if (content2 == null) continue;
+      out.push({ srcPath: p, exports: collectExports(content2) });
+    }
+    return out;
+  }
+  const content = resolver.readFile(target);
+  if (content == null) {
+    throw new XnlImportError("IMPORT_NOT_FOUND", `Import source not found: ${target}`);
+  }
+  return [{ srcPath: target, exports: collectExports(content) }];
+}
+function mergeIntoSymbols(symbols, provenance, alias, source) {
+  const ns = symbols[alias] = symbols[alias] ?? {};
+  for (const tag of Object.keys(source.exports)) {
+    for (const name of Object.keys(source.exports[tag])) {
+      const provKey = `${alias}|${name}`;
+      const prevSrc = provenance[provKey];
+      if (prevSrc !== void 0 && prevSrc !== source.srcPath) {
+        throw new XnlImportError(
+          "DUPLICATE_IMPORT",
+          `Duplicate import symbol '${alias}:${name}' from '${prevSrc}' and '${source.srcPath}'`
+        );
+      }
+      provenance[provKey] = source.srcPath;
+      ns[name] = source.exports[tag][name];
+    }
+  }
+}
+function collectImportDirectives(importsNode) {
+  const out = [];
+  for (const child of importsNode.body ?? []) {
+    if (isDataElement4(child) && child.tag === "Import") out.push(child);
+  }
+  if (importsNode.extend) {
+    for (const tag of importsNode.extend.order) {
+      const child = importsNode.extend.children[tag];
+      if (isDataElement4(child) && child.tag === "Import") out.push(child);
+    }
+  }
+  return out;
+}
+var REF_RE = /^([A-Za-z_][\w-]*):([A-Za-z_][\w.\-]*)$/;
+function validateReferences(rootDoc, symbols) {
+  const check = (value) => {
+    if (typeof value !== "string") return;
+    const m = REF_RE.exec(value);
+    if (!m) return;
+    const [, alias, name] = m;
+    if (symbols[alias] !== void 0 && symbols[alias][name] === void 0) {
+      throw new XnlImportError("UNRESOLVED_IMPORT", `Unresolved import reference '${value}'`);
+    }
+  };
+  const walk = (node) => {
+    if (isDataElement4(node)) {
+      for (const v of Object.values(node.metadata ?? {})) check(v);
+      for (const v of Object.values(node.attributes ?? {})) check(v);
+      for (const child of node.body ?? []) walk(child);
+      if (node.extend) {
+        for (const tag of node.extend.order) walk(node.extend.children[tag]);
+      }
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child);
+    }
+  };
+  for (const node of rootDoc.nodes) walk(node);
+}
+function resolveImports(rootDoc, resolver, opts) {
+  const importsNode = rootDoc.nodes.find(
+    (n) => isDataElement4(n) && n.tag === "Imports"
+  );
+  if (!importsNode) {
+    return { resolved: rootDoc, symbols: {}, warnings: [] };
+  }
+  const symbols = {};
+  const provenance = {};
+  const warnings = [];
+  for (const directive of collectImportDirectives(importsNode)) {
+    const alias = readStringMeta2(directive.metadata, "as");
+    const src = readStringMeta2(directive.metadata, "src");
+    if (!alias || !src) {
+      throw new XnlImportError("INVALID_IMPORT", "<Import> requires both 'as' and 'src'");
+    }
+    const target = resolveVfsSrc(src, opts);
+    for (const source of loadImportTarget(target, resolver)) {
+      mergeIntoSymbols(symbols, provenance, alias, source);
+    }
+  }
+  validateReferences(rootDoc, symbols);
+  return { resolved: rootDoc, symbols, warnings };
+}
+
 // src/NodeHelper.ts
 function GetWordFullName(word) {
   const parts = [...word.namespace ?? [], word.name].filter((part) => part.length > 0);
@@ -2374,12 +2547,17 @@ var XNL = {
     loadFromString,
     loadNode: resolveNode,
     batchLoad
+  },
+  import: {
+    resolve: resolveImports,
+    resolveVfsSrc
   }
 };
 
 exports.GetWordFullName = GetWordFullName;
 exports.MakeWord = MakeWord;
 exports.XNL = XNL;
+exports.XnlImportError = XnlImportError;
 exports.XnlParseError = XnlParseError;
 exports.XnlPathError = XnlPathError;
 exports.applyMutations = applyMutations;
@@ -2393,7 +2571,9 @@ exports.parsePath = parsePath;
 exports.parseUniqueChildren = parseUniqueChildren;
 exports.parseXnl = parseXnl;
 exports.parseXnlSingleNode = parseXnlSingleNode;
+exports.resolveImports = resolveImports;
 exports.resolvePath = resolvePath;
+exports.resolveVfsSrc = resolveVfsSrc;
 exports.setPathValue = setPathValue;
 exports.stringifyLineBlock = stringify2;
 exports.wordToString = wordToString;

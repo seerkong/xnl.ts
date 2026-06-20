@@ -12,22 +12,40 @@ import {
   XnlWord,
 } from "./types";
 
+/** Options for parsing. */
+export interface XnlParseOptions {
+  /**
+   * Block text style: in addition to the always-on leading-newline strip + dedent,
+   * also strip the single structural trailing newline that the block formatter emits
+   * before the closing `</?marker>`. Symmetric inverse of the formatter's
+   * `textBlockStyle` option, giving stable round-trips for multi-line text blocks.
+   */
+  textBlockStyle?: boolean;
+}
+
 interface ParseState {
   input: string;
   pos: number;
   length: number;
   warnings: ParseWarning[];
+  textBlockStyle: boolean;
 }
 
-export function parseXnl(input: string): XnlDocument {
+export function parseXnl(input: string, options: XnlParseOptions = {}): XnlDocument {
   const warnings: ParseWarning[] = [];
-  const nodes = parseNodesFromString(input, warnings);
+  const nodes = parseNodesFromString(input, warnings, options);
   return { nodes, warnings };
 }
 
-export function parseXnlSingleNode(input: string): SingleNodeResult {
+export function parseXnlSingleNode(input: string, options: XnlParseOptions = {}): SingleNodeResult {
   const warnings: ParseWarning[] = [];
-  const state: ParseState = { input, pos: 0, length: input.length, warnings };
+  const state: ParseState = {
+    input,
+    pos: 0,
+    length: input.length,
+    warnings,
+    textBlockStyle: options.textBlockStyle ?? false,
+  };
   skipWhitespaceAndComments(state);
   const node = parseNode(state);
   skipWhitespaceAndComments(state);
@@ -50,8 +68,18 @@ export function parseUniqueChildren(
   return { node, warnings };
 }
 
-function parseNodesFromString(input: string, warnings: ParseWarning[]): XnlNode[] {
-  const state: ParseState = { input, pos: 0, length: input.length, warnings };
+function parseNodesFromString(
+  input: string,
+  warnings: ParseWarning[],
+  options: XnlParseOptions = {}
+): XnlNode[] {
+  const state: ParseState = {
+    input,
+    pos: 0,
+    length: input.length,
+    warnings,
+    textBlockStyle: options.textBlockStyle ?? false,
+  };
   const nodes: XnlNode[] = [];
   skipWhitespaceAndComments(state);
   while (!eof(state)) {
@@ -244,7 +272,11 @@ function parseTextBody(state: ParseState, name: string): { text: string; textMar
       );
     }
     const closingIndent = indentationBefore(state.input, idx);
-    const content = stripComments(dedentContent(state.input.slice(start, idx), closingIndent));
+    let content = stripComments(dedentContent(state.input.slice(start, idx), closingIndent));
+    if (state.textBlockStyle && content.endsWith("\n")) {
+      // drop the single structural trailing newline the block formatter emits before </?marker>
+      content = content.slice(0, -1);
+    }
     state.pos = i + 1;
     return { text: content, textMarker: marker ?? undefined };
   }

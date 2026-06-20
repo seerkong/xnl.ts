@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Track id="add-vfs-import-resolver" version="1" xmlns:cdt="urn:codument:v1">
+  <Metadata>
+    <Status>in_progress</Status>
+    <Goal>Add cross-file vfs-import resolution to xnl-core: parse `&lt;Imports&gt;&lt;Import as src="vfs://"&gt;`, build per-alias symbol tables (same-alias merge, duplicate error), reuse loader exports/batchLoad, with dependency-inverted resolver and zero-import fallback.</Goal>
+    <Description>Implement the xnl-import capability so XNL documents can import file/directory targets by vfs path under an alias namespace, enabling fractal multi-file registries (downstream: codument add-modeling-registry).</Description>
+    <Type>feature</Type>
+    <CommitMode>manual</CommitMode>
+    <CreatedAt>2026-06-20T00:00:00Z</CreatedAt>
+    <UpdatedAt>2026-06-20T00:00:00Z</UpdatedAt>
+  </Metadata>
+
+  <Ports scope="track">
+    <MaterialBundle role="input" name="behavior-deltas" domain="behavior" path="vfs://./behavior_deltas/"/>
+    <MaterialBundle role="output" name="behavior" domain="codument" path="vfs://@/codument/behaviors/"/>
+    <MaterialBundle role="output" name="core" domain="code" path="vfs://@/packages/core/src/"/>
+  </Ports>
+
+  <TaskSpace id="space_add-vfs-import-resolver" name="add-vfs-import-resolver" version="1">
+    <Description>Phases: spec/API, core resolver implementation, vfs resolver adapter (optional), tests.</Description>
+    <SubNodes>
+
+      <TaskGroup id="P1" name="Spec and API" status="DONE" order="0">
+        <Description>Author behavior delta and finalize the resolveImports API + Import directive grammar.</Description>
+        <SubNodes>
+          <Task id="T1.1" name="Author xnl-import behavior delta" status="DONE" order="0" priority="P0">
+            <Description>behavior_deltas/xnl-import: import-directive, alias-namespace, resolver-dependency-inversion, zero-import-fallback. (Applied to behaviors registry at archive.)</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T1.1-AC1" checked="true">behavior://xnl-import requirements authored</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="T1.2" name="Finalize ImportResolver + resolveImports API" status="DONE" order="1" priority="P0">
+            <Description>ImportResolver (readFile/readDir/isDir); resolveImports signature; vfs addressing @/ ./ ..; scheme/error taxonomy (INVALID_IMPORT/IMPORT_NOT_FOUND/DUPLICATE_IMPORT/UNRESOLVED_IMPORT).</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T1.2-AC1" checked="true">API and error taxonomy defined; core does not hard-depend on xnl-vfs</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+
+      <TaskGroup id="P2" name="Core resolver implementation" status="DONE" order="1">
+        <Description>Implement Import parsing + resolveImports in xnl-core, reusing loader exports/batchLoad. packages/core/src/import/index.ts.</Description>
+        <SubNodes>
+          <Task id="T2.1" name="Parse Imports + resolve file/dir sources" status="DONE" order="0" priority="P0">
+            <Description>Parse &lt;Imports&gt;/&lt;Import as src&gt;; resolveVfsSrc for @/ ./ ..; load file or directory (.xnl, sorted) via injected resolver.</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T2.1-AC1" checked="true">File and directory-package imports load via injected resolver with correct vfs addressing</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="T2.2" name="Per-alias symbol table + reference validation" status="DONE" order="1" priority="P0">
+            <Description>Build per-alias namespaces from batchLoad exports; same-alias merge with provenance; duplicate-id error; validate alias:name references; unresolved error; zero-import fallback.</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T2.2-AC1" checked="true">alias:name resolves; same-alias merges; duplicate/unresolved/not-found raise errors</cdt:Criterion>
+              <cdt:Criterion id="T2.2-AC2" checked="true">No-Imports documents returned unchanged (zero-import fallback)</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="T2.3" name="Export resolveImports from xnl-core" status="DONE" order="2" priority="P1">
+            <Description>Added resolveImports/resolveVfsSrc/XnlImportError + types to packages/core/src/index.ts and the XNL namespace.</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T2.3-AC1" checked="true">Public API exports resolveImports + ImportResolver</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+
+      <TaskGroup id="P3" name="vfs resolver adapter (optional)" status="NOT_STARTED" order="2">
+        <Description>Optional VirtualFileSystem-backed ImportResolver so callers can resolve vfs:// against an xnl-vfs tree or local fs. Deferred: codument can supply its own resolver over LocalFsVfsPersistence.</Description>
+        <SubNodes>
+          <Task id="T3.1" name="VfsImportResolver adapter" status="NOT_STARTED" order="0" priority="P2">
+            <Description>Bridge VirtualFileSystem (or LocalFsVfsPersistence) to ImportResolver (readFile/readDir/isDir over vfs:// paths).</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T3.1-AC1" checked="false">Adapter resolves imports against a real vfs tree</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+
+      <TaskGroup id="P4" name="Tests" status="DONE" order="3">
+        <Description>Tests for directive parsing, vfs addressing, dir-package import, alias merge, duplicate/unresolved/not-found errors, dependency-inverted (mock) resolver, zero-import fallback.</Description>
+        <SubNodes>
+          <Task id="T4.1" name="Add import resolver tests" status="DONE" order="0" priority="P0">
+            <Description>tests/import.test.ts with a mock ImportResolver covering all behaviors (8 cases).</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T4.1-AC1" checked="true">Tests cover directive/addressing/dir-package/merge/errors/fallback/inversion</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="T4.2" name="Run package tests" status="DONE" order="1" priority="P0">
+            <Description>xnl-core tests green + typecheck.</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T4.2-AC1" checked="true">8 import tests pass; full suite 54 pass; tsc --noEmit clean</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:GapLoop max-rounds="5" on-exhausted="block"/></Hook>
+        </Hooks>
+      </TaskGroup>
+
+    </SubNodes>
+  </TaskSpace>
+
+  <Schedule>
+  </Schedule>
+</Track>

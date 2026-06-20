@@ -1,22 +1,35 @@
 {
   "name": "xnl-vcs",
-  "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./indexeddb-backend": "./src/indexeddb-backend.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./indexeddb-backend": {
+      "types": "./dist/indexeddb-backend.d.ts",
+      "import": "./dist/indexeddb-backend.js",
+      "require": "./dist/indexeddb-backend.cjs"
+    }
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "build": "tsup",
     "test": "vitest run",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "xnl-core": "workspace:*",
+    "xnl-core": "workspace:^",
     "xnl-collab-core": "workspace:*",
-    "xnl-vfs": "workspace:*"
+    "xnl-vfs": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
