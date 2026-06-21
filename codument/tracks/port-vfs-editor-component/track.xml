@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Track id="port-vfs-editor-component" version="1" xmlns:cdt="urn:codument:v1">
+  <Metadata>
+    <Status>new</Status>
+    <Goal>移植 infra-dev/vfs-editor 为 xnl.ts 子包 `packages/vfs-editor`(xnl-vfs-editor)——可复用 Vue3 组件库，数据层重写到 xnl-vfs(+xnl-vcs)、布局存 vfs extend(键稳定 XNL id·不反写 XNL)、显式保存=commit；并在 demo/vfs-editor 建消费该组件的可运行应用。</Goal>
+    <Description>落实 eidolon-workbench DEPA 分析（xnl-editor-depa-refactor）的 D1/D2 与 R1/R2/R4/R5：把自造 vfs 的独立应用收敛到 xnl 生态的成熟中立库，抽成可复用组件 + demo。重 UI 依赖作 peerDeps；构建用 vite lib(Vue SFC)。本 track 完工后再做 workbench 侧 track。</Description>
+    <Type>feature</Type>
+    <CommitMode>manual</CommitMode>
+    <CreatedAt>2026-06-21T00:00:00Z</CreatedAt>
+    <UpdatedAt>2026-06-21T00:00:00Z</UpdatedAt>
+  </Metadata>
+
+  <Ports scope="track">
+    <MaterialBundle role="input" name="behavior-deltas" domain="behavior" path="vfs://./behavior_deltas/"/>
+    <MaterialBundle role="output" name="behavior" domain="codument" path="vfs://@/codument/behaviors/"/>
+    <MaterialBundle role="output" name="package" domain="code" path="vfs://@/packages/vfs-editor/"/>
+    <MaterialBundle role="output" name="demo" domain="code" path="vfs://@/demo/vfs-editor/"/>
+  </Ports>
+
+  <TaskSpace id="space_port-vfs-editor-component" name="port-vfs-editor-component" version="1">
+    <Description>Phases: 脚手架 → 移植组件 → 重写数据层(xnl-vfs) → 历史层(xnl-vcs) → demo 应用 → 验证。</Description>
+    <SubNodes>
+
+      <TaskGroup id="P1" name="子包脚手架 + 行为增量" status="NOT_STARTED" order="0">
+        <Description>建 packages/vfs-editor 骨架（package.json peerDeps、vite lib + plugin-vue、tsconfig/vue-tsc、src/index 占位、exports 指 dist）；行为增量已撰写。</Description>
+        <Ports scope="phase">
+          <MaterialBundle role="input" name="delta" domain="behavior" path="vfs://./behavior_deltas/xnl-vfs-editor/"/>
+        </Ports>
+        <cdt:Gate><cdt:Criterion>包可被 workspace 识别；vite lib 构建管线就绪；peerDeps externalize 配置正确</cdt:Criterion></cdt:Gate>
+        <SubNodes>
+          <Task id="T1.1" name="scaffold packages/vfs-editor" status="NOT_STARTED" order="0" priority="P0">
+            <Description>package.json(name xnl-vfs-editor, peerDeps vue/element-plus/ag-grid-*/monaco/pinia, deps xnl-vfs/xnl-vcs/xnl-core/jszip)、vite.config(lib+plugin-vue+external)、tsconfig、src/index.ts 占位、build=vite build+vue-tsc -d。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T1.1-AC1" checked="false">pnpm 识别新包；空 build 产出 dist + d.ts；peerDeps 不被打进产物</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+
+      <TaskGroup id="P2" name="移植可复用组件 + 树渲染降 community" status="NOT_STARTED" order="1">
+        <Description>移植 VfsEditor.vue + renderers + dialogs + composables + types + utils 到 packages/vfs-editor/src，调整 import；并把 ag-grid-enterprise Tree Data 重写为 ag-grid-community（扁平行+缩进+展开折叠自实现）。保功能（暂留对内部 store 接口的调用，下一阶段替换实现）。</Description>
+        <cdt:Gate><cdt:Criterion>组件树/composables/types 就位，vue-tsc 通过；树渲染不依赖 ag-grid-enterprise</cdt:Criterion></cdt:Gate>
+        <SubNodes>
+          <Task id="T2.1" name="port SFC + composables + types" status="NOT_STARTED" order="0" priority="P0">
+            <cdt:Acceptance>
+              <cdt:Criterion id="T2.1-AC1" checked="false">VfsEditor/renderers/dialogs/composables/types 移入并通过 vue-tsc 类型检查</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="T2.2" name="树渲染重写为 ag-grid-community" status="NOT_STARTED" order="1" priority="P0">
+            <Description>去 ag-grid-enterprise Tree Data；用 community + 扁平化行(含 depth/parentPath)+缩进+展开折叠状态自管。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T2.2-AC1" checked="false">文件树在 ag-grid-community 下可展开/折叠/选中；无 enterprise 引用</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+
+      <TaskGroup id="P3" name="数据层重写到 xnl-vfs（R1/D1）" status="NOT_STARTED" order="2">
+        <Description>删 bespoke vfsStore/db；新 store/vfsBinding（VirtualFileSystem+IndexedDbVfsPersistence，一 tree 一实例+workspaceId）；composables 改调 xnl-vfs；layout.ts 布局存 vfs extend（键稳定 XNL id）；会话 UI 留内存。source-type 元数据存 extend。</Description>
+        <cdt:Gate><cdt:Criterion>无 bespoke db；CRUD 全过 xnl-vfs；布局在 extend 且键稳定 id、不进 XNL content</cdt:Criterion></cdt:Gate>
+        <SubNodes>
+          <Task id="T3.1" name="vfsBinding 薄绑定 + 删 bespoke db" status="NOT_STARTED" order="0" priority="P0">
+            <cdt:Acceptance>
+              <cdt:Criterion id="T3.1-AC1" checked="false">CRUD/树视图全经 xnl-vfs；db/indexedDb 删除；grep 无 bespoke vfs 源</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="T3.2" name="layout.ts 布局→vfs extend（D1）" status="NOT_STARTED" order="1" priority="P0">
+            <cdt:Acceptance>
+              <cdt:Criterion id="T3.2-AC1" checked="false">布局键稳定 XNL id、写 vfs extend、XNL content 不被反写</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+
+      <TaskGroup id="P4" name="历史层 xnl-vcs（R2/D2）" status="NOT_STARTED" order="3">
+        <Description>vcsBinding：Repository(IndexedDbRepositoryBackend)+init+loadWorkspaceState；apply 每编辑 / 去抖 persistWorkspace autosave / 显式保存=commit；最小 log+checkout hook（UI 可放 demo）。</Description>
+        <cdt:Gate><cdt:Criterion>显式保存产 commit；编辑去抖 autosave 不入历史；可从 commit 重建</cdt:Criterion></cdt:Gate>
+        <SubNodes>
+          <Task id="T4.1" name="vcsBinding + save=commit + autosave" status="NOT_STARTED" order="0" priority="P0">
+            <cdt:Acceptance>
+              <cdt:Criterion id="T4.1-AC1" checked="false">显式保存→1 commit；autosave 经 persistWorkspace；log/checkout 可用</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+
+      <TaskGroup id="P5" name="demo 应用 demo/vfs-editor" status="NOT_STARTED" order="4">
+        <Description>建 demo/vfs-editor（package.json 依赖 xnl-vfs-editor + 实体 peerDeps、vite + index.html）；编辑器为主——移植 App/main/router/views(TreeList/TreeEditor)；不移 LLMConfig/PromptSelector/prompt-service；demo 构造 vfs/vcs 实例并装配组件。</Description>
+        <cdt:Gate><cdt:Criterion>demo 消费 xnl-vfs-editor、vite 可构建可起、端到端可用</cdt:Criterion></cdt:Gate>
+        <SubNodes>
+          <Task id="T5.1" name="build demo app on the component" status="NOT_STARTED" order="0" priority="P0">
+            <cdt:Acceptance>
+              <cdt:Criterion id="T5.1-AC1" checked="false">demo 渲染 VfsEditor、create/edit/save(commit)/export 端到端跑通</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+
+      <TaskGroup id="P6" name="验证" status="NOT_STARTED" order="5">
+        <cdt:Gate><cdt:Criterion>包 vite build + vue-tsc 0 错 + 移植测试零回归；demo vite build 通过、dev 可起；DEPA 自检通过</cdt:Criterion></cdt:Gate>
+        <SubNodes>
+          <Task id="T6.1" name="构建/类型/测试/demo 验证 + DEPA 自检" status="NOT_STARTED" order="0" priority="P0">
+            <cdt:Acceptance>
+              <cdt:Criterion id="T6.1-AC1" checked="false">xnl-vfs-editor vite build 出 lib 产物 + vue-tsc --noEmit 0 错</cdt:Criterion>
+              <cdt:Criterion id="T6.1-AC2" checked="false">移植测试（useZipExport 等）零回归</cdt:Criterion>
+              <cdt:Criterion id="T6.1-AC3" checked="false">demo vite build 通过、dev 起得来、端到端可用</cdt:Criterion>
+              <cdt:Criterion id="T6.1-AC4" checked="false">DEPA 自检：无 bespoke db、布局不入 XNL content、单写经 mutation、peerDeps 未打包</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:GapLoop max-rounds="5" on-exhausted="block"/></Hook>
+        </Hooks>
+      </TaskGroup>
+
+    </SubNodes>
+  </TaskSpace>
+
+  <Schedule>
+  </Schedule>
+</Track>

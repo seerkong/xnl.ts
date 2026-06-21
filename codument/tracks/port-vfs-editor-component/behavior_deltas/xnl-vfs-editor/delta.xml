@@ -1,0 +1,86 @@
+<behavior-patch capability="xnl-vfs-editor">
+  <upsert selector="behavior://xnl-vfs-editor/requirements/reusable-component">
+    <requirement id="reusable-component">
+      <statement>The system SHALL provide `xnl-vfs-editor` as a reusable Vue3 component package exporting a `VfsEditor` component (plus composables and types), decoupled from any application shell, consumable by downstream apps including a sibling demo.</statement>
+      <suite id="reusable" name="Reusable component package">
+        <case id="library-export">
+          <given>A consumer installs `xnl-vfs-editor` and imports `VfsEditor`.</given>
+          <when>The consumer renders `&lt;VfsEditor&gt;` within its own app.</when>
+          <then>The component SHALL render and operate without depending on the original app's router/views/pinia bootstrap.</then>
+        </case>
+        <case id="peer-deps">
+          <given>Heavy UI deps (vue, element-plus, ag-grid-*, monaco) are declared as peerDependencies.</given>
+          <when>The package is built in lib mode.</when>
+          <then>Those deps SHALL be externalized (provided by the consumer), not bundled into the library output.</then>
+        </case>
+      </suite>
+    </requirement>
+  </upsert>
+
+  <upsert selector="behavior://xnl-vfs-editor/requirements/vfs-backed">
+    <requirement id="vfs-backed">
+      <statement>The component's file system SHALL be sourced from `xnl-vfs` (`VirtualFileSystem` + `IndexedDbVfsPersistence`), with no bespoke vfs store or bespoke IndexedDB schema.</statement>
+      <suite id="vfs-source" name="xnl-vfs backed file system">
+        <case id="single-source">
+          <given>The editor manages a directory tree and file contents.</given>
+          <when>It reads or writes the tree/content.</when>
+          <then>All reads/writes SHALL go through xnl-vfs APIs (readdir/readFile/writeFile/mkdir/rename/unlink/rmdir), and there SHALL be no bespoke `vfsStore`/`db/indexedDb` data source.</then>
+        </case>
+        <case id="idb-as-backend">
+          <given>Persistence is needed.</given>
+          <when>The working tree is persisted.</when>
+          <then>IndexedDB SHALL be used only as the xnl-vfs persistence backend (`IndexedDbVfsPersistence`), not as a competing data source.</then>
+        </case>
+      </suite>
+    </requirement>
+  </upsert>
+
+  <upsert selector="behavior://xnl-vfs-editor/requirements/layout-in-extend">
+    <requirement id="layout-in-extend">
+      <statement>Node layout (positions, collapsed, zoom) SHALL be stored in the file's vfs `extend` metadata, keyed by STABLE XNL node id (never the render-layer ulid), and SHALL NEVER be written back into the XNL business content (decision D1).</statement>
+      <suite id="layout" name="Layout persistence (D1)">
+        <case id="extend-keyed-stable-id">
+          <given>A user moves or collapses a node.</given>
+          <when>The layout change is persisted.</when>
+          <then>It SHALL be written to vfs `extend` keyed by the node's stable XNL id, and the XNL content blob SHALL remain unchanged.</then>
+        </case>
+        <case id="session-ui-not-persisted">
+          <given>Transient session UI state (selection, form expand, scroll).</given>
+          <when>It changes.</when>
+          <then>It SHALL be held in memory (depa/component state) and SHALL NOT be persisted to vfs or committed.</then>
+        </case>
+      </suite>
+    </requirement>
+  </upsert>
+
+  <upsert selector="behavior://xnl-vfs-editor/requirements/vcs-history">
+    <requirement id="vcs-history">
+      <statement>History SHALL use `xnl-vcs`: an explicit save creates a commit, while edits apply to the working tree immediately and a debounced autosave persists the uncommitted working tree (decision D2).</statement>
+      <suite id="history" name="vcs history cadence (D2)">
+        <case id="explicit-save-commit">
+          <given>The user triggers an explicit save.</given>
+          <when>Save runs.</when>
+          <then>The system SHALL create one `xnl-vcs` commit capturing the working tree snapshot.</then>
+        </case>
+        <case id="autosave-no-history">
+          <given>The user edits between saves.</given>
+          <when>Edits occur.</when>
+          <then>Edits SHALL apply to the working tree immediately and a debounced autosave SHALL persist the uncommitted working tree (persistWorkspace) without creating history commits.</then>
+        </case>
+      </suite>
+    </requirement>
+  </upsert>
+
+  <upsert selector="behavior://xnl-vfs-editor/requirements/runnable-demo">
+    <requirement id="runnable-demo">
+      <statement>A runnable demo app at `demo/vfs-editor` SHALL consume the `xnl-vfs-editor` component and provide a working VFS editor (create/edit/save/export).</statement>
+      <suite id="demo" name="Runnable demo">
+        <case id="demo-uses-component">
+          <given>The demo app is built and started.</given>
+          <when>A user opens it.</when>
+          <then>It SHALL render the `xnl-vfs-editor` component wired to concrete xnl-vfs/xnl-vcs instances and support create/edit/save(commit)/export end to end.</then>
+        </case>
+      </suite>
+    </requirement>
+  </upsert>
+</behavior-patch>
