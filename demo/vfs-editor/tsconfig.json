@@ -5,19 +5,12 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "resolveJsonModule": true,
     "jsx": "preserve",
-    "types": [],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "types": []
   },
   "include": ["src/**/*.ts", "src/**/*.vue"],
-  "exclude": ["dist", "node_modules", "src/**/__tests__/**", "src/**/*.spec.ts"]
+  "exclude": ["dist", "node_modules"]
 }
