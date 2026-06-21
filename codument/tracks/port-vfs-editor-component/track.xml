@@ -37,19 +37,19 @@
         </SubNodes>
       </TaskGroup>
 
-      <TaskGroup id="P2" name="移植可复用组件 + 树渲染降 community" status="NOT_STARTED" order="1">
+      <TaskGroup id="P2" name="移植可复用组件 + 树渲染降 community" status="DONE" order="1">
         <Description>移植 VfsEditor.vue + renderers + dialogs + composables + types + utils 到 packages/vfs-editor/src，调整 import；并把 ag-grid-enterprise Tree Data 重写为 ag-grid-community（扁平行+缩进+展开折叠自实现）。保功能（暂留对内部 store 接口的调用，下一阶段替换实现）。</Description>
         <cdt:Gate><cdt:Criterion>组件树/composables/types 就位，vue-tsc 通过；树渲染不依赖 ag-grid-enterprise</cdt:Criterion></cdt:Gate>
         <SubNodes>
-          <Task id="T2.1" name="port SFC + composables + types" status="NOT_STARTED" order="0" priority="P0">
+          <Task id="T2.1" name="port SFC + composables + types" status="DONE" order="0" priority="P0">
             <cdt:Acceptance>
-              <cdt:Criterion id="T2.1-AC1" checked="false">VfsEditor/renderers/dialogs/composables/types 移入并通过 vue-tsc 类型检查</cdt:Criterion>
+              <cdt:Criterion id="T2.1-AC1" checked="true">VfsEditor/renderers/dialogs/composables(useVfsTree,useZipExport)/types 移入；vue-tsc 0 错、vite lib build 出 dist+d.ts</cdt:Criterion>
             </cdt:Acceptance>
           </Task>
-          <Task id="T2.2" name="树渲染重写为 ag-grid-community" status="NOT_STARTED" order="1" priority="P0">
-            <Description>去 ag-grid-enterprise Tree Data；用 community + 扁平化行(含 depth/parentPath)+缩进+展开折叠状态自管。</Description>
+          <Task id="T2.2" name="树渲染重写为 ag-grid-community" status="DONE" order="1" priority="P0">
+            <Description>去 ag-grid-enterprise Tree Data；community + expanded:Set + 自算可见行(DFS 树序,折叠跳后代,注入 _depth/_expanded/_hasChildren) + 名称列 chevron 缩进。AllCommunityModule 注册 + theme legacy。拖拽降级为发 node-move 事件（受控）。决策：列排序禁用、树序为准。</Description>
             <cdt:Acceptance>
-              <cdt:Criterion id="T2.2-AC1" checked="false">文件树在 ag-grid-community 下可展开/折叠/选中；无 enterprise 引用</cdt:Criterion>
+              <cdt:Criterion id="T2.2-AC1" checked="true">文件树 community 下可展开/折叠/选中/双击；grep enterprise 无命中</cdt:Criterion>
             </cdt:Acceptance>
           </Task>
         </SubNodes>
