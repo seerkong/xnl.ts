@@ -21,17 +21,17 @@
     <Description>Phases: 脚手架 → 移植组件 → 重写数据层(xnl-vfs) → 历史层(xnl-vcs) → demo 应用 → 验证。</Description>
     <SubNodes>
 
-      <TaskGroup id="P1" name="子包脚手架 + 行为增量" status="NOT_STARTED" order="0">
+      <TaskGroup id="P1" name="子包脚手架 + 行为增量" status="DONE" order="0">
         <Description>建 packages/vfs-editor 骨架（package.json peerDeps、vite lib + plugin-vue、tsconfig/vue-tsc、src/index 占位、exports 指 dist）；行为增量已撰写。</Description>
         <Ports scope="phase">
           <MaterialBundle role="input" name="delta" domain="behavior" path="vfs://./behavior_deltas/xnl-vfs-editor/"/>
         </Ports>
         <cdt:Gate><cdt:Criterion>包可被 workspace 识别；vite lib 构建管线就绪；peerDeps externalize 配置正确</cdt:Criterion></cdt:Gate>
         <SubNodes>
-          <Task id="T1.1" name="scaffold packages/vfs-editor" status="NOT_STARTED" order="0" priority="P0">
-            <Description>package.json(name xnl-vfs-editor, peerDeps vue/element-plus/ag-grid-*/monaco/pinia, deps xnl-vfs/xnl-vcs/xnl-core/jszip)、vite.config(lib+plugin-vue+external)、tsconfig、src/index.ts 占位、build=vite build+vue-tsc -d。</Description>
+          <Task id="T1.1" name="scaffold packages/vfs-editor" status="DONE" order="0" priority="P0">
+            <Description>package.json(name xnl-vfs-editor, peerDeps vue/element-plus/ag-grid-community/ag-grid-vue3/monaco/pinia, deps xnl-vfs/xnl-vcs/xnl-core/jszip/idb)、vite.config(lib+plugin-vue+external)、tsconfig+tsconfig.build、src/index.ts 占位、build=vite build+vue-tsc -d。注意：xnl.ts 构建工具链需 node22（默认 node16 下 vite7 报 crypto）。</Description>
             <cdt:Acceptance>
-              <cdt:Criterion id="T1.1-AC1" checked="false">pnpm 识别新包；空 build 产出 dist + d.ts；peerDeps 不被打进产物</cdt:Criterion>
+              <cdt:Criterion id="T1.1-AC1" checked="true">bun workspace 识别新包；占位 build 产出 dist(.js/.cjs/.d.ts)；vue-tsc lint 0 错；peerDeps externalize</cdt:Criterion>
             </cdt:Acceptance>
           </Task>
         </SubNodes>
