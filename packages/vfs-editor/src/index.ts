@@ -59,3 +59,18 @@ export {
   isOnlineDocsSourceConfig,
   isPromptServiceSourceConfig,
 } from "./types";
+
+// ============================================
+// 数据层（xnl-vfs / xnl-vcs 绑定，P3/P4）
+// ============================================
+export {
+  useXnlVfsStore,
+  type XnlVfsStore,
+  type XnlVfsStoreOptions,
+} from "./store/xnlVfsStore";
+export {
+  createXnlVcsHistory,
+  type XnlVcsHistory,
+  type XnlVcsHistoryOptions,
+} from "./store/xnlVcsHistory";
+export { flattenSnapshot, toVfsPath, toComponentPath } from "./store/mapping";

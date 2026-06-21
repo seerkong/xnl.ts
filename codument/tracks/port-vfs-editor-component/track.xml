@@ -55,30 +55,30 @@
         </SubNodes>
       </TaskGroup>
 
-      <TaskGroup id="P3" name="数据层重写到 xnl-vfs（R1/D1）" status="NOT_STARTED" order="2">
-        <Description>删 bespoke vfsStore/db；新 store/vfsBinding（VirtualFileSystem+IndexedDbVfsPersistence，一 tree 一实例+workspaceId）；composables 改调 xnl-vfs；layout.ts 布局存 vfs extend（键稳定 XNL id）；会话 UI 留内存。source-type 元数据存 extend。</Description>
-        <cdt:Gate><cdt:Criterion>无 bespoke db；CRUD 全过 xnl-vfs；布局在 extend 且键稳定 id、不进 XNL content</cdt:Criterion></cdt:Gate>
+      <TaskGroup id="P3" name="数据层重写到 xnl-vfs（R1/D1）" status="DONE" order="2">
+        <Description>删 bespoke vfsStore/db（未移植）；新 store/{xnlVfsStore,mapping}（VirtualFileSystem+IndexedDbVfsPersistence，一 tree 一实例+workspaceId）；CRUD 全调 xnl-vfs；VfsNode↔DataElementNode 映射。注：vfs 文件树编辑器无图节点布局（D1 的"布局→extend"针对 workbench 流程图编辑器）；本编辑器 ext-state=sourceType/content 经默认/attributes，会话 UI(选中/展开)留组件内存。</Description>
+        <cdt:Gate><cdt:Criterion>无 bespoke db；CRUD 全过 xnl-vfs；idb 仅作 vfs 后端；不反写 XNL content</cdt:Criterion></cdt:Gate>
         <SubNodes>
-          <Task id="T3.1" name="vfsBinding 薄绑定 + 删 bespoke db" status="NOT_STARTED" order="0" priority="P0">
+          <Task id="T3.1" name="xnlVfsStore 薄绑定 + mapping（替 bespoke db）" status="DONE" order="0" priority="P0">
             <cdt:Acceptance>
-              <cdt:Criterion id="T3.1-AC1" checked="false">CRUD/树视图全经 xnl-vfs；db/indexedDb 删除；grep 无 bespoke vfs 源</cdt:Criterion>
+              <cdt:Criterion id="T3.1-AC1" checked="true">CRUD/树视图全经 xnl-vfs（mkdir/writeFile/rename/unlink/rmdir）；无 bespoke vfsStore/db（未移植）；idb 仅 IndexedDbVfsPersistence 后端；lint0/build 绿</cdt:Criterion>
             </cdt:Acceptance>
           </Task>
-          <Task id="T3.2" name="layout.ts 布局→vfs extend（D1）" status="NOT_STARTED" order="1" priority="P0">
+          <Task id="T3.2" name="ext-state 归位（D1，文件树版）" status="DONE" order="1" priority="P0">
             <cdt:Acceptance>
-              <cdt:Criterion id="T3.2-AC1" checked="false">布局键稳定 XNL id、写 vfs extend、XNL content 不被反写</cdt:Criterion>
+              <cdt:Criterion id="T3.2-AC1" checked="true">静态文件 content 入 attributes.content（非 XNL 业务反写）；app 元数据键稳定 metadata.id；会话 UI 留组件内存；映射读默认 sourceType=static</cdt:Criterion>
             </cdt:Acceptance>
           </Task>
         </SubNodes>
       </TaskGroup>
 
-      <TaskGroup id="P4" name="历史层 xnl-vcs（R2/D2）" status="NOT_STARTED" order="3">
-        <Description>vcsBinding：Repository(IndexedDbRepositoryBackend)+init+loadWorkspaceState；apply 每编辑 / 去抖 persistWorkspace autosave / 显式保存=commit；最小 log+checkout hook（UI 可放 demo）。</Description>
-        <cdt:Gate><cdt:Criterion>显式保存产 commit；编辑去抖 autosave 不入历史；可从 commit 重建</cdt:Criterion></cdt:Gate>
+      <TaskGroup id="P4" name="历史层 xnl-vcs（R2/D2）" status="DONE" order="3">
+        <Description>createXnlVcsHistory：Repository(IndexedDbRepositoryBackend，共享同一 vfs)+init/reopen-by-head-state；apply 每编辑（store）/ 去抖 saveFromVfs autosave（工作树）/ 显式 save()=repo.commit；history=log、checkout 重建+刷新。</Description>
+        <cdt:Gate><cdt:Criterion>显式保存产 commit；编辑去抖 autosave 不入历史；log/checkout 可用</cdt:Criterion></cdt:Gate>
         <SubNodes>
-          <Task id="T4.1" name="vcsBinding + save=commit + autosave" status="NOT_STARTED" order="0" priority="P0">
+          <Task id="T4.1" name="xnlVcsHistory + save=commit + autosave + checkout" status="DONE" order="0" priority="P0">
             <cdt:Acceptance>
-              <cdt:Criterion id="T4.1-AC1" checked="false">显式保存→1 commit；autosave 经 persistWorkspace；log/checkout 可用</cdt:Criterion>
+              <cdt:Criterion id="T4.1-AC1" checked="true">显式 save()→repo.commit；autosave 经 IndexedDbVfsPersistence.saveFromVfs（工作树）；log/checkout 实现；reopen 经 backend.readHead 恢复；lint0/build 绿</cdt:Criterion>
             </cdt:Acceptance>
           </Task>
         </SubNodes>
