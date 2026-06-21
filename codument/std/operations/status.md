@@ -4,7 +4,7 @@
 
 > 本文以 Markdown 为主（这是个读取-汇报型 skill）；仅「读取/汇报」的少量控制流用流程标记块。
 >
-> 口径映射（旧命令 / 旧格式 → 当前标准）：`codument:status`→`codument-status`；`plan.xml`→`track.xml`；不读 `state.json` 作为恢复点（恢复点改为 track.xml 内 `Status`）；`metadata.status` 枚举 `new|in_progress|completed|cancelled` 读自 `<Metadata><Status>`；任务状态读自 TaskSpace 节点 `status`（sparrow 枚举 `NOT_STARTED|ACTIVE|DELEGATED|FORWARDED|DONE|REFUSED|ABANDONED`）；`workflow.md`→`std/sop/workflow.md`；旧 `<summary>` 已删——**不读任何手维护 summary，一切派生**。
+> 口径映射（旧命令 / 旧格式 → 当前标准）：`codument:status`→`codument-status`；`plan.xml`→`track.xml`；不读 `state.json` 作为恢复点（恢复点改为 track.xml 内 `Status`）；`metadata.status` 枚举 `new|in_progress|completed|cancelled` 读自 `<Metadata><Status>`；任务状态读自 TaskSpace 节点 `status`（枚举 `NOT_STARTED|ACTIVE|DELEGATED|FORWARDED|DONE|REFUSED|ABANDONED`）；`workflow.md`→`std/sop/workflow.md`；旧 `<summary>` 已删——**不读任何手维护 summary，一切派生**。
 
 ---
 

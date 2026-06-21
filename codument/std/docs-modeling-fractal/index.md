@@ -18,7 +18,7 @@ modeling 树 = 递归的「知识节点」。**不变的是递归规则，可变
 路径：`docs/modeling/<plane>/`
 
 - **`domain`（唯一必需 plane）**：canonical 业务本体，不依赖任何 derived plane。
-- **derived plane（可选、项目按领域命名）**：把 domain 概念投影到某个建模视角。命名贴合领域，例如 `server`、`uiux`、`runtime`、`api`、`storage`、`pipeline`、`agent`、`tool`、`integration`……
+- **derived plane（可选、项目按领域命名）**：把 domain 概念投影到某个建模视角。命名贴合领域，例如 `backend`、`surface`、`runtime`、`api`、`storage`、`pipeline`、`agent`、`tool`、`integration`……
 - derived plane 必须在文档 `derived_from` 指回它投影的 domain 真源；**不得复制成第二份真源**。
 
 plane 根固定三件：
@@ -54,10 +54,10 @@ code-map.md   # 把本 context 的建模知识连到源码 / 测试
 contexts/<ctx>/{ objects/  policies/  workflows/ }
                   对象       跨对象规则   多步流程
 
-# server 平面（后端投影，cuga 实例）—— 服务端真源
+# backend 平面（后端投影）—— 服务端真源
 contexts/<ctx>/{ routes  dto_maps  errors  contracts  storage  read-models  sync-flows }
 
-# uiux 平面（前端投影）—— 前端真源
+# surface 平面（前端投影）—— 前端真源
 contexts/<ctx>/{ routes  actions  ui-state  read-models  sync-flows }
 ```
 

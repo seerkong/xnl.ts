@@ -96,7 +96,7 @@
 识别并行机会：无依赖关系的子节点可并行（同 wave）；有共同前置的可在同一 wave；有顺序依赖的必须分属不同 wave（拓扑层级不同）
 ---- /?a2
 ---- #step ?a3
-仅当 plan 已有显式文档/制品同步子节点，或 operation-hooks.xml 显式 <artifact-sync artifact="…"/> 引用 artifacts.xml 中 artifact 时，才把 artifact sync 纳入该层依赖图；不要只因 knowledgeSync.enabled=true 推断隐式同步任务
+仅当 plan 已有显式文档/制品同步子节点，或 operation-hooks.xml 显式 <artifact-sync artifact="…"/> 引用 artifacts.xml 中 artifact 时，才把 artifact sync 纳入该层依赖图；不要只因 docs profile 启用推断隐式同步任务
 ---- /?a3
 -- /?levels
 ```

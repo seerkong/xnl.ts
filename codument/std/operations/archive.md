@@ -45,7 +45,7 @@
 
 ## 3.0 归档主流程（提升流水线）
 
-整个归档是一条**有序的提升流水线**——前置门 → behavior 提升（必做）→ 移 track（必做）→ 条件提升（decision / memory）→ 显式 artifact 同步 → 校验。每步带条件门，门不满足就跳过该步并在结果中说明。
+整个归档是一条**有序的提升流水线**——前置门 → behavior 提升（必做）→ 移 track（必做）→ 条件提升（decision / memory）→ modeling 合并（条件·modeling 启用，§5.5）→ 显式 artifact 同步 → 校验。每步带条件门，门不满足就跳过该步并在结果中说明。
 
 ```text
 @delimiter: --
@@ -172,6 +172,20 @@ track 完成后更新行为登记表 `codument/behaviors/`（旧称 spec registr
 - **长期记忆 → `memory://`**：**仅当** `config/attractor-profiles.xml` 的 `memory` profile `enabled=true` **且** track 中显式存在 `memory/{lessons,incidents,patterns,summaries}/*.md` 候选时，才提升 `memory://` 内容。**不要**从 proposal 或普通日志自动合成 memory。
 
 > `docs` profile `enabled` 本身**不**代表复制 durable decision 记录，也**不**触发隐式 docs/knowledge sync；旧 `feature.json` 的 `knowledgeSync.targets` 应由 `upgrade-workspace`/`migrate` 迁移为 docs profile + artifact 规则的目标。
+
+---
+
+## 5.5 modeling 合并（条件 · modeling 启用）
+
+**仅当** `config/modeling.xml` 存在且 `enabled=true` 时执行；否则整步跳过、行为不变。
+
+1. 物化三方：base（track 元信息记录的宿主 git commit，`git show <commit>:codument/modeling/...`）+ ours（当前 `codument/modeling/` 工作树）+ theirs（track 的 `modeling_deltas/**`）。
+2. 节点级 3-way 合并（临时引擎，不持久化平行 vcs）：复用 `xnl-vfs` `xnlFileHandler.merge` / `xnl-core` `diffNodes`+`applyMutations`（`metadataIdMode:"identity"`，按 `#id` 命中）。
+3. 冲突按 `config/modeling.xml` 的 `<MergePolicy>` 处置：默认保守（`human`=issues-first 报告并暂停，不静默覆盖），可配 `ours|theirs|base`。
+4. 合并结果写回 `codument/modeling/` 工作树（宿主 git 提交）；跑 `codument modeling lint` 给分形拆分建议。
+5. 把 track 设计方案按类目回写 `docs/impl/`（overview/howto/rules/reference/troubleshooting，见 docs-impl-fractal）。
+
+> 详细规程见 `std/spec/modeling-delta.md`。modeling 是**结构真源**层；与 behaviors（行为契约）互不重复，modeling 节点引用 `behavior://`。
 
 ---
 

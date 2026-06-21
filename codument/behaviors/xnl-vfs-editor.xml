@@ -4,7 +4,7 @@
     <suite id="reusable" name="Reusable component package">
       <case id="library-export">
         <given>A consumer installs `xnl-vfs-editor` and imports `VfsEditor`.</given>
-        <when>The consumer renders `&amp;lt;VfsEditor&amp;gt;` within its own app.</when>
+        <when>The consumer renders `&lt;VfsEditor&gt;` within its own app.</when>
         <then>The component SHALL render and operate without depending on the original app's router/views/pinia bootstrap.</then>
       </case>
       <case id="peer-deps">

@@ -18,7 +18,7 @@ impl 树同样是递归的「知识节点」。**不变的是递归规则，可�
 路径：`docs/impl/<plane>/`（所有实现知识都在 `docs/impl/` 下，不散到根层）
 
 - **`global`（推荐）**：跨 plane 的实现 / 维护知识（架构、框架约定、运维方法）。
-- **其他 plane（项目按领域命名）**：`backend`、`frontend`、`runtime`、`storage`、`pipelines`、`agents`、`tools`、`operations`、`control-plane`、`data-plane`……
+- **其他 plane（项目按领域命名）**：`backend`、`surface`、`runtime`、`storage`、`pipelines`、`agents`、`tools`、`operations`、`control-plane`、`data-plane`……
 - **本体不放这里**：domain ontology 属于 `docs/modeling/`；impl 用链接引用，不复制。
 
 每个 plane / 类目目录的 `index.md` 顶部带「目录职责」块（标准类目一行精简型，自定义类目完整型）——见 [folder-manifest.md](@codument/std/spec/folder-manifest.md)。

@@ -6,7 +6,7 @@
 >
 > 本 skill **合并**了旧 `codument:implement` 与 `codument:execute-wave`——execute-wave 的「波次编排」折叠进来：波次（wave）不再手维护，而是某 `cdt:child-mode="dag"` 层依赖的**拓扑分层派生视图**，由本 skill 在执行时从 `<Schedule>` DAG 推导。
 >
-> 口径映射：`codument:implement`/`codument:execute-wave`→`codument-implement`；`plan.xml`→`track.xml`；phase = `<TaskSpace>` 第一层 `<TaskGroup>`；状态枚举沿用 sparrow（`NOT_STARTED|ACTIVE|DELEGATED|FORWARDED|DONE|REFUSED|ABANDONED`），`IN_PROGRESS→ACTIVE`、`TODO→NOT_STARTED`；`<waves>`/`wave=`/`execution_mode=wave`→`<Schedule>` 的 `cdt:child-mode="dag"` + `<Dag for><Node id><After ref>`；`context_files`→`<Ports><MaterialBundle role="input">` 路径；`<confirm>`/`validation_mode`→`<Hooks>` 里的 `cdt:GapLoop`/`cdt:HumanConfirm`；`<attractor-check>`→`<cdt:AttractorCheck use=profile>`；`spec_deltas/`→`behavior_deltas/`，"spec"→"behavior"；旧 `state.json` 续跑→**status-in-XML**（`status=ACTIVE` 任务即中断点，不读 state.json 作为恢复点）；commit_mode `auto`→逐任务 commit + Git Notes。
+> 口径映射：`codument:implement`/`codument:execute-wave`→`codument-implement`；`plan.xml`→`track.xml`；phase = `<TaskSpace>` 第一层 `<TaskGroup>`；状态枚举沿用（`NOT_STARTED|ACTIVE|DELEGATED|FORWARDED|DONE|REFUSED|ABANDONED`），`IN_PROGRESS→ACTIVE`、`TODO→NOT_STARTED`；`<waves>`/`wave=`/`execution_mode=wave`→`<Schedule>` 的 `cdt:child-mode="dag"` + `<Dag for><Node id><After ref>`；`context_files`→`<Ports><MaterialBundle role="input">` 路径；`<confirm>`/`validation_mode`→`<Hooks>` 里的 `cdt:GapLoop`/`cdt:HumanConfirm`；`<attractor-check>`→`<cdt:AttractorCheck use=profile>`；`spec_deltas/`→`behavior_deltas/`，"spec"→"behavior"；旧 `state.json` 续跑→**status-in-XML**（`status=ACTIVE` 任务即中断点，不读 state.json 作为恢复点）；commit_mode `auto`→逐任务 commit + Git Notes。
 >
 > wave-mode 旧文件（`context.md`/`state.md`/`phases/`/`waves/` 目录）**全部废弃**，被 TaskSpace 的 status-in-XML + `<Schedule>` 取代——**不要再生成它们**。
 
@@ -516,8 +516,9 @@ track 终态 hook（如 <Track><Hooks> 的 cdt:GapLoop）执行完才算实现�
 
 ## 11.0 完成后：同步项目文档与清理（轻量、显式 hook 驱动）
 
-track 达到 completed 后，按**显式 hook**做文档同步——**不要**只因 `knowledgeSync.enabled=true` 就生成隐式同步步骤。
+track 达到 completed 后，按**显式 hook**做文档同步——**不要**只因 `docs` profile 启用就生成隐式同步步骤。
 
+- **modeling（条件·modeling 启用）**：实现过程中若领域结构（对象/状态机/模块依赖/事实源/组件 IO）发生变化，把目标态节点写进 track 的 `modeling_deltas/<plane>/<context>.xnl`（不直接改 `codument/modeling/`——那由归档 §5.5 的 3-way 合并落盘）。**写完 / 编辑 modeling_deltas 后自检**：运行 `codument modeling validate --deltas <track_id>`；若报 error，按报告（file/line/layer/reason）修正 modeling_deltas 再继续，直到 0 error。该步骤与本条同样 gated——modeling 未启用（无 `config/modeling.xml` 或 `enabled=false`）则跳过。规范见 `std/spec/modeling-{registry,delta,node-schema}.md`（其 §9 语言约定：描述/注释/pseudo/mermaid 标签用中文，interface/字段/kind/枚举/#id 等标识符保持英文）。
 - **artifact / knowledge sync**：仅当 `codument/config/operation-hooks.xml` 为当前 operation point 显式配了 `<artifact-sync artifact="…"/>` 且该 artifact 存在于 `codument/config/artifacts.xml` 时才执行；同步时读 artifact 的 `<uses>`/`<targets>`/`<policy>` 与其 `attractor-profile` resource 指定的吸引子。详见 `codument/std/sop/artifact-sync.md`。
 - **product/project 类 attractor 更新**：分析 `behavior_deltas/**/*.xml`，若已完成功能显著影响产品描述或架构决策，生成提议 diff 并用 `ask-single-question-closed` 请求确认，**仅在明确确认后**编辑 `codument/attractors/` 下相关文件。
 - **track 清理**：交由 `codument-archive` skill（归档 / 删除 / 保留三选一），本 skill 不直接删 track 目录。

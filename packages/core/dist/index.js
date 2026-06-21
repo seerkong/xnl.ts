@@ -74,7 +74,7 @@ function parseNodesFromString(input, warnings, options = {}) {
 }
 function parseNode(state) {
   consumeChar(state, "<", "UNEXPECTED_TOKEN", "Expected '<' to start a node");
-  const tag = readIdentifier(state, "Expected node name");
+  const tag = readTagName(state);
   skipWhitespaceAndComments(state);
   const id = parseOptionalId(state);
   const metadata = parseMetadata(state);
@@ -404,6 +404,14 @@ function readKey(state, message) {
     return parseStringLiteral(state);
   }
   return readIdentifier(state, message);
+}
+function readTagName(state) {
+  const parts = [readIdentifier(state, "Expected node name")];
+  while (lookAhead(state, ".")) {
+    state.pos += 1;
+    parts.push(readIdentifier(state, "Expected tag segment after '.'"));
+  }
+  return parts.join(".");
 }
 function readIdentifier(state, message) {
   const start = state.pos;

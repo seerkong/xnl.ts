@@ -12,7 +12,7 @@
 
 你是 Codument 文档建模代理。当前任务是按 Codument docs 分形规范建立或更新：
 
-- **`docs/modeling/`**：领域本体——领域模型、能力边界、用户/系统行为、约束、状态机、术语、业务规则、与实现无关的外部契约。**领域中立**——类目词汇由本领域真源结构决定，**不写死 web / uiux / server 这类结构**。
+- **`docs/modeling/`**：领域本体——领域模型、能力边界、用户/系统行为、约束、状态机、术语、业务规则、与实现无关的外部契约。**领域中立**——类目词汇由本领域真源结构决定，**不写死 web / surface / backend 这类结构**。
 - **`docs/impl/`**：实现知识——目录与模块职责、入口/命令/API/任务流、数据流与持久化、配置/运行/测试/构建、关键实现决策与已知限制。
 
 铁律：**不要把猜测写成事实**。不确定信息必须写入待确认事项（uncertainty / TODO）。
@@ -25,14 +25,14 @@
 
 - **bootstrap 建立 docs 体系**：这是**一次性引导**，把现状落成分形 docs 的起点。
 - 之后 **track 归档时由 `artifact-sync` 做增量同步**（docs profile enabled + 显式 hook，见 `codument/std/operations/artifact-sync.md`）。
-- 即便 docs 同步能力（`knowledgeSync`）未开，本 skill 也可**纯手动跑**。
+- 即便 docs profile 未启用，本 skill 也可**纯手动跑**。
 
 ---
 
 ## 1. 输入读取顺序
 
 1. 读取 `codument/attractors/`；旧项目可兼容读取 `codument/project.md`、`codument/product.md`、`codument/tech-stack.md`。
-2. 读取 `codument/config/feature.json`，确认 `knowledgeSync` 是否启用；**即使未启用，本 skill 仍可手动执行**。
+2. 读取 `codument/config/attractor-profiles.xml`，确认 `docs` profile 是否启用；**即使未启用，本 skill 仍可手动执行**。
 3. 读取现有 `docs/modeling`、`docs/impl` 与其他 docs 目录。
 4. 读取 README、package/config、入口文件、核心源码目录、测试目录、CLI/API 路由或集成点。
 5. 读取 `codument/behaviors/` 与近期重要 archive/track，**只把能从事实支持的内容写入 docs**。
@@ -49,7 +49,7 @@
 
 - 递归规则不变：`plane → context → 类目 → 叶子`；每层 `index.md` 只导航；一处真源、其余引用；derived 用 `derived_from` 指回 canonical。
 - **类目词汇随领域变**：先问"本领域这个 context 的真源天然分成哪几类"，选 3–6 个正交、稳定、领域自然的类目作为 context 第一层子目录——**不要硬套别人的 `objects/policies/workflows` 或写死 web 结构**。
-- 必需 plane：`domain`（canonical 本体）；derived plane 按领域命名（`server`/`uiux`/`runtime`/`pipeline`/…）。
+- 必需 plane：`domain`（canonical 本体）；derived plane 按领域命名（`backend`/`surface`/`runtime`/`pipeline`/…）。
 
 ### 2.2 docs/impl（实现知识）
 
@@ -116,7 +116,7 @@
 对建出的每个目录按 folder-manifest 给其 index.md 写「目录职责」块（标准类目精简型 / 自定义类目完整型）；扫描缺块的幂等补齐，不覆盖人工块
 ---- /?backfill-manifests
 ---- #step ?record-uncertainty
-对推断不确定处显式标注 TODO/uncertainty，不臆造；knowledgeSync 关闭时本步仍可纯手动执行
+对推断不确定处显式标注 TODO/uncertainty，不臆造；docs profile 关闭时本步仍可纯手动执行
 ---- /?record-uncertainty
 ---- #step ?review-report
 Review：检查猜测/重复/过度拆分/实现与建模混写；Report：列出更新的文件、未写入原因、待确认问题

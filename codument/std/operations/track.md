@@ -94,6 +94,10 @@
 ---- #step ?s3
 §3.3 交互式起草 behavior_deltas/<cap>/delta.xml → 用户确认
 ---- /?s3
+---- #if ?s3m cond="config/modeling.xml 存在且 enabled=true"
+§3.3b 参考 behavior_deltas，起草 modeling_deltas/<plane>/<context>.xnl（目标态节点，XNL）；记录当前 codument/modeling 的宿主 git commit 作 3-way base（写入 track 元信息）。规范见 std/spec/modeling-{registry,delta,node-schema}.md（其 §9 语言约定：描述/注释/pseudo/mermaid 标签用中文，interface/字段/kind/枚举/#id 等标识符保持英文）。modeling 未启用则跳过。
+§3.3b 自检：写完 / 编辑 modeling_deltas 后，运行 `codument modeling validate --deltas <track_id>`；若报 error，按报告（file/line/layer/reason）修正 modeling_deltas 再继续，直到 0 error。本自检与 §3.3b 同样 gated on config/modeling.xml——modeling 未启用（无 config/modeling.xml 或 enabled=false）则跳过。
+---- /?s3m
 ---- #step ?s4
 §3.4 起草 proposal.md → 用户确认
 ---- /?s4
@@ -205,7 +209,7 @@
    - BDD / 测试场景用**可嵌套**的 `<suite>` 与 `<case>`；`<case>` 内用 `<given>`、`<when>`、`<then>`、可选 `<and>`。
    - 需求正文用 `<statement>`，**不要**再用 Markdown 的 `## ADDED Requirements` / `### Requirement:` / `#### Scenario:`。
    - 需求措辞：规范性需求用 **SHALL / MUST**（除非故意非规范，否则避免 should / may）。每个 capability 至少一个 `<requirement>`，每个可测试需求至少一个 `<case>`。
-   - 如果 `docs` profile 启用（取代旧 `feature.json` 的 `knowledgeSync.enabled=true`），可在相关 `<requirement>`、`<suite>` 或 `<case>` 内加可选 `<knowledge-hint target="..." href="behavior://..." strength="hint" />`，帮助后续 docs/knowledge sync 定位候选文档——它是**弱链接**（hint），不是强外键，链接失效不应默认阻断归档。`docs` profile 停用或缺失时**不生成** `knowledge-hint`，也不生成 docs 联动信息。
+   - 如果 `docs` profile 启用，可在相关 `<requirement>`、`<suite>` 或 `<case>` 内加可选 `<knowledge-hint target="..." href="behavior://..." strength="hint" />`，帮助后续 docs/knowledge sync 定位候选文档——它是**弱链接**（hint），不是强外键，链接失效不应默认阻断归档。`docs` profile 停用或缺失时**不生成** `knowledge-hint`，也不生成 docs 联动信息。
 
    **示例：**
    ```xml
@@ -519,7 +523,7 @@ proposal 获批后："现在我将根据规范创建结构化实现计划（`tra
 ### 3.8 收尾
 
 1. **确认真相源**：`track.xml` 的 `<Metadata>` 已含 track 元信息与状态。**不**创建 / 更新 `codument/tracks.md`，**不**创建 / 更新 `metadata.json`。
-2. **best-effort validate**：尝试 `codument validate <id> --strict`；若系统找不到 `codument` 命令，**跳过并明确说明**（"外部 codument validate 未执行，原因是系统中找不到 codument 命令"），不因此阻塞。validate 会检查：根 `<Track id>`、`<Metadata><Status>` 合法、`<TaskSpace>` 第一层至少一个 phase、id 全局唯一、`status` 是 sparrow 枚举、每个 `<Dag for>` 指向 `dag` 层且其 `<After ref>` 只引用直接下层且无环、`<Hook on>` 合法、`<cdt:AttractorCheck use>` 能解析到 profile（见 track-xml-spec §9）。
+2. **best-effort validate**：尝试 `codument validate <id> --strict`；若系统找不到 `codument` 命令，**跳过并明确说明**（"外部 codument validate 未执行，原因是系统中找不到 codument 命令"），不因此阻塞。validate 会检查：根 `<Track id>`、`<Metadata><Status>` 合法、`<TaskSpace>` 第一层至少一个 phase、id 全局唯一、`status` 是枚举、每个 `<Dag for>` 指向 `dag` 层且其 `<After ref>` 只引用直接下层且无环、`<Hook on>` 合法、`<cdt:AttractorCheck use>` 能解析到 profile（见 track-xml-spec §9）。
 3. **宣布完成**：
    > "新 track '<track_id>' 已创建。
    > 状态真源：`codument/tracks/<track_id>/track.xml`

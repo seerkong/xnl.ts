@@ -192,7 +192,7 @@ discuss 中一旦把某领域概念/行为/policy/架构澄清到**稳定**（�
 -- /?promote
 ```
 
-> 晋升判定细则（落 `docs/` 还是 behaviors/decisions/memory、何时晋升、触发条件）见 `codument/attractors/knowledge-tiers.md` §4–§5；docs profile（`knowledgeSync.enabled`）未启用时，仅记 track 待归档兜底，不强行写 `docs/`。
+> 晋升判定细则（落 `docs/` 还是 behaviors/decisions/memory、何时晋升、触发条件）见 `codument/attractors/knowledge-tiers.md` §4–§5；docs profile 未启用时，仅记 track 待归档兜底，不强行写 `docs/`。
 
 ---
 

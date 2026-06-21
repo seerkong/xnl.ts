@@ -107,11 +107,11 @@ tracks/<id>/
 
 ## 4. `<TaskSpace>` — 结构轴（工作树 + 状态）★
 
-复用 Layer 3 的 TaskSpace（sparrow Task DSL，`<Description>` 元素、status 标在 XML）。codument 约定：
+复用 Layer 3 的 TaskSpace（Task DSL，`<Description>` 元素、status 标在 XML）。codument 约定：
 
 - **phase = `SubNodes` 第一层 `TaskGroup`**（不引入独立 `<Phase>` 标签）。
 - phase 之下 `Task`（叶）/`TaskGroup`（非叶）**任意层级嵌套**（取代旧固定 3 层）。
-- 任务状态枚举沿用 sparrow：`NOT_STARTED | ACTIVE | DELEGATED | FORWARDED | DONE | REFUSED | ABANDONED`。
+- 任务状态枚举沿用：`NOT_STARTED | ACTIVE | DELEGATED | FORWARDED | DONE | REFUSED | ABANDONED`。
 - codument 领域扩展用 `cdt:` 子节点：`<cdt:Gate>`（阶段门控）、`<cdt:Acceptance>`（验收标准）、`<cdt:Priority>`/`priority` 属性。
 - **层级执行模式 `cdt:child-mode`**：在 `<TaskSpace>` 或任一 `<TaskGroup>` 上加 `cdt:child-mode="sequential|dag"`（**默认 `sequential`，可省**），标记其**直接下层节点**是依次执行还是 DAG。**默认无需任何依赖配置**；只有标 `dag` 的层，才在 `<Schedule>` 里声明该层直接下层之间的依赖（§5）。可对多个非叶节点分别标 `dag`。
 
@@ -231,7 +231,7 @@ ID 约定（沿用旧规范的可读性）：phase=`P{n}`、task=`T{phase}.{n}`�
 
 ## 7. 状态与派生
 
-- **任务/阶段状态**：`<TaskGroup>`/`<Task>` 的 `status` 属性（sparrow 枚举）。父 TaskGroup 状态应反映子节点（`ACTIVE` 若有子在跑、`DONE` 若全 DONE）。
+- **任务/阶段状态**：`<TaskGroup>`/`<Task>` 的 `status` 属性（枚举）。父 TaskGroup 状态应反映子节点（`ACTIVE` 若有子在跑、`DONE` 若全 DONE）。
 - **track 状态**：`<Metadata><Status>`（`new|in_progress|completed|cancelled`）。
 - **summary 不入库**：阶段/任务计数、按优先级统计等由工具遍历 TaskSpace 派生（旧 `<summary>` 删除）。
 - **commit / blocker**：完成任务的 commit SHA、阻塞原因可作 `<Task>` 的 `cdt:commit` / `cdt:blocker` 属性或 `<Config>` 字段。
@@ -246,7 +246,7 @@ ID 约定（沿用旧规范的可读性）：phase=`P{n}`、task=`T{phase}.{n}`�
 | `<phases><phase>` | `<TaskSpace><SubNodes><TaskGroup>`（第一层） |
 | `<tasks><task>` / `<subtasks><subtask>` | 嵌套 `<Task>`/`<TaskGroup>`（任意层级） |
 | 文本/`<description>` | `<Description>` 元素 |
-| `status`（TODO/IN_PROGRESS/DONE/…） | sparrow 枚举（NOT_STARTED/ACTIVE/DONE/…）；`TODO→NOT_STARTED`、`IN_PROGRESS→ACTIVE` |
+| `status`（TODO/IN_PROGRESS/DONE/…） | 枚举（NOT_STARTED/ACTIVE/DONE/…）；`TODO→NOT_STARTED`、`IN_PROGRESS→ACTIVE` |
 | `<gate_criteria>` | `<cdt:Gate>` |
 | `<acceptance_criteria>` | `<cdt:Acceptance>` |
 | `execution_mode`/`<waves>`/`wave=`/`<wave_config>` | 逐层 `cdt:child-mode="sequential|dag"` + `<Schedule><Dag for><Node after>` + `<Parallel>` |
@@ -262,7 +262,7 @@ ID 约定（沿用旧规范的可读性）：phase=`P{n}`、task=`T{phase}.{n}`�
 
 1. 根 `<Track id>`；`<Metadata><Status>` 合法枚举。
 2. `<TaskSpace>` 必需；第一层 SubNodes 至少一个 TaskGroup（phase）；id 全局唯一。
-3. `status` 属性为 sparrow 枚举。
+3. `status` 属性为枚举。
 4. 每个 `<Schedule><Dag for="P">` 的 `for` 必须引用一个 `cdt:child-mode="dag"` 的节点；其 `<Node id>` 与子 `<After ref>` 只能引用该节点的**直接下层** id；该层内 DAG 无环。
 5. `<Hook on>` 取值合法；`<cdt:AttractorCheck use>` 能在 `config/attractor-profiles.xml` 解析到 profile；`<cdt:GapLoop>` 的 `max-rounds`/`on-exhausted` 合法。
 6. 格式良好的 XML；`cdt:` 命名空间已声明（track.xml 不需要 `config:`）。

@@ -91,7 +91,7 @@ function parseNodesFromString(
 
 function parseNode(state: ParseState): DataElementNode | TextElementNode {
   consumeChar(state, "<", "UNEXPECTED_TOKEN", "Expected '<' to start a node");
-  const tag = readIdentifier(state, "Expected node name");
+  const tag = readTagName(state);
   skipWhitespaceAndComments(state);
   const id = parseOptionalId(state);
   const metadata = parseMetadata(state);
@@ -455,6 +455,16 @@ function readKey(state: ParseState, message: string): string {
     return parseStringLiteral(state);
   }
   return readIdentifier(state, message);
+}
+
+// Tag names may be dotted FQNs: seg(.seg)*, each segment an identifier.
+function readTagName(state: ParseState): string {
+  const parts = [readIdentifier(state, "Expected node name")];
+  while (lookAhead(state, ".")) {
+    state.pos += 1;
+    parts.push(readIdentifier(state, "Expected tag segment after '.'"));
+  }
+  return parts.join(".");
 }
 
 function readIdentifier(state: ParseState, message: string): string {

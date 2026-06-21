@@ -12,7 +12,7 @@ codument/behaviors/
     └── <area>.xml
 ```
 
-- 单文件 ↔ 同名文件夹**自动演化**：内容过多时把 `<capability>.xml` 拆成 `<capability>/index.xml` + 子文件，沿用 cuga-app-builder docs 的分形习惯。
+- 单文件 ↔ 同名文件夹**自动演化**：内容过多时把 `<capability>.xml` 拆成 `<capability>/index.xml` + 子文件，沿用分形习惯。
 - `behavior://<capability>/requirements/<id>/suites/<id>/cases/<id>` 是定位行为节点的 VFS 路径，被 `behavior-patch` 的 `selector` 与跨文档引用使用；可按节点层级截短，例如只定位到 `requirements/<id>`。
 
 ## 节点

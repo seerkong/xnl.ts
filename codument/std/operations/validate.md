@@ -81,7 +81,7 @@
 - [ ] 第一层 `<SubNodes>` 至少一个 `<TaskGroup>`（phase）。
 - [ ] 所有 phase 是第一层 `TaskGroup`（不引入独立 `<Phase>` 标签）。
 - [ ] phase 之下 `Task`（叶）/`TaskGroup`（非叶）任意层级嵌套；id 全局唯一。
-- [ ] 每个 `<TaskGroup>`/`<Task>` 有 `id`；`status` 为 sparrow 枚举 `NOT_STARTED|ACTIVE|DELEGATED|FORWARDED|DONE|REFUSED|ABANDONED`。
+- [ ] 每个 `<TaskGroup>`/`<Task>` 有 `id`；`status` 为枚举 `NOT_STARTED|ACTIVE|DELEGATED|FORWARDED|DONE|REFUSED|ABANDONED`。
 - [ ] codument 扩展节点合法：`<cdt:Gate>`（阶段门控）、`<cdt:Acceptance>`（验收）、`<cdt:Priority>`/`priority` 属性。
 
 ### 2.4 `<Schedule>` 调度验证（track-xml-spec §9.4）
