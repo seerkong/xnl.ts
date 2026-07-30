@@ -1,4 +1,4 @@
-<behavior-patch capability="xnl-dotted-tag">
+<behavior-patch capability="xnl-dotted-tag" version="1">
   <upsert selector="behavior://xnl-dotted-tag/requirements/dotted-tag-grammar">
     <requirement id="dotted-tag-grammar">
       <statement>The parser SHALL accept dotted fully-qualified tag names of the form `seg(.seg)*` where each segment matches the existing identifier grammar `[A-Za-z_][A-Za-z0-9_-]*`, e.g. `&lt;dg.materials.CrudTable #users-table&gt;`.</statement>
