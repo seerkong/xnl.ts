@@ -218,30 +218,44 @@ function parseTextBody(state, name) {
   const marker = readOptionalMarker(state);
   consumeChar(state, ">", "UNEXPECTED_TOKEN", "Expected '>' after text marker");
   const start = state.pos;
+  const expectedMarker = marker ?? "";
+  let searchPos = start;
+  let firstMismatchedCloser;
+  let firstMalformedCloser;
   while (true) {
-    const idx = state.input.indexOf("</?", state.pos);
+    const idx = state.input.indexOf("</?", searchPos);
     if (idx === -1) {
-      throw error(state, "MISMATCHED_TAG", `Missing closing text tag </?${marker ?? ""}> for <${name}>`);
+      if (firstMismatchedCloser) {
+        state.pos = firstMismatchedCloser.pos;
+        throw error(
+          state,
+          "MISMATCHED_TAG",
+          `Mismatched text marker for <${name}>: expected '${expectedMarker}' but found '${firstMismatchedCloser.foundMarker}'`
+        );
+      }
+      if (firstMalformedCloser) {
+        state.pos = firstMalformedCloser.pos;
+        throw error(
+          state,
+          "UNEXPECTED_TOKEN",
+          `Invalid closing text tag for <${name}>; expected '>' after marker '${firstMalformedCloser.foundMarker}'`
+        );
+      }
+      throw error(state, "MISMATCHED_TAG", `Missing closing text tag </?${expectedMarker}> for <${name}>`);
     }
     const markerStart = idx + 3;
     let i = markerStart;
     while (i < state.length && isIdentifierChar(state.input[i])) i++;
     const foundMarker = state.input.slice(markerStart, i);
     if (state.input[i] !== ">") {
-      state.pos = idx;
-      throw error(
-        state,
-        "UNEXPECTED_TOKEN",
-        `Invalid closing text tag for <${name}>; expected '>' after marker '${foundMarker}'`
-      );
+      firstMalformedCloser ?? (firstMalformedCloser = { pos: idx, foundMarker });
+      searchPos = markerStart;
+      continue;
     }
-    if ((marker ?? "") !== foundMarker) {
-      state.pos = idx;
-      throw error(
-        state,
-        "MISMATCHED_TAG",
-        `Mismatched text marker for <${name}>: expected '${marker ?? ""}' but found '${foundMarker}'`
-      );
+    if (expectedMarker !== foundMarker) {
+      firstMismatchedCloser ?? (firstMismatchedCloser = { pos: idx, foundMarker });
+      searchPos = i + 1;
+      continue;
     }
     const closingIndent = indentationBefore(state.input, idx);
     let content = stripComments(dedentContent(state.input.slice(start, idx), closingIndent));

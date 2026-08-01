@@ -1,6 +1,6 @@
 # behavior delta 编写规范（std/spec/behavior-delta.md）
 
-> 口径：旧称 spec / spec_deltas，现统一为 **behavior**。每个 track 在 `tracks/<id>/behavior_deltas/<capability>/delta.xml` 声明对行为登记表（`codument/behaviors/`，见 `behavior-registry.md`）的增删改。
+> 口径：旧称 spec / spec_deltas，现统一为 **behavior**。每个 pending 或 active track 在 `tracks/{pending,active}/<id>/behavior_deltas/<capability>/delta.xml` 声明对行为登记表（`codument/behaviors/`，见 `behavior-registry.md`）的增删改。
 
 ## 形态
 
@@ -32,5 +32,5 @@
 ## 与 track / 归档的关系
 
 - track 的 `<Ports>` 把 `behavior_deltas/`（input 物料，`domain="behavior"`）与 `codument/behaviors/`（output `name="behavior"`）显式接起来。
-- 归档时（`codument-archive`）按 `<upsert|delete|move>` wrapper + `behavior://` selector 把 delta 应用进 `codument/behaviors/`（见 `behavior-registry.md`）。
+- 归档时（`codument-archive-track`）按 `<upsert|delete|move>` wrapper + `behavior://` selector 把 delta 应用进 `codument/behaviors/`（见 `behavior-registry.md`）。
 - 行为用例 `<suite>/<case>` 指导测试编写，是 `codument-verify` 的验收依据之一。
