@@ -1,6 +1,6 @@
 {
   "name": "xnl-core",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "XNL (Extensible Notation Language) parser for Node and browser with TypeScript types.",
   "type": "module",
   "main": "dist/index.cjs",
