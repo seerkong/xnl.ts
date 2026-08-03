@@ -2,7 +2,7 @@ import * as Parser from "./parser";
 import { stringify as xnlStringify } from "./formatter";
 import { stringify as xnlLineBlockStringify } from "./lineBlockFormatter";
 import { parsePath, resolvePath, setPathValue, deleteAtPath } from "./path";
-import { applyMutations, diffNodes } from "./mutation";
+import { applyMutations, diffNodes, dryRunMutations } from "./mutation";
 import { loadFromString, resolveNode, batchLoad } from "./loader";
 import { resolveImports, resolveVfsSrc } from "./import";
 export { parseXnl } from "./parser";
@@ -28,7 +28,19 @@ export type {
 export { isWord, wordToString } from "./types";
 export type { PathItem, PathItemType, XnlPath } from "./path";
 export { stringify as stringifyLineBlock } from "./lineBlockFormatter";
-export type { XnlMutation, MutationType, XnlMutationOptions, MetadataIdMode } from "./mutation";
+export type {
+  XnlMutation,
+  MutationType,
+  XnlMutationOptions,
+  MetadataIdMode,
+  XnlMutationBatch,
+  XnlMutationIdentityPolicy,
+  XnlMutationDiagnosticCode,
+  XnlMutationDiagnostic,
+  XnlMutationBatchOptions,
+  XnlMutationBatchResult,
+  XnlDryRunMutations,
+} from "./mutation";
 export {
   parsePath,
   resolvePath,
@@ -36,7 +48,7 @@ export {
   deleteAtPath,
   XnlPathError,
 } from "./path";
-export { applyMutations, diffNodes } from "./mutation";
+export { applyMutations, diffNodes, dryRunMutations } from "./mutation";
 export { loadFromString, resolveNode as loadNode, batchLoad } from "./loader";
 export { resolveImports, resolveVfsSrc, XnlImportError } from "./import";
 export type {
@@ -63,6 +75,8 @@ export const XNL = {
   mutation: {
     apply: applyMutations,
     diff: diffNodes,
+    dryRun: dryRunMutations,
+    preview: dryRunMutations,
   },
   loader: {
     loadFromString,

@@ -6,6 +6,7 @@ export * from "./path-index";
 export * from "./model";
 export * from "./handlers";
 export * from "./mutation-bridge";
+export * from "./revisioned-persistence";
 export * from "./vfs-mutations";
 export * from "./vfs";
 export * from "./xnl-snapshot";

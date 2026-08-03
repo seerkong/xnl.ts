@@ -6,5 +6,6 @@ export * from "./content-store";
 export * from "./repository-backend";
 export * from "./tree-converter";
 export * from "./repository";
+export * from "./revisioned-repository";
 export * from "./xnl-snapshot";
 export * from "./indexeddb-backend";

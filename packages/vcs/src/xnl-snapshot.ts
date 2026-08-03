@@ -2,6 +2,7 @@ import { XNL, parseXnl, type DataElementNode, type TextElementNode, type XnlNode
 import { type VfsFileType } from "xnl-vfs";
 import { VcsError } from "./errors";
 import { sha256Hex, type ObjectId } from "./hash";
+import { decodeLosslessVfsSnapshot } from "./lossless-ast-codec";
 import { MemoryObjectStore, type ObjectStore } from "./object-store";
 import { MemoryContentStore, encodingForType, type ContentStore } from "./content-store";
 import { Repository } from "./repository";
@@ -62,6 +63,18 @@ function asTextElement(node: XnlNode): TextElementNode | undefined {
   return value.kind === "TextElement" ? value : undefined;
 }
 
+function isDataElementNode(value: unknown): value is DataElementNode {
+  return Boolean(value && typeof value === "object" && (value as DataElementNode).kind === "DataElement");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function isValidVfsSnapshotRoot(value: unknown): value is DataElementNode {
+  return isDataElementNode(value) && value.tag === "folder" && typeof value.tag === "string" && isRecord(value.metadata);
+}
+
 function ensureDataElement(node: XnlNode | undefined, expectedTag?: string): DataElementNode {
   if (!node || typeof node !== "object" || (node as DataElementNode).kind !== "DataElement") {
     throw new VcsError("EINVAL", `Expected DataElement${expectedTag ? ` <${expectedTag}>` : ""}`);
@@ -107,6 +120,18 @@ function readStringArrayAttrFirst(node: DataElementNode, key: string): string[] 
 function readNullableRef(node: DataElementNode): ObjectId | null {
   const raw = node.attributes?.target ?? node.metadata?.target;
   return typeof raw === "string" ? raw : null;
+}
+
+function parseJsonAttribute(element: DataElementNode, key: string): unknown {
+  const raw = readStringAttrFirst(element, key);
+  if (raw === undefined) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    throw new VcsError("EINVAL", `<${element.tag}> has malformed ${key}`);
+  }
 }
 
 export function captureRepositorySnapshot(repository: Repository): RepositoryStateSnapshot {
@@ -208,6 +233,24 @@ function serializeBlobObject(id: ObjectId, object: BlobObject): DataElementNode 
 }
 
 function serializeTreeObject(id: ObjectId, object: TreeObject): DataElementNode {
+  const attributes: DataElementNode["attributes"] = {
+    metadataId: object.metadataId,
+  };
+  if (object.metadata !== undefined) {
+    attributes.metadataJson = JSON.stringify(object.metadata);
+  }
+  if (object.xnlVfsFormat !== undefined) {
+    if (object.xnlVfsFormat !== "xnl-vfs-v2" || object.xnlVfsSnapshot === undefined) {
+      throw new VcsError("EINVAL", "Malformed xnl-vfs-v2 tree object");
+    }
+    const decoded = decodeLosslessVfsSnapshot(object.xnlVfsSnapshot);
+    if (!isValidVfsSnapshotRoot(decoded)) {
+      throw new VcsError("EINVAL", "Malformed xnl-vfs-v2 tree object");
+    }
+    attributes.xnlVfsFormat = object.xnlVfsFormat;
+    attributes.xnlVfsSnapshotJson = JSON.stringify(object.xnlVfsSnapshot);
+  }
+
   const entries: DataElementNode[] = object.entries.map((entry) => {
     const metadata: DataElementNode["metadata"] = {
       name: entry.name,
@@ -237,9 +280,7 @@ function serializeTreeObject(id: ObjectId, object: TreeObject): DataElementNode 
       id,
       name: object.name,
     },
-    attributes: {
-      metadataId: object.metadataId,
-    },
+    attributes,
     extend: object.extend,
     body: [
       {
@@ -519,6 +560,29 @@ function deserializeObjects(snapshotNode: DataElementNode, contents: Record<Cont
         metadataId: readStringAttrFirst(element, "metadataId") ?? "",
         entries,
       };
+      const metadataJson = parseJsonAttribute(element, "metadataJson");
+      if (metadataJson !== undefined) {
+        if (!metadataJson || typeof metadataJson !== "object" || Array.isArray(metadataJson)) {
+          throw new VcsError("EINVAL", "Tree metadataJson must encode an object");
+        }
+        tree.metadata = metadataJson as Record<string, unknown>;
+      }
+      const xnlVfsFormat = readStringAttrFirst(element, "xnlVfsFormat");
+      if (xnlVfsFormat !== undefined) {
+        if (xnlVfsFormat !== "xnl-vfs-v2") {
+          throw new VcsError("EINVAL", `Unsupported XNL VFS tree format: ${xnlVfsFormat}`);
+        }
+        const xnlVfsSnapshot = parseJsonAttribute(element, "xnlVfsSnapshotJson");
+        if (xnlVfsSnapshot === undefined) {
+          throw new VcsError("EINVAL", "xnl-vfs-v2 tree missing snapshot payload");
+        }
+        const decoded = decodeLosslessVfsSnapshot(xnlVfsSnapshot);
+        if (!isValidVfsSnapshotRoot(decoded)) {
+          throw new VcsError("EINVAL", "xnl-vfs-v2 tree missing snapshot payload");
+        }
+        tree.xnlVfsFormat = xnlVfsFormat;
+        tree.xnlVfsSnapshot = xnlVfsSnapshot as NonNullable<TreeObject["xnlVfsSnapshot"]>;
+      }
       if (element.extend !== undefined) {
         tree.extend = element.extend;
       }

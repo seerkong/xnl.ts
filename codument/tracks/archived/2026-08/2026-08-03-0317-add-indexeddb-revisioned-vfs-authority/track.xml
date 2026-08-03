@@ -1,0 +1,76 @@
+<Track id="add-indexeddb-revisioned-vfs-authority" version="1" xmlns:cdt="urn:codument:v1">
+  <Metadata>
+    <Status>completed</Status>
+    <Goal>为浏览器提供可重开、跨实例原子 CAS 的 IndexedDB RevisionedVfsAuthority。</Goal>
+    <Description>扩展既有 xnl-revisioned-persistence 契约，在 xnl-vfs owner 中实现 workspace-durable IndexedDB authority，并验证公共浏览器构建面。</Description>
+    <QuestionMode>decision-tree</QuestionMode>
+    <QuestionSeverity>auto</QuestionSeverity>
+    <CommitMode>manual</CommitMode>
+    <CreatedAt>2026-08-03T02:48:06+03:00</CreatedAt>
+    <UpdatedAt>2026-08-03T03:17:29+03:00</UpdatedAt>
+  </Metadata>
+  <Ports scope="track">
+    <MaterialBundle role="input" name="behavior-deltas" domain="behavior" path="vfs://./behavior_deltas/"/>
+    <MaterialBundle role="input" name="revisioned-contract" domain="code" path="vfs://@/packages/vfs/src/revisioned-persistence.ts"/>
+    <MaterialBundle role="input" name="indexeddb-persistence" domain="code" path="vfs://@/packages/vfs/src/indexeddb-persistence.ts"/>
+    <MaterialBundle role="output" name="behavior" domain="codument" path="vfs://@/codument/behaviors/xnl-revisioned-persistence.xml"/>
+    <MaterialBundle role="output" name="vfs-source" domain="code" path="vfs://@/packages/vfs/src/"/>
+    <MaterialBundle role="output" name="vfs-tests" domain="test" path="vfs://@/packages/vfs/tests/"/>
+    <MaterialBundle role="output" name="vfs-package" domain="build" path="vfs://@/packages/vfs/"/>
+  </Ports>
+  <TaskSpace id="space_add_indexeddb_revisioned_vfs_authority" name="add-indexeddb-revisioned-vfs-authority" version="1" cdt:child-mode="dag">
+    <Description>先以独立实例和 reopen 红测固定浏览器持久 CAS，再实现 authority，最后验证公共导出、兼容与浏览器安全。</Description>
+    <SubNodes>
+      <TaskGroup id="P1" name="Contract And Red Baseline" status="DONE" order="0">
+        <Description>冻结 IndexedDB authority 的持久事实、线性化与失败语义。</Description>
+        <SubNodes>
+          <Task id="T1.1" name="建立 IndexedDB revisioned authority 红测" status="DONE" order="0" priority="P0">
+            <Description>使用可控 IndexedDB runtime 覆盖 seed/reopen、clone、same-base competing writers、stale/no-op、abort/retry 和普通 persistence 共存。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T1.1-AC1" checked="true">reopen 恢复 exact snapshot/revision，已有事实不被新 seed 覆盖</cdt:Criterion>
+              <cdt:Criterion id="T1.1-AC2" checked="true">两个独立实例 same-base 写入恰好一 applied/一 conflict</cdt:Criterion>
+              <cdt:Criterion id="T1.1-AC3" checked="true">failure/abort 不推进，retry 可从真实 base 成功，read/input 均 clone 隔离</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+      <TaskGroup id="P2" name="IndexedDB Authority" status="DONE" order="1">
+        <Description>在 xnl-vfs 中实现专用 durable authority 与公共 factory。</Description>
+        <SubNodes>
+          <Task id="T2.1" name="实现原子 IndexedDB RevisionedVfsAuthority" status="DONE" order="0" priority="P0">
+            <Description>seed-if-absent；在单个 readwrite transaction 内读取、CAS、equality、推进 sequence 并写回；transaction complete 后才返回 workspace receipt。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T2.1-AC1" checked="true">实现只依赖既有 revision contract/equality，不引入 VCS 或应用层 owner</cdt:Criterion>
+              <cdt:Criterion id="T2.1-AC2" checked="true">conflict/unchanged/failed/applied closed outcome 与 Memory authority 语义一致</cdt:Criterion>
+              <cdt:Criterion id="T2.1-AC3" checked="true">数据库升级保留普通 IndexedDbVfsPersistence stores 与数据</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+      <TaskGroup id="P3" name="Public Surface And Verification" status="DONE" order="2">
+        <Description>发布 API、更新文档并执行完整验证。</Description>
+        <SubNodes>
+          <Task id="T3.1" name="验证公共导出、构建与兼容" status="DONE" order="0" priority="P0">
+            <Description>更新 package exports/docs，运行 VFS 全量 test/lint/build、ESM/CJS/types import、旧 IndexedDB regression 和浏览器依赖扫描。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="T3.1-AC1" checked="true">root 与 revisioned subpath 均导出 factory/types，ESM/CJS/types 可消费；browser-safe 保证只属于显式 subpath</cdt:Criterion>
+              <cdt:Criterion id="T3.1-AC2" checked="true">VFS tests、lint、build 与既有 IndexedDB persistence regression 全绿</cdt:Criterion>
+              <cdt:Criterion id="T3.1-AC3" checked="true">构建后 revisioned subpath 可达图无 Node-only builtin，strict validation 与独立验收通过</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:AttractorCheck use="coding"/></Hook>
+          <Hook on="phase:after"><cdt:GapLoop max-rounds="3" on-exhausted="block" verify-round="true"/></Hook>
+        </Hooks>
+      </TaskGroup>
+    </SubNodes>
+  </TaskSpace>
+  <Schedule>
+    <Dag for="space_add_indexeddb_revisioned_vfs_authority">
+      <Node id="P2"><After ref="P1"/></Node>
+      <Node id="P3"><After ref="P2"/></Node>
+    </Dag>
+    <Parallel max-concurrent="1" spot-check="true"/>
+  </Schedule>
+</Track>

@@ -1064,15 +1064,16 @@ function setPathValue(target, path, value, options = {}) {
     case "ListIndex": {
       const idx = Number(last.value);
       if (isExtendBody(parent)) {
+        const key = options.destinationKey ?? value?.tag ?? String(idx);
         if (mode === "insert") {
-          parent.order.splice(idx, 0, value.tag ?? String(idx));
-          parent.children[value.tag ?? String(idx)] = value;
+          parent.order.splice(idx, 0, key);
+          parent.children[key] = value;
         } else {
           const tag = parent.order[idx];
           if (tag === void 0 && strict) {
             throw new XnlPathError(`Extend index ${idx} out of bounds`);
           }
-          const useTag = value?.tag ?? tag;
+          const useTag = options.destinationKey ?? value?.tag ?? tag;
           parent.order[idx] = useTag;
           parent.children[useTag] = value;
         }
@@ -1150,10 +1151,10 @@ function deleteAtPath(target, path, options = {}) {
 function getParentAndLast(target, path, opts) {
   if (path.length === 0) throw new XnlPathError("Path is empty");
   const { createMissing, strict = true } = opts;
-  const parentPath = path.slice(0, -1);
+  const parentPath2 = path.slice(0, -1);
   const last = path[path.length - 1];
   let current = target;
-  for (const item of parentPath) {
+  for (const item of parentPath2) {
     if (item.type === "UniqueName") {
       const found = findByUniqueName(target, item.value);
       if (!found) {
@@ -1489,6 +1490,474 @@ function isMetadataMapPath(path) {
   const last = path[path.length - 1];
   return last?.type === "InstanceProperty" && last.value === "metadata";
 }
+function cloneValue(value) {
+  return structuredClone(value);
+}
+function validateIdentities(root, policy) {
+  const diagnostics = [];
+  const identities = /* @__PURE__ */ new Set();
+  const ancestors = /* @__PURE__ */ new WeakSet();
+  const visit = (value) => {
+    if (value === null || typeof value !== "object") return;
+    const objectValue = value;
+    if (ancestors.has(objectValue)) return;
+    ancestors.add(objectValue);
+    if (isDataElement2(value) || isTextElement2(value)) {
+      const identity = readIdOrMetadaataId(value);
+      if (identity) {
+        if (identities.has(identity)) {
+          diagnostics.push({
+            code: "DUPLICATE_IDENTITY",
+            message: `Effective identity '${identity}' appears more than once`,
+            identity
+          });
+        } else {
+          identities.add(identity);
+        }
+      } else if (policy === "require-elements") {
+        diagnostics.push({
+          code: "MISSING_IDENTITY",
+          message: `${value.kind} '${value.tag}' is missing an effective identity`
+        });
+      }
+    }
+    for (const key of Object.keys(value)) {
+      visit(value[key]);
+    }
+    ancestors.delete(objectValue);
+  };
+  visit(root);
+  return diagnostics;
+}
+function readIdentityDescriptor(node) {
+  if (!isDataElement2(node) && !isTextElement2(node)) return void 0;
+  const explicitId = wordToString(node.id);
+  if (explicitId) return { authority: "explicit-id", value: explicitId };
+  const metaId = node.metadata?.id;
+  const fallback = typeof metaId === "string" ? metaId : isWord(metaId) ? wordToString(metaId) : void 0;
+  return fallback ? { authority: "metadata-fallback", value: fallback } : void 0;
+}
+function collectIdentitySkeleton(root) {
+  const entries = [];
+  const ancestors = /* @__PURE__ */ new WeakSet();
+  const visit = (value, path) => {
+    if (value === null || typeof value !== "object") return;
+    const objectValue = value;
+    if (ancestors.has(objectValue)) return;
+    ancestors.add(objectValue);
+    const descriptor = readIdentityDescriptor(value);
+    if (descriptor) {
+      entries.push({ path, descriptor });
+    }
+    if (isDataElement2(value) || isTextElement2(value)) {
+      visitPlainMap(value.metadata, `${path}:metadata`);
+      if (value.attributes !== void 0) visitPlainMap(value.attributes, `${path}:attributes`);
+      if (isDataElement2(value)) {
+        if (value.body !== void 0) visitArray(value.body, `${path}:body`);
+        if (value.extend !== void 0) visitExtend(value.extend, `${path}:extend`);
+      }
+    } else if (Array.isArray(value)) {
+      visitArray(value, path);
+    } else if (isPlainObject4(value)) {
+      visitPlainMap(value, path);
+    }
+    ancestors.delete(objectValue);
+  };
+  const visitArray = (values, path) => {
+    values.forEach((item, index) => visit(item, `${path}[${index}]`));
+  };
+  const visitPlainMap = (map, path) => {
+    for (const key of Object.keys(map).sort()) {
+      visit(map[key], `${path}{${key}}`);
+    }
+  };
+  const visitExtend = (extend, path) => {
+    extend.order.forEach((tag, index) => {
+      visit(extend.children[tag], `${path}[${index}:${tag}]`);
+    });
+  };
+  visit(root, "$");
+  return entries;
+}
+function identitySkeletonsEqual(before, after) {
+  return before.length === after.length && before.every((entry, index) => {
+    const other = after[index];
+    return other !== void 0 && entry.path === other.path && entry.descriptor.authority === other.descriptor.authority && entry.descriptor.value === other.descriptor.value;
+  });
+}
+function isUpdateMutation(mutation) {
+  return mutation.type === "TREE_UPDATE" || mutation.type === "OBJECT_UPDATE";
+}
+function resolveEffectiveMetadataIdTarget(root, path) {
+  if (!isMetadataIdPath(path)) return void 0;
+  const elementPath = path.slice(0, -2);
+  const candidate = elementPath.length === 0 ? root : resolvePath(root, elementPath, { strict: false, metadataIdMode: "identity" });
+  if (!isDataElement2(candidate) && !isTextElement2(candidate)) return void 0;
+  return wordToString(candidate.id) ? void 0 : candidate;
+}
+function containsIdentifiedElement(value) {
+  const ancestors = /* @__PURE__ */ new WeakSet();
+  const visit = (candidate) => {
+    if (candidate === null || typeof candidate !== "object") return false;
+    const objectValue = candidate;
+    if (ancestors.has(objectValue)) return false;
+    ancestors.add(objectValue);
+    if (readIdentityDescriptor(candidate)) {
+      ancestors.delete(objectValue);
+      return true;
+    }
+    if (isDataElement2(candidate) || isTextElement2(candidate)) {
+      if (visit(candidate.metadata) || visit(candidate.attributes)) {
+        ancestors.delete(objectValue);
+        return true;
+      }
+      if (isDataElement2(candidate) && (visit(candidate.body) || visit(candidate.extend))) {
+        ancestors.delete(objectValue);
+        return true;
+      }
+    } else if (Array.isArray(candidate)) {
+      for (const item of candidate) {
+        if (visit(item)) {
+          ancestors.delete(objectValue);
+          return true;
+        }
+      }
+    } else if (isExtendBody2(candidate)) {
+      for (const tag of candidate.order) {
+        if (visit(candidate.children[tag])) {
+          ancestors.delete(objectValue);
+          return true;
+        }
+      }
+    } else if (isPlainObject4(candidate)) {
+      for (const key of Object.keys(candidate)) {
+        if (visit(candidate[key])) {
+          ancestors.delete(objectValue);
+          return true;
+        }
+      }
+    }
+    ancestors.delete(objectValue);
+    return false;
+  };
+  return visit(value);
+}
+function resolveMoveSource(root, mutation) {
+  if (!isMoveMutation(mutation)) return void 0;
+  if (mutation.targetUniqueName) {
+    return resolvePath(root, [{ type: "UniqueName", value: mutation.targetUniqueName }], {
+      strict: false,
+      metadataIdMode: "identity"
+    });
+  }
+  if (mutation.pathBefore) {
+    return resolvePath(root, mutation.pathBefore, { strict: false, metadataIdMode: "identity" });
+  }
+  return void 0;
+}
+function tagOf(value) {
+  return isDataElement2(value) || isTextElement2(value) ? value.tag : void 0;
+}
+function resolveOccupiedDestination(root, mutation, path, valueAfter) {
+  const last = path[path.length - 1];
+  if (!last) return void 0;
+  const parent = resolvePath(root, path.slice(0, -1), { strict: false, metadataIdMode: "identity" });
+  if (parent === void 0) return void 0;
+  if (last.type === "ListIndex") {
+    if (isExtendBody2(parent)) {
+      const key = mutation.destinationKey ?? tagOf(valueAfter);
+      return key ? parent.children[key] : void 0;
+    }
+    return void 0;
+  }
+  if (last.type === "MapKey") {
+    return isExtendBody2(parent) ? parent.children[mutation.destinationKey ?? last.value] : parent[last.value];
+  }
+  if (last.type === "InstanceProperty") {
+    return parent[last.value];
+  }
+  return void 0;
+}
+function validateStructuralDestination(root, mutation, path, mutationIndex, originalPath) {
+  if (mutation.type !== "TREE_ADD" && mutation.type !== "OBJECT_ADD" && !isMoveMutation(mutation)) {
+    return void 0;
+  }
+  const valueAfter = isMoveMutation(mutation) ? resolveMoveSource(root, mutation) : mutation.valueAfter;
+  const occupied = resolveOccupiedDestination(root, mutation, path, valueAfter);
+  if (occupied === void 0 || occupied === valueAfter || !containsIdentifiedElement(occupied)) {
+    return void 0;
+  }
+  return {
+    code: "IDENTITY_MUTATION_FORBIDDEN",
+    message: "Strict structural mutations cannot overwrite an occupied identified destination",
+    mutationIndex,
+    path: originalPath,
+    identity: readIdOrMetadaataId(occupied)
+  };
+}
+function validateExtendCoherence(root) {
+  const diagnostics = [];
+  const ancestors = /* @__PURE__ */ new WeakSet();
+  const visit = (value) => {
+    if (value === null || typeof value !== "object") return;
+    const objectValue = value;
+    if (ancestors.has(objectValue)) return;
+    ancestors.add(objectValue);
+    if (isExtendBody2(value)) {
+      const orderSet = new Set(value.order);
+      const childKeys = Object.keys(value.children);
+      if (orderSet.size !== value.order.length || orderSet.size !== childKeys.length) {
+        diagnostics.push({
+          code: "RESULT_STRUCTURE_INVALID",
+          message: "Extend order and child keys must be unique and coherent"
+        });
+      }
+      for (const key of childKeys) {
+        const child = value.children[key];
+        if (!orderSet.has(key) || !child || child.tag !== key) {
+          diagnostics.push({
+            code: "RESULT_STRUCTURE_INVALID",
+            message: `Extend child '${key}' is not coherent with order/key/tag storage`,
+            identity: readIdOrMetadaataId(child)
+          });
+        }
+      }
+      for (const tag of value.order) {
+        visit(value.children[tag]);
+      }
+    } else if (isDataElement2(value) || isTextElement2(value)) {
+      visit(value.metadata);
+      visit(value.attributes);
+      if (isDataElement2(value)) {
+        visit(value.body);
+        visit(value.extend);
+      }
+    } else if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+    } else if (isPlainObject4(value)) {
+      for (const key of Object.keys(value)) visit(value[key]);
+    }
+    ancestors.delete(objectValue);
+  };
+  visit(root);
+  return diagnostics;
+}
+function isAddUpdateOrDelete(mutation) {
+  return mutation.type === "TREE_ADD" || mutation.type === "TREE_DELETE" || mutation.type === "TREE_UPDATE" || mutation.type === "OBJECT_ADD" || mutation.type === "OBJECT_DELETE" || mutation.type === "OBJECT_UPDATE";
+}
+function resolveDirectElementIdTarget(root, mutation, path) {
+  if (!isAddUpdateOrDelete(mutation)) return void 0;
+  const last = path[path.length - 1];
+  if (last?.type !== "InstanceProperty" || last.value !== "id") return void 0;
+  const parentPath2 = path.slice(0, -1);
+  const parent = parentPath2.length === 0 ? root : resolvePath(root, parentPath2, { strict: false, metadataIdMode: "identity" });
+  return isDataElement2(parent) || isTextElement2(parent) ? parent : void 0;
+}
+function isMoveMutation(mutation) {
+  return mutation.type === "TREE_MOVE" || mutation.type === "TREE_MOVE_SAME_LEVEL" || mutation.type === "TREE_MOVE_CROSS_LEVEL";
+}
+function supportsValueBefore(mutation) {
+  return isMoveMutation(mutation) || mutation.type === "TREE_DELETE" || mutation.type === "TREE_UPDATE" || mutation.type === "OBJECT_DELETE" || mutation.type === "OBJECT_UPDATE";
+}
+function resolveObservableTarget(root, mutation, path) {
+  if (isMoveMutation(mutation)) {
+    if (mutation.targetUniqueName) {
+      const target = resolvePath(
+        root,
+        [{ type: "UniqueName", value: mutation.targetUniqueName }],
+        { strict: false, metadataIdMode: "identity" }
+      );
+      if (target !== void 0) return target;
+    }
+    if (mutation.pathBefore) {
+      return resolvePath(root, mutation.pathBefore, { strict: false, metadataIdMode: "identity" });
+    }
+    return void 0;
+  }
+  return resolvePath(root, path, { strict: false, metadataIdMode: "identity" });
+}
+function isStructurallyEqual(left, right, seen = /* @__PURE__ */ new WeakMap()) {
+  if (Object.is(left, right)) return true;
+  if (left === null || right === null || typeof left !== "object" || typeof right !== "object") {
+    return false;
+  }
+  let rightValues = seen.get(left);
+  if (rightValues?.has(right)) return true;
+  if (!rightValues) {
+    rightValues = /* @__PURE__ */ new WeakSet();
+    seen.set(left, rightValues);
+  }
+  rightValues.add(right);
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+      return false;
+    }
+    return left.every((value, index) => isStructurallyEqual(value, right[index], seen));
+  }
+  const leftRecord = left;
+  const rightRecord = right;
+  const leftKeys = Object.keys(leftRecord);
+  const rightKeys = Object.keys(rightRecord);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every(
+    (key) => Object.prototype.hasOwnProperty.call(rightRecord, key) && isStructurallyEqual(leftRecord[key], rightRecord[key], seen)
+  );
+}
+function errorMessage(error2) {
+  return error2 instanceof Error ? error2.message : String(error2);
+}
+var dryRunMutations = (base, mutations, options = {}) => {
+  const rejectedValue = cloneValue(base);
+  const reject = (diagnostics) => ({
+    status: "rejected",
+    value: rejectedValue,
+    mutations,
+    diagnostics
+  });
+  let baseIdentityDiagnostics;
+  try {
+    baseIdentityDiagnostics = validateIdentities(
+      rejectedValue,
+      options.identityPolicy ?? "allow-missing"
+    );
+  } catch (error2) {
+    return reject([
+      {
+        code: "APPLY_FAILED",
+        message: `Base identity validation failed: ${errorMessage(error2)}`
+      }
+    ]);
+  }
+  if (baseIdentityDiagnostics.length > 0) {
+    return reject(baseIdentityDiagnostics);
+  }
+  let current;
+  let mutationCopies;
+  try {
+    current = cloneValue(rejectedValue);
+    mutationCopies = cloneValue(mutations);
+  } catch (error2) {
+    return reject([
+      {
+        code: "APPLY_FAILED",
+        message: `Failed to isolate mutation batch: ${errorMessage(error2)}`
+      }
+    ]);
+  }
+  for (let mutationIndex = 0; mutationIndex < mutationCopies.length; mutationIndex++) {
+    const mutation = mutationCopies[mutationIndex];
+    try {
+      const path = Array.isArray(mutation.path) ? mutation.path : parsePath(mutation.path);
+      const identityTarget = resolveDirectElementIdTarget(current, mutation, path);
+      if (identityTarget) {
+        return reject([
+          {
+            code: "IDENTITY_MUTATION_FORBIDDEN",
+            message: "Strict mutation batches cannot add, update, or delete an element id field",
+            mutationIndex,
+            path: mutations[mutationIndex]?.path ?? mutation.path,
+            identity: readIdOrMetadaataId(identityTarget)
+          }
+        ]);
+      }
+      const metadataFallbackTarget = resolveMetaIdMode(options) === "identity" ? resolveEffectiveMetadataIdTarget(current, path) : void 0;
+      if (metadataFallbackTarget && isAddUpdateOrDelete(mutation)) {
+        return reject([
+          {
+            code: "IDENTITY_MUTATION_FORBIDDEN",
+            message: "Strict mutation batches cannot directly mutate an effective metadata fallback id",
+            mutationIndex,
+            path: mutations[mutationIndex]?.path ?? mutation.path,
+            identity: readIdOrMetadaataId(metadataFallbackTarget)
+          }
+        ]);
+      }
+      if (options.verifyValueBefore && supportsValueBefore(mutation) && mutation.valueBefore !== void 0) {
+        const actual = resolveObservableTarget(current, mutation, path);
+        if (!isStructurallyEqual(actual, mutation.valueBefore)) {
+          return reject([
+            {
+              code: "PRECONDITION_FAILED",
+              message: `Mutation ${mutationIndex} valueBefore does not match its current target`,
+              mutationIndex,
+              path: mutations[mutationIndex]?.path ?? mutation.path,
+              identity: mutation.targetUniqueName
+            }
+          ]);
+        }
+      }
+      const destinationDiagnostic = validateStructuralDestination(
+        current,
+        mutation,
+        path,
+        mutationIndex,
+        mutations[mutationIndex]?.path ?? mutation.path
+      );
+      if (destinationDiagnostic) {
+        return reject([destinationDiagnostic]);
+      }
+      const skeletonBefore = isUpdateMutation(mutation) ? collectIdentitySkeleton(current) : void 0;
+      current = applySingle(current, mutation, options);
+      if (skeletonBefore) {
+        const skeletonAfter = collectIdentitySkeleton(current);
+        if (!identitySkeletonsEqual(skeletonBefore, skeletonAfter)) {
+          return reject([
+            {
+              code: "IDENTITY_MUTATION_FORBIDDEN",
+              message: "Strict update mutations must preserve the ordered full-tree identity skeleton",
+              mutationIndex,
+              path: mutations[mutationIndex]?.path ?? mutation.path,
+              identity: mutation.targetUniqueName
+            }
+          ]);
+        }
+      }
+    } catch (error2) {
+      return reject([
+        {
+          code: "APPLY_FAILED",
+          message: `Mutation ${mutationIndex} failed to apply: ${errorMessage(error2)}`,
+          mutationIndex,
+          path: mutations[mutationIndex]?.path ?? mutation.path,
+          identity: mutation.targetUniqueName
+        }
+      ]);
+    }
+  }
+  const resultStructureDiagnostics = validateExtendCoherence(current);
+  if (resultStructureDiagnostics.length > 0) {
+    return reject(resultStructureDiagnostics);
+  }
+  let resultIdentityDiagnostics;
+  try {
+    resultIdentityDiagnostics = validateIdentities(
+      current,
+      options.identityPolicy ?? "allow-missing"
+    );
+  } catch (error2) {
+    return reject([
+      {
+        code: "RESULT_IDENTITY_INVALID",
+        message: `Result identity validation failed: ${errorMessage(error2)}`
+      }
+    ]);
+  }
+  if (resultIdentityDiagnostics.length > 0) {
+    return reject(
+      resultIdentityDiagnostics.map((diagnostic) => ({
+        code: "RESULT_IDENTITY_INVALID",
+        message: `Result identity validation failed: ${diagnostic.message}`,
+        identity: diagnostic.identity
+      }))
+    );
+  }
+  return {
+    status: "applied",
+    value: current,
+    mutations,
+    diagnostics: []
+  };
+};
 function applyMutations(root, mutations, opts = {}) {
   let current = root;
   for (const mutation of mutations) {
@@ -1515,7 +1984,7 @@ function diffNodes(oldNode, newNode, basePath = [], opts = {}) {
   }
   if (isDataElement2(oldNode) && isDataElement2(newNode)) {
     const mutations = diffDataElement(oldNode, newNode, pathItems, opts);
-    return reconcileMoves(mutations);
+    return reconcileMoves(mutations, opts);
   }
   return [];
 }
@@ -1546,17 +2015,26 @@ function applySingle(root, mutation, opts) {
   }
   switch (type) {
     case "TREE_ADD":
-      setPathValue(root, pathItems, valueAfter, { mode: "insert" });
+      setPathValue(root, pathItems, valueAfter, {
+        mode: "insert",
+        destinationKey: mutation.destinationKey
+      });
       return root;
     case "TREE_DELETE":
       deleteAtPath(root, pathItems);
       return root;
     case "TREE_UPDATE":
-      setPathValue(root, pathItems, valueAfter, { mode: "replace" });
+      setPathValue(root, pathItems, valueAfter, {
+        mode: "replace",
+        destinationKey: mutation.destinationKey
+      });
       return root;
     case "OBJECT_ADD":
     case "OBJECT_UPDATE":
-      setPathValue(root, pathItems, valueAfter, { mode: "replace" });
+      setPathValue(root, pathItems, valueAfter, {
+        mode: "replace",
+        destinationKey: mutation.destinationKey
+      });
       return root;
     case "OBJECT_DELETE":
       deleteAtPath(root, pathItems);
@@ -1565,12 +2043,49 @@ function applySingle(root, mutation, opts) {
       throw new XnlPathError(`Unknown mutation type ${type}`);
   }
 }
+function diffOptionalAttributes(oldAttributes, newAttributes, basePath, parentBefore, parentAfter, opts) {
+  if (oldAttributes === void 0 && newAttributes !== void 0) {
+    return [{
+      type: "OBJECT_ADD",
+      path: pathToDsl(basePath),
+      valueAfter: newAttributes,
+      parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
+    }];
+  }
+  if (oldAttributes !== void 0 && newAttributes === void 0) {
+    return [{
+      type: "OBJECT_DELETE",
+      path: pathToDsl(basePath),
+      valueBefore: oldAttributes,
+      parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
+    }];
+  }
+  if (oldAttributes === void 0 || newAttributes === void 0) {
+    return [];
+  }
+  return diffMap(oldAttributes, newAttributes, basePath, parentBefore, parentAfter, opts);
+}
 function diffTextElement(oldNode, newNode, basePath, opts) {
   const mutations = [];
-  mutations.push(...diffMap(oldNode.metadata, newNode.metadata, [...basePath, ip("metadata")], oldNode, newNode, opts));
-  if (oldNode.attributes || newNode.attributes) {
-    mutations.push(...diffMap(oldNode.attributes ?? {}, newNode.attributes ?? {}, [...basePath, ip("attributes")], oldNode, newNode, opts));
+  if (oldNode.tag !== newNode.tag) {
+    mutations.push({
+      type: "TREE_UPDATE",
+      path: pathToDsl([...basePath, ip("tag")]),
+      valueBefore: oldNode.tag,
+      valueAfter: newNode.tag
+    });
   }
+  mutations.push(...diffMap(oldNode.metadata, newNode.metadata, [...basePath, ip("metadata")], oldNode, newNode, opts));
+  mutations.push(
+    ...diffOptionalAttributes(
+      oldNode.attributes,
+      newNode.attributes,
+      [...basePath, ip("attributes")],
+      oldNode,
+      newNode,
+      opts
+    )
+  );
   if (oldNode.text !== newNode.text) {
     mutations.push({
       type: "TREE_UPDATE",
@@ -1589,17 +2104,69 @@ function diffTextElement(oldNode, newNode, basePath, opts) {
 }
 function diffDataElement(oldNode, newNode, basePath, opts) {
   const mutations = [];
+  if (oldNode.tag !== newNode.tag) {
+    mutations.push({
+      type: "TREE_UPDATE",
+      path: pathToDsl([...basePath, ip("tag")]),
+      valueBefore: oldNode.tag,
+      valueAfter: newNode.tag
+    });
+  }
   const metaPath = [...basePath, ip("metadata")];
   mutations.push(...diffMap(oldNode.metadata, newNode.metadata, metaPath, oldNode, newNode, opts));
   const attrPath = [...basePath, ip("attributes")];
-  mutations.push(...diffMap(oldNode.attributes ?? {}, newNode.attributes ?? {}, attrPath, oldNode, newNode, opts));
+  mutations.push(
+    ...diffOptionalAttributes(
+      oldNode.attributes,
+      newNode.attributes,
+      attrPath,
+      oldNode,
+      newNode,
+      opts
+    )
+  );
   if (oldNode.body || newNode.body) {
     mutations.push(
       ...diffArray(oldNode.body ?? [], newNode.body ?? [], [...basePath, ip("body")], oldNode, newNode, opts)
     );
   }
+  const parentId = resolveMetaIdMode(opts) === "identity" ? readIdOrMetadaataId(oldNode) ?? readIdOrMetadaataId(newNode) : void 0;
+  const bodyPath = parentId ? [ms("id", parentId), ip("body")] : [...basePath, ip("body")];
+  if (oldNode.body === void 0 && newNode.body?.length === 0) {
+    mutations.push({
+      type: "OBJECT_ADD",
+      path: pathToDsl(bodyPath),
+      valueAfter: []
+    });
+  } else if (oldNode.body !== void 0 && newNode.body === void 0) {
+    mutations.push({
+      type: "OBJECT_DELETE",
+      path: pathToDsl(bodyPath)
+    });
+  }
   if (oldNode.extend || newNode.extend) {
-    mutations.push(...diffExtend(oldNode.extend, newNode.extend, [...basePath, ip("extend")], oldNode, newNode, opts));
+    const extendMutations = diffExtend(
+      oldNode.extend,
+      newNode.extend,
+      [...basePath, ip("extend")],
+      oldNode,
+      newNode,
+      opts
+    );
+    mutations.push(...extendMutations);
+    const extendPath = parentId ? [ms("id", parentId), ip("extend")] : [...basePath, ip("extend")];
+    if (oldNode.extend === void 0 && newNode.extend !== void 0 && extendMutations.length === 0) {
+      mutations.push({
+        type: "OBJECT_ADD",
+        path: pathToDsl(extendPath),
+        valueAfter: newNode.extend
+      });
+    } else if (oldNode.extend !== void 0 && newNode.extend === void 0) {
+      mutations.push({
+        type: "OBJECT_DELETE",
+        path: pathToDsl(extendPath)
+      });
+    }
   }
   return mutations;
 }
@@ -1686,12 +2253,13 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
   if (resolveMetaIdMode(opts) === "identity") {
     const oldIds = oldArr.map(readIdOrMetadaataId).filter(Boolean);
     const newIds = newArr.map(readIdOrMetadaataId).filter(Boolean);
-    if (oldIds.length && newIds.length) {
+    const identityOrderChanged = oldIds.length !== newIds.length || oldIds.some((id, index) => id !== newIds[index]);
+    if (oldIds.length && newIds.length && identityOrderChanged) {
       for (const id of oldIds) {
         if (!(id in newById)) continue;
         const oldIdx = oldById[id]?.index ?? -1;
         const newIdx = newById[id]?.index ?? -1;
-        if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
+        if (oldIdx !== -1 && newIdx !== -1) {
           mutations.push({
             type: "TREE_MOVE_SAME_LEVEL",
             pathBefore: pathToDsl([...pathBase, li(oldIdx)]),
@@ -1750,53 +2318,89 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
 function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, opts) {
   const mutations = [];
   const parentId = resolveMetaIdMode(opts) === "identity" ? readIdOrMetadaataId(parentBefore) ?? readIdOrMetadaataId(parentAfter) : void 0;
-  const pathBase = parentId ? [ms("id", parentId), ip("extend")] : basePath;
+  const pathBase = parentId ? [{ type: "UniqueName", value: parentId }, ip("extend")] : basePath;
   const oldChildren = oldExtend?.children ?? {};
   const newChildren = newExtend?.children ?? {};
-  const allTags = /* @__PURE__ */ new Set([...Object.keys(oldChildren), ...Object.keys(newChildren)]);
-  for (const tag of allTags) {
-    const oldChild = oldChildren[tag];
+  const oldOrder = oldExtend?.order ?? [];
+  const newOrder = newExtend?.order ?? [];
+  const oldByIdentity = /* @__PURE__ */ new Map();
+  const usedOldTags = /* @__PURE__ */ new Set();
+  const matchedByNewTag = /* @__PURE__ */ new Map();
+  for (const tag of oldOrder) {
+    const id = readIdOrMetadaataId(oldChildren[tag]);
+    if (id && !oldByIdentity.has(id)) oldByIdentity.set(id, tag);
+  }
+  for (const tag of newOrder) {
     const newChild = newChildren[tag];
-    const childPath = [...pathBase, mk(tag)];
-    if (!oldChild && newChild) {
+    const newId = readIdOrMetadaataId(newChild);
+    const oldTagByIdentity = newId ? oldByIdentity.get(newId) : void 0;
+    const oldTag = oldTagByIdentity && !usedOldTags.has(oldTagByIdentity) ? oldTagByIdentity : oldChildren[tag] !== void 0 && !usedOldTags.has(tag) ? tag : void 0;
+    if (!oldTag) continue;
+    usedOldTags.add(oldTag);
+    matchedByNewTag.set(tag, { oldTag, oldChild: oldChildren[oldTag], newChild });
+  }
+  for (const tag of oldOrder) {
+    const oldChild = oldChildren[tag];
+    if (usedOldTags.has(tag)) continue;
+    mutations.push({
+      type: "TREE_DELETE",
+      path: pathToDsl([...pathBase, mk(tag)]),
+      valueBefore: oldChild,
+      targetUniqueName: readIdOrMetadaataId(oldChild),
+      parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
+    });
+  }
+  const workingOrder = oldOrder.filter((tag) => usedOldTags.has(tag));
+  const currentTagByOldTag = /* @__PURE__ */ new Map();
+  for (const tag of oldOrder) {
+    if (usedOldTags.has(tag)) currentTagByOldTag.set(tag, tag);
+  }
+  for (let newIndex = 0; newIndex < newOrder.length; newIndex++) {
+    const newTag = newOrder[newIndex];
+    const match = matchedByNewTag.get(newTag);
+    if (!match) {
+      const newChild = newChildren[newTag];
       mutations.push({
         type: "TREE_ADD",
-        path: pathToDsl(childPath),
+        path: pathToDsl([...pathBase, li(newIndex)]),
         valueAfter: newChild,
         targetUniqueName: readIdOrMetadaataId(newChild),
         parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
       });
+      const insertAt = Math.max(0, Math.min(newIndex, workingOrder.length));
+      workingOrder.splice(insertAt, 0, newTag);
       continue;
     }
-    if (oldChild && !newChild) {
+    const currentTag = currentTagByOldTag.get(match.oldTag) ?? match.oldTag;
+    const currentIndex = workingOrder.indexOf(currentTag);
+    if (currentIndex === -1) continue;
+    if (currentIndex !== newIndex || currentTag !== newTag) {
+      const id2 = readIdOrMetadaataId(match.oldChild);
       mutations.push({
-        type: "TREE_DELETE",
-        path: pathToDsl(childPath),
-        valueBefore: oldChild,
-        targetUniqueName: readIdOrMetadaataId(oldChild),
-        parentUniqueNameBefore: readIdOrMetadaataId(parentBefore)
+        type: "TREE_MOVE_SAME_LEVEL",
+        pathBefore: pathToDsl([...pathBase, li(currentIndex)]),
+        path: pathToDsl([...pathBase, li(newIndex)]),
+        valueBefore: match.oldChild,
+        valueAfter: match.newChild,
+        destinationKey: currentTag === newTag ? void 0 : newTag,
+        targetUniqueName: id2,
+        parentUniqueNameBefore: readIdOrMetadaataId(parentBefore),
+        parentUniqueNameAfter: readIdOrMetadaataId(parentAfter)
       });
-      continue;
+      workingOrder.splice(currentIndex, 1);
+      workingOrder.splice(newIndex, 0, newTag);
+      currentTagByOldTag.set(match.oldTag, newTag);
     }
-    if (oldChild && newChild) {
-      const nested = diffNodes(oldChild, newChild, childPath, opts);
-      if (nested.length === 0) {
-        if (!isEqual(oldChild, newChild)) {
-          mutations.push({ type: "TREE_UPDATE", path: pathToDsl(childPath), valueAfter: newChild });
-        }
-      } else {
-        mutations.push(...nested);
+    const id = readIdOrMetadaataId(match.oldChild) ?? readIdOrMetadaataId(match.newChild);
+    const childPath = id ? [{ type: "UniqueName", value: id }] : [...pathBase, mk(newTag)];
+    const nested = diffNodes(match.oldChild, match.newChild, childPath, opts);
+    if (nested.length === 0) {
+      if (!isStructurallyEqual(match.oldChild, match.newChild)) {
+        mutations.push({ type: "TREE_UPDATE", path: pathToDsl(childPath), valueAfter: match.newChild });
       }
+    } else {
+      mutations.push(...nested);
     }
-  }
-  const oldOrder = oldExtend?.order ?? [];
-  const newOrder = newExtend?.order ?? [];
-  if (!isEqual(oldOrder, newOrder)) {
-    mutations.push({
-      type: "TREE_UPDATE",
-      path: pathToDsl([...basePath, ip("order")]),
-      valueAfter: newOrder
-    });
   }
   return mutations;
 }
@@ -1857,6 +2461,9 @@ function isDataElement2(node) {
 }
 function isTextElement2(node) {
   return node && node.kind === "TextElement";
+}
+function isExtendBody2(node) {
+  return node && typeof node === "object" && Array.isArray(node.order) && node.children;
 }
 function isValueLiteral(node) {
   return typeof node === "string" || typeof node === "number" || typeof node === "boolean" || node === null || isWord(node);
@@ -1919,7 +2526,21 @@ function extractByUniqueId(root, id) {
   }
   return void 0;
 }
-function reconcileMoves(mutations) {
+function isExtendDestination(path) {
+  const items = Array.isArray(path) ? path : parsePath(path);
+  if (items.length < 2) return false;
+  const parent = items[items.length - 2];
+  const last = items[items.length - 1];
+  return parent.type === "InstanceProperty" && parent.value === "extend" && (last.type === "ListIndex" || last.type === "MapKey");
+}
+function resolveMoveDestinationKey(add, del) {
+  if (add.destinationKey !== void 0) return add.destinationKey;
+  if (!isExtendDestination(add.path)) return void 0;
+  const sourceTag = tagOf(del.valueBefore);
+  const destinationTag = tagOf(add.valueAfter);
+  return destinationTag !== void 0 && destinationTag !== sourceTag ? destinationTag : void 0;
+}
+function reconcileMoves(mutations, opts) {
   const addsById = {};
   const deletesById = {};
   for (const m of mutations) {
@@ -1933,6 +2554,7 @@ function reconcileMoves(mutations) {
     }
   }
   const result = [];
+  const moveUpdates = [];
   const usedAdds = /* @__PURE__ */ new Set();
   const usedDeletes = /* @__PURE__ */ new Set();
   for (const [id, dels] of Object.entries(deletesById)) {
@@ -1940,20 +2562,34 @@ function reconcileMoves(mutations) {
     if (!adds || adds.length === 0) continue;
     const del = dels[0];
     const add = adds[0];
+    if (!isSameElementKind(del.valueBefore, add.valueAfter)) continue;
     usedAdds.add(add);
     usedDeletes.add(del);
-    const sameParent = add.parentUniqueNameAfter && del.parentUniqueNameBefore && add.parentUniqueNameAfter === del.parentUniqueNameBefore;
+    const sameParent = add.parentUniqueNameAfter !== void 0 && add.parentUniqueNameAfter === del.parentUniqueNameBefore;
     const type = sameParent ? "TREE_MOVE_SAME_LEVEL" : "TREE_MOVE_CROSS_LEVEL";
+    const destinationKey = resolveMoveDestinationKey(add, del);
     const move = {
       type,
       path: add.path,
       pathBefore: del.path,
+      valueBefore: del.valueBefore,
+      valueAfter: add.valueAfter,
+      ...destinationKey === void 0 ? {} : { destinationKey },
       targetUniqueName: id,
       parentUniqueNameBefore: del.parentUniqueNameBefore,
       parentUniqueNameAfter: add.parentUniqueNameAfter
     };
     result.push(move);
+    moveUpdates.push(
+      ...diffNodes(
+        del.valueBefore,
+        add.valueAfter,
+        [{ type: "UniqueName", value: id }],
+        opts
+      )
+    );
   }
+  result.push(...moveUpdates);
   for (const m of mutations) {
     if (usedAdds.has(m) || usedDeletes.has(m)) continue;
     result.push(m);
@@ -1968,7 +2604,38 @@ function reconcileMoves(mutations) {
     }
     filtered.push(m);
   }
-  return filtered;
+  return orderMutations(filtered);
+}
+function isSameElementKind(before, after) {
+  return isDataElement2(before) && isDataElement2(after) || isTextElement2(before) && isTextElement2(after);
+}
+function listIndex(path) {
+  if (path === void 0) return void 0;
+  const items = Array.isArray(path) ? path : parsePath(path);
+  const last = items[items.length - 1];
+  return last?.type === "ListIndex" ? Number(last.value) : void 0;
+}
+function parentPath(path) {
+  const items = Array.isArray(path) ? path : parsePath(path);
+  return pathToDsl(items.slice(0, -1));
+}
+function orderMutations(mutations) {
+  const indexed = mutations.map((mutation, order) => ({ mutation, order }));
+  const deletes = indexed.filter(({ mutation }) => mutation.type === "TREE_DELETE").sort((left, right) => {
+    const leftParent = parentPath(left.mutation.path);
+    const rightParent = parentPath(right.mutation.path);
+    if (leftParent !== rightParent) return left.order - right.order;
+    return (listIndex(right.mutation.path) ?? Number.NEGATIVE_INFINITY) - (listIndex(left.mutation.path) ?? Number.NEGATIVE_INFINITY) || left.order - right.order;
+  });
+  const insertions = indexed.filter(
+    ({ mutation }) => mutation.type === "TREE_ADD" || isMoveMutation(mutation)
+  ).sort(
+    (left, right) => (listIndex(left.mutation.path) ?? Number.POSITIVE_INFINITY) - (listIndex(right.mutation.path) ?? Number.POSITIVE_INFINITY) || left.order - right.order
+  );
+  const others = indexed.filter(
+    ({ mutation }) => mutation.type !== "TREE_DELETE" && mutation.type !== "TREE_ADD" && !isMoveMutation(mutation)
+  );
+  return [...deletes, ...insertions, ...others].map(({ mutation }) => mutation);
 }
 
 // src/loader/index.ts
@@ -2416,8 +3083,8 @@ function resolveVfsSrc(src, opts) {
 function collectExports(content) {
   const doc = parseXnl(content);
   const batch = doc.nodes.filter(isDataElement4);
-  const { exports: exports$1 } = batchLoad([batch]);
-  return exports$1;
+  const { exports } = batchLoad([batch]);
+  return exports;
 }
 function loadImportTarget(target, resolver) {
   if (resolver.isDir(target)) {
@@ -2547,7 +3214,9 @@ var XNL = {
   },
   mutation: {
     apply: applyMutations,
-    diff: diffNodes
+    diff: diffNodes,
+    dryRun: dryRunMutations,
+    preview: dryRunMutations
   },
   loader: {
     loadFromString,
@@ -2560,6 +3229,6 @@ var XNL = {
   }
 };
 
-export { GetWordFullName, MakeWord, XNL, XnlImportError, XnlParseError, XnlPathError, applyMutations, batchLoad, deleteAtPath, diffNodes, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify2 as stringifyLineBlock, wordToString };
+export { GetWordFullName, MakeWord, XNL, XnlImportError, XnlParseError, XnlPathError, applyMutations, batchLoad, deleteAtPath, diffNodes, dryRunMutations, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify2 as stringifyLineBlock, wordToString };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

@@ -1,6 +1,7 @@
-import type { ExtendBody } from "xnl-core";
+import type { DataElementNode, ExtendBody } from "xnl-core";
 import type { VfsFileType } from "xnl-vfs";
 import type { ObjectId } from "./hash";
+import type { LosslessAstValue } from "./lossless-ast-codec";
 
 /** Content format. Equals the file's VfsFileType. */
 export type ContentType = VfsFileType;
@@ -40,6 +41,8 @@ export interface TreeObject {
   extend?: ExtendBody;
   metadata?: Record<string, unknown>;
   entries: TreeEntry[];
+  xnlVfsFormat?: "xnl-vfs-v2";
+  xnlVfsSnapshot?: LosslessAstValue;
 }
 
 export interface CommitObject {

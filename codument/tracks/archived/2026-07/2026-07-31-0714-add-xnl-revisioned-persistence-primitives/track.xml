@@ -1,0 +1,198 @@
+<Track id="add-xnl-revisioned-persistence-primitives" version="1" xmlns:cdt="urn:codument:v1">
+  <Metadata>
+    <Status>completed</Status>
+    <Goal>为 XNL authoring 建立 live revision、原子 CAS flush、可观察 receipt 与独立 VCS checkpoint 原语。</Goal>
+    <Description>在 xnl-vfs 定义 revisioned authority/coordinator，在 xnl-vcs 提供 repository adapter；保持 live revision 与 commit id 正交。</Description>
+    <QuestionMode>decision-tree</QuestionMode>
+    <QuestionSeverity>auto</QuestionSeverity>
+    <CommitMode>manual</CommitMode>
+    <CreatedAt>2026-07-30T17:50:04Z</CreatedAt>
+    <UpdatedAt>2026-07-31T04:14:17Z</UpdatedAt>
+    <GapRound>2</GapRound>
+  </Metadata>
+
+  <Ports scope="track">
+    <MaterialBundle role="input" name="behavior-deltas" domain="behavior" path="vfs://./behavior_deltas/"/>
+    <MaterialBundle role="output" name="behavior" domain="codument" path="vfs://@/codument/behaviors/"/>
+    <MaterialBundle role="output" name="vfs-source" domain="code" path="vfs://@/packages/vfs/src/"/>
+    <MaterialBundle role="output" name="vfs-tests" domain="test" path="vfs://@/packages/vfs/tests/"/>
+    <MaterialBundle role="output" name="vfs-packaging" domain="build" path="vfs://@/packages/vfs/"/>
+    <MaterialBundle role="output" name="vcs-source" domain="code" path="vfs://@/packages/vcs/src/"/>
+    <MaterialBundle role="output" name="vcs-tests" domain="test" path="vfs://@/packages/vcs/tests/"/>
+    <MaterialBundle role="output" name="vcs-packaging" domain="build" path="vfs://@/packages/vcs/"/>
+  </Ports>
+
+  <TaskSpace id="space_add-xnl-revisioned-persistence-primitives" name="add-xnl-revisioned-persistence-primitives" version="1">
+    <Description>先用行为测试固定 revision/CAS 边界，再实现 VFS authority，最后组合 VCS checkpoint 并验证公共构建面。</Description>
+    <SubNodes>
+      <TaskGroup id="P0" name="Strict identity prerequisite gate" status="DONE" order="0">
+        <Description>在实现 persistence 前验证 corrective strict identity Track 已完成归档并提升 behavior。</Description>
+        <SubNodes>
+          <Task id="P0-T1" name="验证 strict identity 前置能力" status="DONE" order="0" priority="P0">
+            <Description>确认 reject-xnl-identity-replacement-bypass 已归档、xnl-mutation-transaction behavior 已提升，whole-node/container identity replacement 回归与 core tests 通过。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P0-T1-AC1" checked="true">corrective Track 可从 archive 解析且状态 completed</cdt:Criterion>
+              <cdt:Criterion id="P0-T1-AC2" checked="true">提升后的 behavior 与测试明确保持 #id alignment、拒绝 hidden identity replacement</cdt:Criterion>
+              <cdt:Criterion id="P0-T1-AC3" checked="true">前置 core mutation 回归通过；未满足时本 Track 不得继续 P1</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:AttractorCheck use="coding"/></Hook>
+        </Hooks>
+      </TaskGroup>
+
+      <TaskGroup id="P1" name="Revision contract 与失败基线" status="DONE" order="1">
+        <Description>以失败测试和公共类型固定 live revision、receipt、结果状态及 commit separation。</Description>
+        <SubNodes>
+          <Task id="P1-T1" name="建立 revisioned persistence characterization" status="DONE" order="0" priority="P0">
+            <Description>先写 stale/cross-authority CAS、stale no-op、identity-only non-noop、concurrent double-write、flush failure、retry、base immutability、strict #id/fallback metadata.id rejection 和 distinct commit receipt 测试。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P1-T1-AC1" checked="true">失败测试覆盖 behavior delta 的五类 apply outcome 与 VCS checkpoint 边界</cdt:Criterion>
+              <cdt:Criterion id="P1-T1-AC2" checked="true">测试明确断言 conflict/failed/rejected 不推进 snapshot/revision，且 checkpoint failure 不虚构 history 未推进</cdt:Criterion>
+              <cdt:Criterion id="P1-T1-AC3" checked="true">并发同 base 双写恰好一 applied/一 conflict，stale no-op 与 cross-authority token 均 conflict</cdt:Criterion>
+              <cdt:Criterion id="P1-T1-AC4" checked="true">effective fallback metadata.id 的直接 add/update/delete 均 rejected 且 authority 调用计数为零</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="P1-T2" name="定义 revision contracts 与 snapshot equality" status="DONE" order="1" priority="P0">
+            <Description>定义 authority-qualified opaque revision、snapshot、CAS/coordinator closed result、diagnostics 和 authority port，并实现比较全部 AST 字段的 identity-sensitive structural equality；coordinator options 移除 metadataIdMode，不含 commit id，也不复用 diffNodes。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P1-T2-AC1" checked="true">类型系统区分 live revision receipt 与 VCS checkpoint receipt</cdt:Criterion>
+              <cdt:Criterion id="P1-T2-AC2" checked="true">authority contract 明确 scope、CAS、semantic no-op 与失败不推进责任</cdt:Criterion>
+              <cdt:Criterion id="P1-T2-AC3" checked="true">structural equality 对 object key 顺序无关、对 array/Extend order 有序，并比较显式 #id、metadata、attributes 与 identity authority transition</cdt:Criterion>
+              <cdt:Criterion id="P1-T2-AC4" checked="true">public coordinator options 不能提供 metadataIdMode，runtime contract 固定 identity mode</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:AttractorCheck use="coding"/></Hook>
+        </Hooks>
+      </TaskGroup>
+
+      <TaskGroup id="P2" name="VFS revisioned authority 与 coordinator" status="DONE" order="2">
+        <Description>实现 memory reference authority，并把既有 mutation engine 串到 authority CAS。</Description>
+        <SubNodes>
+          <Task id="P2-T1" name="实现 MemoryRevisionedVfsAuthority" status="DONE" order="0" priority="P0">
+            <Description>实现 cloned read、authority-qualified revision generation、串行化 atomic CAS、identity-sensitive structural equality、可注入 clock/failure 与 truthful receipt。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P2-T1-AC1" checked="true">成功 CAS 只推进一次且返回完整 receipt</cdt:Criterion>
+              <cdt:Criterion id="P2-T1-AC2" checked="true">stale/cross-authority/concurrent loser 与 injected failure 保持真实 snapshot/revision，可重试</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="P2-T2" name="实现 mutation-to-CAS coordinator" status="DONE" order="1" priority="P0">
+            <Description>只接受 XnlMutationBatch 与移除 metadataIdMode 的 options，调用 strict dry-run 时最后覆盖 metadataIdMode=identity 并显式传 identity policy，输出 applied/unchanged/conflict/rejected/failed；所有 valid candidate（含 no-op）进入 authority CAS，禁止修改 caller base。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P2-T2-AC1" checked="true">无效 batch 与直接 #id mutation 不调用 authority；no-op 仍由 authority 校验 freshness</cdt:Criterion>
+              <cdt:Criterion id="P2-T2-AC2" checked="true">applied 仅在 authority 成功后暴露 persisted snapshot 与 receipt</cdt:Criterion>
+              <cdt:Criterion id="P2-T2-AC3" checked="true">即使调用方通过结构类型逃逸传入 metadataIdMode=metadata，runtime 仍覆盖 identity 并拒绝 effective fallback id 直接 mutation</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:AttractorCheck use="coding"/></Hook>
+        </Hooks>
+      </TaskGroup>
+
+      <TaskGroup id="P3" name="Lossless VCS tree codec" status="DONE" order="3">
+        <Description>建立 exact checkpoint 所需的版本化 lossless tree encoding，同时保留 legacy object 读取能力。</Description>
+        <SubNodes>
+          <Task id="P3-T1" name="建立 lossless tree round-trip characterization" status="DONE" order="0" priority="P0">
+            <Description>先写 v2 snapshot tree、RepositorySnapshot node/string round-trip 与 legacy fallback 测试，覆盖显式 #id、metadata/attributes 同名键、所有 XNL node/value 变体、字段存在性、body 顺序和 Extend order。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P3-T1-AC1" checked="true">现有 legacy codec 的 #id 丢失与 metadata/attributes 合并被 characterization 明确复现</cdt:Criterion>
+              <cdt:Criterion id="P3-T1-AC2" checked="true">v2 fixture 覆盖 DataElement/TextElement/Comment/Word/primitive/array/object、text/textMarker、optional presence 与 Extend，并用 identity-sensitive equality 验证</cdt:Criterion>
+              <cdt:Criterion id="P3-T1-AC3" checked="true">capture/serialize/deserialize/restore RepositorySnapshot 后 v2 object id 不变且 exact checkout 相等</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="P3-T2" name="实现版本化 lossless tree codec" status="DONE" order="1" priority="P0">
+            <Description>扩展 TreeObject 与 xnl-snapshot serializer，实现 xnl-vfs-v2 root snapshot payload 编解码；legacy entries 保留为索引投影，新 checkpoint writer 使用 v2，未带 marker 的旧 TreeObject 继续 fallback。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P3-T2-AC1" checked="true">完整 AST payload 保留 identity、metadata、attributes、任意 own string keys、任意 body values、TextElement/Comment/Word、显式 undefined 字段存在性与 Extend 顺序</cdt:Criterion>
+              <cdt:Criterion id="P3-T2-AC2" checked="true">旧 tree/commit objects 仍可 checkout/read，既有 Repository.commit 与 buildTree 行为保持兼容</cdt:Criterion>
+              <cdt:Criterion id="P3-T2-AC3" checked="true">RepositorySnapshot node/string serializers 保留 v2 marker/lossless payload 且 restore hash 校验通过，payload canonical order 不依赖 locale，所有 transport tag 采用 exact own-data shape</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:AttractorCheck use="coding"/></Hook>
+        </Hooks>
+      </TaskGroup>
+
+      <TaskGroup id="P4" name="Repository exact-snapshot primitive" status="DONE" order="4">
+        <Description>为 Repository 增加封闭 outcome 的 commitSnapshot，并把 worktree restore 与 history acceptance 证据正交表达。</Description>
+        <SubNodes>
+          <Task id="P4-T1" name="实现 Repository.commitSnapshot" status="DONE" order="0" priority="P0">
+            <Description>使用 v2 tree 临时 staging exact snapshot，clone public worktree，在 finally 恢复 worktree/backend workspace，并返回 committed/failed/indeterminate closed outcome。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P4-T1-AC1" checked="true">out-of-band public worktree 不进入 checkpoint 且成功后原样恢复</cdt:Criterion>
+              <cdt:Criterion id="P4-T1-AC2" checked="true">结果携带 headBefore/observedHead、historyState 与 worktreeState，不依赖 ObjectId-or-throw 猜测；legacy commit 错误时序不产生新对象</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="P4-T2" name="覆盖 staging、commit 与 restore 失败边界" status="DONE" order="1" priority="P0">
+            <Description>注入 stage/pre-commit/commit/workspace restore 抛错，验证 failed 仅用于 history not-started 且 restored；任何 restore failure 都返回 phase=restore 的 indeterminate。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P4-T2-AC1" checked="true">commit 可能已接受时绝不伪报 history unchanged</cdt:Criterion>
+              <cdt:Criterion id="P4-T2-AC2" checked="true">pre-commit error 后 restore failure 仍能由 closed union 合法表达</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:AttractorCheck use="coding"/></Hook>
+        </Hooks>
+      </TaskGroup>
+
+      <TaskGroup id="P5" name="Revisioned Repository adapter" status="DONE" order="5">
+        <Description>组合 revision authority 与 Repository，不让 adapter 成为新的 snapshot authority。</Description>
+        <SubNodes>
+          <Task id="P5-T1" name="实现 adapter open 与 apply" status="DONE" order="0" priority="P0">
+            <Description>实现 RevisionedRepositoryAdapter.open/apply；只有 authority applied 才更新 public worktree，unchanged/conflict/rejected/failed 都保持 worktree/history。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P5-T1-AC1" checked="true">非 applied 结果不修改 worktree 或 branch history</cdt:Criterion>
+              <cdt:Criterion id="P5-T1-AC2" checked="true">adapter 返回并保留真实 live revision，不引入 commit identity</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="P5-T2" name="实现 checkpoint classification 与 backend flush" status="DONE" order="1" priority="P0">
+            <Description>实现 stale check、commitSnapshot outcome 映射、v2 tree read-back equality、active-store binding proof、Repository-bound optional backend flush 与 checkpointed/conflict/failed/indeterminate closed result。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P5-T2-AC1" checked="true">receipt 同时含 distinct liveRevision/commitId，stale 不 commit，exact snapshot 通过 identity-sensitive read-back</cdt:Criterion>
+              <cdt:Criterion id="P5-T2-AC2" checked="true">只有 active object/content stores 等于 backend ports 且其 flush 成功才返回 backend-flushed；缺失 capability 或 mixed overrides 返回 memory-accepted</cdt:Criterion>
+              <cdt:Criterion id="P5-T2-AC3" checked="true">read/pre-commit/commit/restore/verify/flush 各错误点都按 historyState/worktreeState truthfully 分类</cdt:Criterion>
+              <cdt:Criterion id="P5-T2-AC4" checked="true">headBefore/observedHead 在进入 observation 后均为必填 ObjectId|null，unborn branch null 不与 unobserved 混淆</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:AttractorCheck use="coding"/></Hook>
+        </Hooks>
+      </TaskGroup>
+
+      <TaskGroup id="P6" name="公共导出与验证矩阵" status="DONE" order="6">
+        <Description>完成显式 subpath、文档、兼容和构建后浏览器依赖验证。</Description>
+        <SubNodes>
+          <Task id="P6-T1" name="导出显式 API 并更新文档" status="DONE" order="0" priority="P0">
+            <Description>更新 package.json exports、tsup entries 与 API docs；browser-safe xnl-vfs subpath 只导出 authority、memory implementation、structural equality 和 strict XnlMutation coordinator。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P6-T1-AC1" checked="true">xnl-vfs/revisioned-persistence 与 xnl-vcs/revisioned-repository 的 ESM/CJS/types 均可导入</cdt:Criterion>
+              <cdt:Criterion id="P6-T1-AC2" checked="true">文档明确 diff alignment 与 snapshot equality、live revision 与 commit id、memory-accepted 与 backend-flushed 的边界</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="P6-T2" name="执行 package 与 browser-safe 验证矩阵" status="DONE" order="1" priority="P0">
+            <Description>运行 VFS/VCS 全量 tests、lint、build、ESM/CJS import，并递归扫描构建后 revisioned-persistence chunks 与 bare imports。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P6-T2-AC1" checked="true">VFS/VCS tests、typecheck 与 build 全部通过且既有 API/legacy tree read 保持兼容</cdt:Criterion>
+              <cdt:Criterion id="P6-T2-AC2" checked="true">构建后 ESM/CJS 可达图无 fs/path/crypto 及其 node: 形式，不扩张 root browser-safety 声明</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:AttractorCheck use="coding"/></Hook>
+          <Hook on="phase:after"><cdt:GapLoop max-rounds="3" on-exhausted="block" verify-round="true"/></Hook>
+        </Hooks>
+      </TaskGroup>
+    </SubNodes>
+  </TaskSpace>
+
+  <Schedule>
+    <Parallel max-concurrent="1" spot-check="true"/>
+  </Schedule>
+</Track>

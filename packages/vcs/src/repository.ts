@@ -1,4 +1,5 @@
 import type { DataElementNode, ExtendBody } from "xnl-core";
+import type { RevisionedPersistenceDiagnostic } from "xnl-vfs";
 import {
   VFS_PROJECT,
   VFS_ROOT,
@@ -18,8 +19,8 @@ import { VcsError, assertVcs } from "./errors";
 import type { ObjectId } from "./hash";
 import { assertObject, MemoryObjectStore, type ObjectStore } from "./object-store";
 import { MemoryContentStore, type ContentStore } from "./content-store";
-import type { RepositoryBackend } from "./repository-backend";
-import { buildTree, checkoutTree, collectFolders, flattenSnapshot, readTreeSnapshot } from "./tree-converter";
+import type { RepositoryBackend, WorkspaceState } from "./repository-backend";
+import { buildLosslessTree, buildTree, checkoutTree, collectFolders, flattenSnapshot, readTreeSnapshot } from "./tree-converter";
 import type { CommitObject, FileSnapshot, MergeConflict, MergeResolution, TagObject } from "./types";
 
 export interface StatusEntry {
@@ -59,11 +60,116 @@ export interface MergeOutcome {
   conflicts?: MergeConflict[];
 }
 
+export type CommitSnapshotHistoryState = "not-started" | "possibly-accepted" | "accepted";
+
+export interface RepositoryCommitSnapshotOptions {
+  readonly author?: string;
+}
+
+export type RepositoryCommitSnapshotResult =
+  | {
+      readonly status: "committed";
+      readonly commitId: ObjectId;
+      readonly headBefore: ObjectId | null;
+      readonly observedHead: ObjectId | null;
+      readonly historyState: "accepted";
+      readonly worktreeState: "restored";
+    }
+  | {
+      readonly status: "failed";
+      readonly phase: "stage" | "pre-commit";
+      readonly headBefore: ObjectId | null;
+      readonly observedHead: ObjectId | null;
+      readonly historyState: "not-started";
+      readonly worktreeState: "restored";
+      readonly diagnostics: readonly RevisionedPersistenceDiagnostic[];
+    }
+  | {
+      readonly status: "indeterminate";
+      readonly phase: "commit" | "restore";
+      readonly headBefore: ObjectId | null;
+      readonly observedHead: ObjectId | null;
+      readonly candidateCommitId?: ObjectId;
+      readonly historyState: CommitSnapshotHistoryState;
+      readonly worktreeState: "restored" | "unknown";
+      readonly diagnostics: readonly RevisionedPersistenceDiagnostic[];
+    };
+
 type HeadState =
   | { type: "branch"; name: string }
   | { type: "detached"; commitId: ObjectId };
 
 type RefMap = Map<string, ObjectId | null>;
+
+type WorkspaceBackup =
+  | { readonly kind: "unavailable" }
+  | { readonly kind: "captured"; readonly state: WorkspaceState | null };
+
+type PendingCommitSnapshotOutcome =
+  | RepositoryCommitSnapshotResult
+  | {
+      readonly status: "failed";
+      readonly phase: "stage" | "pre-commit";
+      readonly headBefore: ObjectId | null;
+      readonly observedHead: ObjectId | null;
+      readonly historyState: "not-started";
+      readonly worktreeState: "unknown";
+      readonly diagnostics: readonly RevisionedPersistenceDiagnostic[];
+    };
+
+function cloneSnapshot(snapshot: DataElementNode): DataElementNode {
+  return structuredClone(snapshot);
+}
+
+function cloneWorkspaceState(state: WorkspaceState): WorkspaceState {
+  return {
+    worktreeJson: state.worktreeJson,
+    stagedJson: state.stagedJson,
+  };
+}
+
+function sanitizeCause(error: unknown): unknown {
+  if (error instanceof Error) {
+    const out: { name: string; message: string; code?: string } = {
+      name: error.name,
+      message: error.message,
+    };
+    const code = Reflect.get(error, "code");
+    if (typeof code === "string") {
+      out.code = code;
+    }
+    return out;
+  }
+  return String(error);
+}
+
+function diagnosticFromError(error: unknown, fallbackCode: string): RevisionedPersistenceDiagnostic {
+  const errorCode = typeof error === "object" && error !== null && typeof Reflect.get(error, "code") === "string"
+    ? (Reflect.get(error, "code") as string)
+    : fallbackCode;
+  const message = error instanceof Error ? error.message : String(error);
+  return Object.freeze({
+    code: errorCode,
+    message,
+    cause: sanitizeCause(error),
+  });
+}
+
+function freezeDiagnostics(
+  diagnostics: readonly RevisionedPersistenceDiagnostic[],
+): readonly RevisionedPersistenceDiagnostic[] {
+  return Object.freeze(
+    diagnostics.map((diagnostic) =>
+      Object.freeze({
+        code: diagnostic.code,
+        message: diagnostic.message,
+        ...(Object.prototype.hasOwnProperty.call(diagnostic, "cause")
+          ? { cause: sanitizeCause(diagnostic.cause) }
+          : {}),
+      }),
+    ),
+  );
+}
 
 function collectNodeKinds(snapshot: DataElementNode): Map<string, "file" | "folder"> {
   const out = new Map<string, "file" | "folder">();
@@ -394,14 +500,241 @@ export class Repository {
     return this.branches.get(this.head.name) ?? null;
   }
 
+  async flushBoundBackend(): Promise<boolean> {
+    const backend = this.backend;
+    if (
+      !backend?.flush ||
+      this.store !== backend.objectStore ||
+      this.contentStore !== backend.contentStore
+    ) {
+      return false;
+    }
+    await backend.flush();
+    return true;
+  }
+
   commit(message: string, options: { author?: string } = {}): ObjectId {
+    if (this.head.type !== "branch") {
+      throw new VcsError("EDETACHEDHEAD", "Cannot commit while HEAD is detached");
+    }
+
+    const tree = buildTree(this.vfs, this.store, this.contentStore);
+    return this.commitTree(tree, message, options, { persistWorkspace: true });
+  }
+
+  commitSnapshot(
+    snapshot: DataElementNode,
+    message: string,
+    options: RepositoryCommitSnapshotOptions = {},
+  ): RepositoryCommitSnapshotResult {
+    const headBefore = this.getHeadCommitId();
+    let observedHead = headBefore;
+    let publicWorktree: DataElementNode | undefined;
+    let publicWorktreeMayNeedRestore = false;
+    let workspaceBackup: WorkspaceBackup = { kind: "unavailable" };
+    let candidateCommitId: ObjectId | undefined;
+    let commitAttempted = false;
+    let historyAccepted = false;
+    let stageCompleted = false;
+
+    let outcome: PendingCommitSnapshotOutcome;
+
+    try {
+      publicWorktree = this.vfs.getSnapshot();
+      workspaceBackup = this.captureWorkspaceState();
+      const stagedSnapshot = cloneSnapshot(snapshot);
+      publicWorktreeMayNeedRestore = true;
+      this.vfs.loadSnapshot(stagedSnapshot);
+      const tree = buildLosslessTree(stagedSnapshot, this.store, this.contentStore);
+      stageCompleted = true;
+
+      if (this.head.type !== "branch") {
+        throw new VcsError("EDETACHEDHEAD", "Cannot commit while HEAD is detached");
+      }
+
+      commitAttempted = true;
+      const commitId = this.commitTree(tree, message, options, {
+        persistWorkspace: false,
+        onCandidateCommitId: (id) => {
+          candidateCommitId = id;
+        },
+        onHistoryAccepted: () => {
+          historyAccepted = true;
+        },
+      });
+      observedHead = this.getHeadCommitId();
+      outcome = {
+        status: "committed",
+        commitId,
+        headBefore,
+        observedHead,
+        historyState: "accepted",
+        worktreeState: "restored",
+      };
+    } catch (error) {
+      observedHead = this.getHeadCommitId();
+      const historyMayHaveBeenAccepted =
+        commitAttempted && (historyAccepted || observedHead !== headBefore);
+      if (historyMayHaveBeenAccepted) {
+        outcome = {
+          status: "indeterminate",
+          phase: "commit",
+          headBefore,
+          observedHead,
+          ...(candidateCommitId ? { candidateCommitId } : {}),
+          historyState: this.classifyCommitInvocationHistory(
+            observedHead,
+            candidateCommitId,
+            historyAccepted,
+          ),
+          worktreeState: "restored",
+          diagnostics: freezeDiagnostics([
+            diagnosticFromError(error, "repository-commit-snapshot-commit-failed"),
+          ]),
+        };
+      } else {
+        const phase = stageCompleted ? "pre-commit" : "stage";
+        outcome = {
+          status: "failed",
+          phase,
+          headBefore,
+          observedHead,
+          historyState: "not-started",
+          worktreeState: "unknown",
+          diagnostics: freezeDiagnostics([
+            diagnosticFromError(
+              error,
+              phase === "stage"
+                ? "repository-commit-snapshot-stage-failed"
+                : "repository-commit-snapshot-pre-commit-failed",
+            ),
+          ]),
+        };
+      }
+    }
+
+    const restoreDiagnostics = this.restoreCommitSnapshotState(
+      publicWorktree,
+      publicWorktreeMayNeedRestore,
+      workspaceBackup,
+    );
+    const finalObservedHead = this.getHeadCommitId();
+    if (restoreDiagnostics.length > 0) {
+      return {
+        status: "indeterminate",
+        phase: "restore",
+        headBefore,
+        observedHead: finalObservedHead,
+        ...(candidateCommitId ? { candidateCommitId } : {}),
+        historyState: this.historyStateAfterRestoreFailure(outcome),
+        worktreeState: "unknown",
+        diagnostics: freezeDiagnostics([
+          ...("diagnostics" in outcome ? outcome.diagnostics : []),
+          ...restoreDiagnostics,
+        ]),
+      };
+    }
+
+    if (outcome.status === "failed") {
+      return {
+        ...outcome,
+        observedHead: finalObservedHead,
+        worktreeState: "restored",
+      };
+    }
+    if (outcome.status === "indeterminate") {
+      return {
+        ...outcome,
+        observedHead: finalObservedHead,
+        worktreeState: "restored",
+      };
+    }
+    return {
+      ...outcome,
+      observedHead: finalObservedHead,
+      worktreeState: "restored",
+    };
+  }
+
+  private captureWorkspaceState(): WorkspaceBackup {
+    if (!this.backend?.readWorkspaceState || !this.backend.writeWorkspaceState) {
+      return { kind: "unavailable" };
+    }
+    const state = this.backend.readWorkspaceState();
+    return {
+      kind: "captured",
+      state: state ? cloneWorkspaceState(state) : null,
+    };
+  }
+
+  private restoreCommitSnapshotState(
+    publicWorktree: DataElementNode | undefined,
+    publicWorktreeMayNeedRestore: boolean,
+    workspaceBackup: WorkspaceBackup,
+  ): readonly RevisionedPersistenceDiagnostic[] {
+    const diagnostics: RevisionedPersistenceDiagnostic[] = [];
+    if (publicWorktreeMayNeedRestore && publicWorktree) {
+      try {
+        this.vfs.loadSnapshot(publicWorktree);
+      } catch (error) {
+        diagnostics.push(
+          diagnosticFromError(error, "repository-commit-snapshot-worktree-restore-failed"),
+        );
+      }
+    }
+
+    if (workspaceBackup.kind === "captured" && workspaceBackup.state) {
+      try {
+        this.backend?.writeWorkspaceState?.(cloneWorkspaceState(workspaceBackup.state));
+      } catch (error) {
+        diagnostics.push(
+          diagnosticFromError(error, "repository-commit-snapshot-workspace-restore-failed"),
+        );
+      }
+    }
+
+    return freezeDiagnostics(diagnostics);
+  }
+
+  private classifyCommitInvocationHistory(
+    observedHead: ObjectId | null,
+    candidateCommitId?: ObjectId,
+    historyAccepted = false,
+  ): "possibly-accepted" | "accepted" {
+    if (historyAccepted || (candidateCommitId && observedHead === candidateCommitId)) {
+      return "accepted";
+    }
+    return "possibly-accepted";
+  }
+
+  private historyStateAfterRestoreFailure(
+    outcome: PendingCommitSnapshotOutcome,
+  ): CommitSnapshotHistoryState {
+    if (outcome.status === "committed") {
+      return "accepted";
+    }
+    if (outcome.status === "indeterminate" && outcome.phase === "commit") {
+      return outcome.historyState;
+    }
+    return "not-started";
+  }
+
+  private commitTree(
+    tree: ObjectId,
+    message: string,
+    options: { author?: string } = {},
+    commitOptions: {
+      readonly persistWorkspace: boolean;
+      readonly onCandidateCommitId?: (commitId: ObjectId) => void;
+      readonly onHistoryAccepted?: () => void;
+    },
+  ): ObjectId {
     if (this.head.type !== "branch") {
       throw new VcsError("EDETACHEDHEAD", "Cannot commit while HEAD is detached");
     }
 
     const author = options.author ?? "system";
     const currentCommit = this.getHeadCommitId();
-    const tree = buildTree(this.vfs, this.store, this.contentStore);
     const timestamp = new Date().toISOString();
     const commit: CommitObject = {
       type: "commit",
@@ -413,8 +746,10 @@ export class Repository {
     };
 
     const commitId = this.store.put(commit);
+    commitOptions.onCandidateCommitId?.(commitId);
     const oldCommitId = this.branches.get(this.head.name) ?? null;
     this.branches.set(this.head.name, commitId);
+    commitOptions.onHistoryAccepted?.();
 
     if (this.backend) {
       this.backend.updateBranchHead({
@@ -426,7 +761,9 @@ export class Repository {
         timestamp,
       });
     }
-    this.persistWorkspace();
+    if (commitOptions.persistWorkspace) {
+      this.persistWorkspace();
+    }
     return commitId;
   }
 

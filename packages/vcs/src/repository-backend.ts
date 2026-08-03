@@ -1,3 +1,4 @@
+import type { Awaitable } from "xnl-vfs";
 import type { ObjectId } from "./hash";
 import type { ObjectStore } from "./object-store";
 import type { ContentStore } from "./content-store";
@@ -40,6 +41,9 @@ export interface RepositoryBackend {
   /** Persist working-tree + staging snapshots. Optional per backend. */
   writeWorkspaceState?(state: WorkspaceState): void;
   readWorkspaceState?(): WorkspaceState | null;
+
+  /** Flush all backend-owned repository ports to durable storage. */
+  flush?(): Awaitable<void>;
 
   checkIntegrity(): { brokenRefs: string[]; warnings: string[] };
 }

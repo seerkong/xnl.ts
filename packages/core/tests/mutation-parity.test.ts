@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMutations, diffNodes } from "../src/mutation";
+import { applyMutations, diffNodes, dryRunMutations } from "../src/mutation";
 import { parseXnl } from "../src/parser";
 
 const oldTreeSrc = `<TestDsl #node1 {value="a"} [
@@ -36,6 +36,11 @@ describe("mutation parity with move detection", () => {
 
   it("applies mutations to reach target", () => {
     const mutations = diffNodes(oldNode, newNode, "#node1");
-    expect(Array.isArray(mutations)).toBe(true);
+    const applied = applyMutations(structuredClone(oldNode), mutations);
+    const preview = dryRunMutations(oldNode, mutations);
+
+    expect(applied).toEqual(newNode);
+    expect(preview.status).toBe("applied");
+    expect(preview.value).toEqual(newNode);
   });
 });

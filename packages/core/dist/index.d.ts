@@ -57,6 +57,82 @@ interface UniqueChildrenResult {
     warnings: ParseWarning[];
 }
 
+type PathItemType = "UniqueName" | "MetadataSelector" | "InstanceProperty" | "MapKey" | "ListIndex";
+interface PathItem {
+    type: PathItemType;
+    value: string;
+}
+type XnlPath = PathItem[];
+type MetadataSelectorMode = "identity" | "metadata";
+interface ResolveOptions {
+    strict?: boolean;
+    metadataIdMode?: MetadataSelectorMode;
+}
+interface SetOptions extends ResolveOptions {
+    mode?: "insert" | "replace";
+    destinationKey?: string;
+}
+declare class XnlPathError extends Error {
+}
+declare function parsePath(input: string): XnlPath;
+declare function resolvePath(target: XnlDocument | XnlNode, path: string | XnlPath, options?: ResolveOptions): any;
+declare function setPathValue(target: XnlDocument | XnlNode, path: string | XnlPath, value: any, options?: SetOptions): any;
+declare function deleteAtPath(target: XnlDocument | XnlNode, path: string | XnlPath, options?: ResolveOptions): any;
+
+type MutationType = "TREE_ADD" | "TREE_DELETE" | "TREE_MOVE" | "TREE_UPDATE" | "TREE_MOVE_SAME_LEVEL" | "TREE_MOVE_CROSS_LEVEL" | "OBJECT_ADD" | "OBJECT_DELETE" | "OBJECT_UPDATE";
+interface XnlMutation {
+    type: MutationType;
+    path: string | XnlPath;
+    pathBefore?: string | XnlPath;
+    valueBefore?: XnlNode;
+    valueAfter?: XnlNode;
+    metadata?: Record<string, unknown>;
+    destinationKey?: string;
+    targetUniqueName?: string;
+    parentUniqueNameBefore?: string;
+    parentUniqueNameAfter?: string;
+}
+type MetadataIdMode = "identity" | "metadata";
+interface XnlMutationOptions {
+    metadataIdMode?: MetadataIdMode;
+}
+type XnlMutationBatch = readonly XnlMutation[];
+type XnlMutationIdentityPolicy = "allow-missing" | "require-elements";
+type XnlMutationDiagnosticCode = "DUPLICATE_IDENTITY" | "MISSING_IDENTITY" | "IDENTITY_MUTATION_FORBIDDEN" | "PRECONDITION_FAILED" | "APPLY_FAILED" | "RESULT_IDENTITY_INVALID" | "RESULT_STRUCTURE_INVALID";
+interface XnlMutationDiagnostic {
+    readonly code: XnlMutationDiagnosticCode;
+    readonly message: string;
+    /** Zero-based position in the ordered input batch, when tied to a mutation. */
+    readonly mutationIndex?: number;
+    /** Target path associated with the rejection, when one can be resolved. */
+    readonly path?: XnlMutation["path"];
+    /** Effective element identity associated with the rejection, when known. */
+    readonly identity?: string;
+}
+interface XnlMutationBatchOptions extends XnlMutationOptions {
+    /** For delete, update, and move, compare an available valueBefore before applying. */
+    readonly verifyValueBefore?: boolean;
+    /** Defaults to allow-missing; require-elements rejects elements without identity. */
+    readonly identityPolicy?: XnlMutationIdentityPolicy;
+}
+type XnlMutationBatchResult = {
+    readonly status: "applied";
+    /** The fully applied isolated clone. */
+    readonly value: XnlNode;
+    readonly mutations: XnlMutationBatch;
+    readonly diagnostics: readonly [];
+} | {
+    readonly status: "rejected";
+    /** An isolated clone of the unchanged base, never a partially applied value. */
+    readonly value: XnlNode;
+    readonly mutations: XnlMutationBatch;
+    readonly diagnostics: readonly XnlMutationDiagnostic[];
+};
+type XnlDryRunMutations = (base: XnlNode, mutations: XnlMutationBatch, options?: XnlMutationBatchOptions) => XnlMutationBatchResult;
+declare const dryRunMutations: XnlDryRunMutations;
+declare function applyMutations(root: XnlNode, mutations: XnlMutation[], opts?: XnlMutationOptions): XnlNode;
+declare function diffNodes(oldNode: XnlNode, newNode: XnlNode, basePath?: string | XnlPath, opts?: XnlMutationOptions): XnlMutation[];
+
 /** Options for parsing. */
 interface XnlParseOptions {
     /**
@@ -89,46 +165,6 @@ interface LineBlockStringifyOptions {
     textBlockStyle?: boolean;
 }
 declare function stringify(value: XnlDocument | XnlNode, options?: LineBlockStringifyOptions): string;
-
-type PathItemType = "UniqueName" | "MetadataSelector" | "InstanceProperty" | "MapKey" | "ListIndex";
-interface PathItem {
-    type: PathItemType;
-    value: string;
-}
-type XnlPath = PathItem[];
-type MetadataSelectorMode = "identity" | "metadata";
-interface ResolveOptions {
-    strict?: boolean;
-    metadataIdMode?: MetadataSelectorMode;
-}
-interface SetOptions extends ResolveOptions {
-    mode?: "insert" | "replace";
-}
-declare class XnlPathError extends Error {
-}
-declare function parsePath(input: string): XnlPath;
-declare function resolvePath(target: XnlDocument | XnlNode, path: string | XnlPath, options?: ResolveOptions): any;
-declare function setPathValue(target: XnlDocument | XnlNode, path: string | XnlPath, value: any, options?: SetOptions): any;
-declare function deleteAtPath(target: XnlDocument | XnlNode, path: string | XnlPath, options?: ResolveOptions): any;
-
-type MutationType = "TREE_ADD" | "TREE_DELETE" | "TREE_MOVE" | "TREE_UPDATE" | "TREE_MOVE_SAME_LEVEL" | "TREE_MOVE_CROSS_LEVEL" | "OBJECT_ADD" | "OBJECT_DELETE" | "OBJECT_UPDATE";
-interface XnlMutation {
-    type: MutationType;
-    path: string | XnlPath;
-    pathBefore?: string | XnlPath;
-    valueBefore?: XnlNode;
-    valueAfter?: XnlNode;
-    metadata?: Record<string, unknown>;
-    targetUniqueName?: string;
-    parentUniqueNameBefore?: string;
-    parentUniqueNameAfter?: string;
-}
-type MetadataIdMode = "identity" | "metadata";
-interface XnlMutationOptions {
-    metadataIdMode?: MetadataIdMode;
-}
-declare function applyMutations(root: XnlNode, mutations: XnlMutation[], opts?: XnlMutationOptions): XnlNode;
-declare function diffNodes(oldNode: XnlNode, newNode: XnlNode, basePath?: string | XnlPath, opts?: XnlMutationOptions): XnlMutation[];
 
 interface LoaderContext {
     prototypes: Record<string, Record<string, DataElementNode>>;
@@ -208,6 +244,8 @@ declare const XNL: {
     mutation: {
         apply: typeof applyMutations;
         diff: typeof diffNodes;
+        dryRun: XnlDryRunMutations;
+        preview: XnlDryRunMutations;
     };
     loader: {
         loadFromString: typeof loadFromString;
@@ -220,4 +258,4 @@ declare const XNL: {
     };
 };
 
-export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, type ImportResolver, type ImportSymbols, MakeWord, type MetadataIdMode, type MutationType, type ParseWarning, type PathItem, type PathItemType, type ResolveImportsOptions, type ResolveImportsResult, type SingleNodeResult, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlErrorCode, XnlImportError, type XnlImportErrorCode, type XnlMutation, type XnlMutationOptions, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, deleteAtPath, diffNodes, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify as stringifyLineBlock, wordToString };
+export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, type ImportResolver, type ImportSymbols, MakeWord, type MetadataIdMode, type MutationType, type ParseWarning, type PathItem, type PathItemType, type ResolveImportsOptions, type ResolveImportsResult, type SingleNodeResult, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlDryRunMutations, type XnlErrorCode, XnlImportError, type XnlImportErrorCode, type XnlMutation, type XnlMutationBatch, type XnlMutationBatchOptions, type XnlMutationBatchResult, type XnlMutationDiagnostic, type XnlMutationDiagnosticCode, type XnlMutationIdentityPolicy, type XnlMutationOptions, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, deleteAtPath, diffNodes, dryRunMutations, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify as stringifyLineBlock, wordToString };

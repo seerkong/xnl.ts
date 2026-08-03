@@ -1,0 +1,91 @@
+<Track id="harden-xnl-authoring-mutations" version="1" xmlns:cdt="urn:codument:v1">
+  <Metadata>
+    <Status>completed</Status>
+    <Goal>为 xnl-core 增加保持 #id identity 语义的原子 mutation dry-run、precondition、identity diagnostics 与完整 diff/apply parity。</Goal>
+    <Description>面向 XNL-backed authoring 提供严格但 opt-in 的 mutation transaction 原语；保留 diffNodes/applyMutations 兼容，不把 #id 当作普通字段更新。</Description>
+    <QuestionMode>decision-tree</QuestionMode>
+    <QuestionSeverity>auto</QuestionSeverity>
+    <CommitMode>manual</CommitMode>
+    <CreatedAt>2026-07-30T16:04:06Z</CreatedAt>
+    <UpdatedAt>2026-07-30T17:36:55Z</UpdatedAt>
+    <gap-round>2</gap-round>
+  </Metadata>
+
+  <Ports scope="track">
+    <MaterialBundle role="input" name="behavior-deltas" domain="behavior" path="vfs://./behavior_deltas/"/>
+    <MaterialBundle role="output" name="behavior" domain="codument" path="vfs://@/codument/behaviors/"/>
+    <MaterialBundle role="output" name="core-mutation" domain="code" path="vfs://@/packages/core/src/mutation/"/>
+    <MaterialBundle role="output" name="core-tests" domain="test" path="vfs://@/packages/core/tests/"/>
+  </Ports>
+
+  <TaskSpace id="space_harden-xnl-authoring-mutations" name="harden-xnl-authoring-mutations" version="1">
+    <Description>先固定 identity 与 parity 的失败基线，再实现严格 batch API，最后验证完整 package 和 public export。</Description>
+    <SubNodes>
+      <TaskGroup id="P1" name="行为基线与公共契约" status="DONE" order="0">
+        <Description>用类型和失败测试锁定 #id、dry-run、precondition、tag 与 move parity 行为。</Description>
+        <SubNodes>
+          <Task id="P1-T1" name="建立 authoring mutation characterization" status="DONE" order="0" priority="P0">
+            <Description>添加完整 AST parity、base immutability、duplicate/missing identity、手工 :id mutation rejection、stale valueBefore 与 tag update 测试；测试必须明确 #id 不产生也不被 strict batch 接受为普通 update。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P1-T1-AC1" checked="true">失败测试覆盖 behavior delta 的 identity、atomic batch 与 parity cases</cdt:Criterion>
+              <cdt:Criterion id="P1-T1-AC2" checked="true">测试区分 tag update 与 #id identity key，并断言完整 AST</cdt:Criterion>
+              <cdt:Criterion id="P1-T1-AC3" checked="true">手工 element id 字段 mutation 被 strict batch 拒绝且 base 不变</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="P1-T2" name="定义严格 batch contract 与 diagnostics" status="DONE" order="1" priority="P0">
+            <Description>在 mutation 模块定义 readonly batch 输入、applied/rejected result、diagnostic code、identity policy 与 precondition options；保留现有 API 签名。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P1-T2-AC1" checked="true">public contract 能表达 applied/rejected 且 rejected 不暴露部分 authority</cdt:Criterion>
+              <cdt:Criterion id="P1-T2-AC2" checked="true">identity policy 默认允许缺失、严格模式要求 element identity</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+      </TaskGroup>
+
+      <TaskGroup id="P2" name="Mutation transaction 实现" status="DONE" order="1">
+        <Description>实现 clone-based preview、precondition/identity validation、tag diff 与可靠 move parity。</Description>
+        <SubNodes>
+          <Task id="P2-T1" name="实现 identity validation 与原子 batch dry-run" status="DONE" order="0" priority="P0">
+            <Description>遍历完整 AST 校验 effective identity；clone base 后逐 mutation 检查 valueBefore 并 apply；异常转 diagnostics，任何失败返回未修改 base clone。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P2-T1-AC1" checked="true">成功返回完整 clone，失败不修改 base 且不返回部分 apply 结果</cdt:Criterion>
+              <cdt:Criterion id="P2-T1-AC2" checked="true">duplicate/missing/identity-mutation/precondition/apply failure 均有稳定 diagnostic code</cdt:Criterion>
+              <cdt:Criterion id="P2-T1-AC3" checked="true">strict API 不生成或应用 #id ordinary update；identity replacement 仅由 delete/add 表达</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+          <Task id="P2-T2" name="补齐 tag diff 与 move parity" status="DONE" order="1" priority="P0">
+            <Description>为同 kind element tag 变化生成可 apply mutation；修正同层、跨层与轮转 move 的批内顺序问题，确保 mixed structural diff 的完整 AST parity。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P2-T2-AC1" checked="true">tag 变化可通过 diff + strict batch 重建目标 AST</cdt:Criterion>
+              <cdt:Criterion id="P2-T2-AC2" checked="true">同层、跨层、轮转和 mixed mutation parity 测试通过</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:AttractorCheck use="coding"/></Hook>
+        </Hooks>
+      </TaskGroup>
+
+      <TaskGroup id="P3" name="公共出口与验证收口" status="DONE" order="2">
+        <Description>公开严格 mutation API，验证 core package、文档与浏览器兼容的构建面。</Description>
+        <SubNodes>
+          <Task id="P3-T1" name="导出 API 并执行验证矩阵" status="DONE" order="0" priority="P0">
+            <Description>更新 package root exports 与 mutation API 文档；运行 core 全量 tests、lint、build 和 mutation residue scan。</Description>
+            <cdt:Acceptance>
+              <cdt:Criterion id="P3-T1-AC1" checked="true">xnl-core public root 导出 strict batch contracts/functions</cdt:Criterion>
+              <cdt:Criterion id="P3-T1-AC2" checked="true">core tests、tsc lint 与 package build 全部通过</cdt:Criterion>
+              <cdt:Criterion id="P3-T1-AC3" checked="true">扫描确认 #id 仅作为 identity 使用，既有 API 保持兼容</cdt:Criterion>
+            </cdt:Acceptance>
+          </Task>
+        </SubNodes>
+        <Hooks>
+          <Hook on="phase:after"><cdt:GapLoop max-rounds="3" on-exhausted="block" verify-round="true"/></Hook>
+        </Hooks>
+      </TaskGroup>
+    </SubNodes>
+  </TaskSpace>
+
+  <Schedule>
+    <Parallel max-concurrent="1" spot-check="true"/>
+  </Schedule>
+</Track>

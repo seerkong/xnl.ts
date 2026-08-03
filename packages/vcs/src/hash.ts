@@ -6,6 +6,16 @@ export function sha256Hex(input: string | Uint8Array): ObjectId {
   return createHash("sha256").update(input).digest("hex");
 }
 
+function compareUtf16CodeUnits(left: string, right: string): number {
+  if (left < right) {
+    return -1;
+  }
+  if (left > right) {
+    return 1;
+  }
+  return 0;
+}
+
 function stableStringify(value: unknown): string {
   if (value === undefined) {
     return "null";
@@ -20,7 +30,7 @@ function stableStringify(value: unknown): string {
 
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([, val]) => val !== undefined)
-    .sort((a, b) => a[0].localeCompare(b[0]));
+    .sort((a, b) => compareUtf16CodeUnits(a[0], b[0]));
   const inner = entries.map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`).join(",");
   return `{${inner}}`;
 }

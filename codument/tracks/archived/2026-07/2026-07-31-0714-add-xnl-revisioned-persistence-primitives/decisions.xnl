@@ -1,0 +1,175 @@
+<decision #add-xnl-revisioned-persistence-primitives.revision-identity {
+  status = "accepted"
+  priority = "P0"
+}
+(
+  <question ?>live revision 是否复用 VCS commit id 或 tree hash？</?>
+  <answer { }
+  (
+    <raw-answer ?>不复用；revision 是 persistence authority 的 opaque token。</?>
+    <decision-text ?>Live revision 与 commit id SHALL 是不同类型、不同字段和不同生命周期。</?>
+    <rationale ?>未提交工作区也必须支持 CAS；一次 checkpoint 也不代表调用方仍基于最新工作区。</?>
+    <evidence ?>Mission 明确要求不把 live revision 混同 commit id；现有 Repository.commit 只表达历史对象 identity。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.cas-owner {
+  status = "accepted"
+  priority = "P0"
+}
+(
+  <question ?>CAS 由 coordinator 通过 read + save 模拟，还是由 authority 原子实现？</?>
+  <answer { }
+  (
+    <raw-answer ?>由 authority 原子实现。</?>
+    <decision-text ?>RevisionedVfsAuthority.compareAndSwap SHALL own revision check and persistence as one authority operation。</?>
+    <rationale ?>read 与 unchecked save 之间存在竞态，无法满足 stale writer 与失败不推进保证。</?>
+    <evidence ?>现有 saveSnapshot 没有 expected revision，不能作为 authoring CAS authority。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.checkpoint-boundary {
+  status = "accepted"
+  priority = "P0"
+}
+(
+  <question ?>每次成功 flush 是否必须创建 VCS commit？</?>
+  <answer { }
+  (
+    <raw-answer ?>不强制；checkpoint 是显式的后续操作。</?>
+    <decision-text ?>VFS flush receipt SHALL NOT contain commit identity; repository checkpoint SHALL return a distinct receipt containing both liveRevision and commitId。</?>
+    <rationale ?>编辑保存频率与历史 checkpoint policy 不同，强绑定会让 persistence 与版本历史互相污染。</?>
+    <evidence ?>DEPA authority boundary 与 Mission 对 live revision/commit id 的显式区分。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.compatibility {
+  status = "accepted"
+  priority = "P1"
+}
+(
+  <question ?>是否直接改变现有 saveSnapshot、commit 的返回签名？</?>
+  <answer { }
+  (
+    <raw-answer ?>保持兼容，新增显式 revisioned API。</?>
+    <decision-text ?>Existing VFS persistence and Repository APIs SHALL remain source-compatible; revisioned semantics SHALL use new exports。</?>
+    <rationale ?>现有 package consumers 尚未声明 revision protocol，隐式改变会形成无关 breaking change。</?>
+    <evidence ?>xnl-vfs/xnl-vcs 0.1.1 已公开 saveSnapshot、saveFromVfs 与 Repository.commit。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.authority-qualified-revision {
+  status = "accepted"
+  priority = "P0"
+}
+(
+  <question ?>opaque revision 是否只包含 value？</?>
+  <answer { }
+  (
+    <raw-answer ?>必须同时携带 authorityId，防止跨 authority token 误接受。</?>
+    <decision-text ?>VfsRevision SHALL be an authority-qualified opaque object with authorityId and value。</?>
+    <rationale ?>不同 authority 都可能从 revision:0 开始，仅比较 value 会形成 false CAS success。</?>
+    <evidence ?>Fresh coding AttractorCheck 发现 cross-authority scope 未进入 read/base/CAS contract。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.checkpoint-durability {
+  status = "accepted"
+  priority = "P0"
+}
+(
+  <question ?>现有 Repository checkpoint 失败是否能保证 history 未推进？</?>
+  <answer { }
+  (
+    <raw-answer ?>不能；需要 Repository 自身 backend capability 证明 truthful durability，并在未知时返回 indeterminate。</?>
+    <decision-text ?>Checkpoint SHALL bind the exact authority snapshot; backend-flushed SHALL require the same Repository backend's successful flush plus proof that active object/content stores are that backend's ports。</?>
+    <rationale ?>Repository 可覆盖 backend store；任意外部 flush 或 flush 不同 stores 都无法证明持久化了 active object/content/ref/workspace。</?>
+    <evidence ?>Repository.commit、LocalFsRepositoryBackend.updateBranchHead 与 IndexedDbRepositoryBackend.flush 的实际顺序。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.checkpoint-result-union {
+  status = "accepted"
+  priority = "P0"
+}
+(
+  <question ?>Checkpoint 失败如何避免把未知历史状态误报为确定失败？</?>
+  <answer { }
+  (
+    <raw-answer ?>使用 checkpointed/conflict/failed/indeterminate 封闭 union；historyState 与 worktreeState 正交，restore failure 单独归入 indeterminate。</?>
+    <decision-text ?>Repository checkpoint SHALL distinguish known pre-commit failure from potentially accepted or restore-indeterminate outcomes and SHALL expose history/worktree evidence。</?>
+    <rationale ?>Repository/backend 可能先推进内存 head 或接受 commit，再在 restore、验证或 flush 时失败；统一 failed 会伪造回滚保证。</?>
+    <evidence ?>Fresh AttractorCheck 对 Repository commit/backend/flush 时序的审查。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.snapshot-equality {
+  status = "accepted"
+  priority = "P0"
+}
+(
+  <question ?>authority no-op 与 checkpoint verification 是否复用 diffNodes？</?>
+  <answer { }
+  (
+    <raw-answer ?>不复用；使用独立的 identity-sensitive AST structural equality。</?>
+    <decision-text ?>Snapshot equality SHALL compare every AST field including explicit #id and metadata fallback while diffNodes remains an alignment/move operation。</?>
+    <rationale ?>diff 按设计不把 #id 当 ordinary payload；用它判断持久化 no-op 会把 identity replacement 误报 unchanged。</?>
+    <evidence ?>Fresh AttractorCheck 证明只替换根 #id 时双向 diff 都为空；用户已确认该 diff 语义本身正确。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.lossless-tree {
+  status = "accepted"
+  priority = "P0"
+}
+(
+  <question ?>exact authority snapshot 是否可以继续使用现有 legacy tree projection？</?>
+  <answer { }
+  (
+    <raw-answer ?>不能；v2 root tree 携带完整 lossless snapshot payload，旧 entries 只作投影且旧对象继续 fallback 读取。</?>
+    <decision-text ?>Repository.commitSnapshot SHALL use a versioned root-tree snapshot payload that preserves every XNL AST variant and survives RepositorySnapshot serialization。</?>
+    <rationale ?>legacy tree converter 合并 metadata/attributes 且丢失 element #id，无法通过 exact round-trip。</?>
+    <evidence ?>Fresh AttractorCheck 对 packages/vcs/src/tree-converter.ts 与 TreeObject/TreeEntry 的实测审查。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.strict-coordinator-surface {
+  status = "accepted"
+  priority = "P1"
+}
+(
+  <question ?>browser-safe coordinator 是否同时接受 legacy VfsMutation？</?>
+  <answer { }
+  (
+    <raw-answer ?>不接受；只接受 XnlMutationBatch 与移除 metadataIdMode 的 options，运行时固定 identity mode。</?>
+    <decision-text ?>The browser-safe coordinator SHALL omit caller-controlled metadataIdMode, force metadataIdMode=identity at runtime, and terminate in strict dryRunMutations。</?>
+    <rationale ?>完整 XnlMutationBatchOptions 可切回 metadata mode，关闭 VFS effective fallback identity guard；legacy VfsMutation bridge 还依赖 Node path/crypto 路径。</?>
+    <evidence ?>Fresh AttractorCheck 的传递依赖与 metadata.id mutation path 审查。</?>
+  )
+  >
+)>
+
+<decision #add-xnl-revisioned-persistence-primitives.checkpoint-worktree {
+  status = "accepted"
+  priority = "P0"
+}
+(
+  <question ?>提交 exact authority snapshot 时如何处理 Repository 的 public worktree？</?>
+  <answer { }
+  (
+    <raw-answer ?>使用 source-compatible commitSnapshot 临时 staging，并在 finally 恢复原 worktree；history 结果独立判定。</?>
+    <decision-text ?>Repository checkpoint SHALL restore its public worktree after exact-snapshot staging and SHALL report worktree restoration independently from commit-history certainty。</?>
+    <rationale ?>现有 commit 只能读取 repo.vfs 且可能先推进 head；临时覆盖若不恢复，会让 checkpoint 越权成为编辑态 writer。</?>
+    <evidence ?>Fresh AttractorCheck 对 Repository.commit 与 backend update 时序的审查。</?>
+  )
+  >
+)>

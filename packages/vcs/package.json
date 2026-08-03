@@ -1,6 +1,6 @@
 {
   "name": "xnl-vcs",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -10,6 +10,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./revisioned-repository": {
+      "types": "./dist/revisioned-repository.d.ts",
+      "import": "./dist/revisioned-repository.js",
+      "require": "./dist/revisioned-repository.cjs"
     },
     "./indexeddb-backend": {
       "types": "./dist/indexeddb-backend.d.ts",
@@ -25,6 +30,10 @@
     "build": "tsup",
     "test": "vitest run",
     "lint": "tsc --noEmit"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.com"
   },
   "dependencies": {
     "xnl-core": "workspace:^",

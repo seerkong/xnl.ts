@@ -1,0 +1,26 @@
+<decision-tree #harden-xnl-authoring-mutations {
+  severity = "auto"
+  status = "resolved"
+}
+(
+  <decision #track-id {
+    status = "accepted"
+  } (
+    <answer ?>Mission candidate id is specific, unique, and retained unchanged.</?>
+  )>
+  <decision #commit-mode {
+    status = "accepted"
+  } (
+    <answer ?>Use manual commit mode; Mission execution does not imply repository commits.</?>
+  )>
+  <decision #validation {
+    status = "accepted"
+  } (
+    <answer ?>Use package tests, lint/build, parent spot-check, coding attractor review, and a final gap-loop.</?>
+  )>
+  <decision #identity-semantics {
+    status = "accepted"
+  } (
+    <answer ?>User explicitly fixed #id as a diff/move identity key, not update payload.</?>
+  )>
+</decision-tree>

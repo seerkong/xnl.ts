@@ -17,17 +17,17 @@ export class VirtualFileSystem {
   private readonly reservedNames: Set<string>;
 
   constructor(seed?: DataElementNode, options: VirtualFileSystemOptions = {}) {
-    this.root = seed ? (JSON.parse(JSON.stringify(seed)) as DataElementNode) : createFolderNode(VFS_PROJECT);
+    this.root = seed ? structuredClone(seed) : createFolderNode(VFS_PROJECT);
     this.reservedNames = new Set(options.reservedNames ?? []);
     this.rebuildIndex();
   }
 
   getSnapshot(): DataElementNode {
-    return JSON.parse(JSON.stringify(this.root)) as DataElementNode;
+    return structuredClone(this.root);
   }
 
   loadSnapshot(snapshot: DataElementNode): void {
-    this.root = JSON.parse(JSON.stringify(snapshot)) as DataElementNode;
+    this.root = structuredClone(snapshot);
     this.rebuildIndex();
   }
 

@@ -1,5 +1,15 @@
 import type { DataElementNode, XnlNode } from "xnl-core";
 import { VfsError } from "./errors";
+import {
+  DEFAULT_XNL_VFS_DB_NAME,
+  DEFAULT_XNL_VFS_DB_VERSION,
+  openXnlVfsDatabase,
+  requestToPromise,
+  transactionDone,
+  VFS_CONTENT_STORE,
+  VFS_NODE_STORE,
+  VFS_WORKSPACE_STORE,
+} from "./indexeddb-schema";
 import { cloneNode, createFolderNode, folderChildren, readMetadataId, readName } from "./model";
 import { VFS_PROJECT, VFS_ROOT } from "./path";
 import { VirtualFileSystem } from "./vfs";
@@ -44,27 +54,7 @@ type VfsWorkspaceRecord = {
 };
 
 const DEFAULT_WORKSPACE_ID = "default";
-const DEFAULT_DB_NAME = "xnl-vfs-db";
-const DEFAULT_DB_VERSION = 1;
 const SYSTEM_METADATA_KEYS = new Set(["id", "name", "refId"]);
-const NODE_STORE = "vfs-nodes";
-const CONTENT_STORE = "vfs-contents";
-const WORKSPACE_STORE = "vfs-workspaces";
-
-function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed"));
-  });
-}
-
-function transactionDone(tx: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve();
-    tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"));
-    tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed"));
-  });
-}
 
 function cloneRecord<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -110,18 +100,18 @@ export class IndexedDbVfsPersistence {
   constructor(options: IndexedDbVfsPersistenceOptions = {}) {
     this.workspaceId = options.workspaceId ?? DEFAULT_WORKSPACE_ID;
     this.workspaceName = options.workspaceName ?? VFS_PROJECT;
-    this.dbName = options.dbName ?? DEFAULT_DB_NAME;
-    this.dbVersion = options.dbVersion ?? DEFAULT_DB_VERSION;
+    this.dbName = options.dbName ?? DEFAULT_XNL_VFS_DB_NAME;
+    this.dbVersion = options.dbVersion ?? DEFAULT_XNL_VFS_DB_VERSION;
     this.indexedDbFactory = options.indexedDbFactory ?? (typeof globalThis !== "undefined" ? globalThis.indexedDB : undefined);
   }
 
   async loadSnapshot(): Promise<IndexedDbLoadResult> {
     const db = await this.openDb();
     try {
-      const tx = db.transaction([WORKSPACE_STORE, NODE_STORE, CONTENT_STORE], "readonly");
-      const workspaceStore = tx.objectStore(WORKSPACE_STORE);
-      const nodeStore = tx.objectStore(NODE_STORE);
-      const contentStore = tx.objectStore(CONTENT_STORE);
+      const tx = db.transaction([VFS_WORKSPACE_STORE, VFS_NODE_STORE, VFS_CONTENT_STORE], "readonly");
+      const workspaceStore = tx.objectStore(VFS_WORKSPACE_STORE);
+      const nodeStore = tx.objectStore(VFS_NODE_STORE);
+      const contentStore = tx.objectStore(VFS_CONTENT_STORE);
 
       const workspace = await requestToPromise<VfsWorkspaceRecord | undefined>(workspaceStore.get(this.workspaceId));
       if (!workspace) {
@@ -248,10 +238,10 @@ export class IndexedDbVfsPersistence {
 
     const db = await this.openDb();
     try {
-      const tx = db.transaction([WORKSPACE_STORE, NODE_STORE, CONTENT_STORE], "readwrite");
-      const workspaceStore = tx.objectStore(WORKSPACE_STORE);
-      const nodeStore = tx.objectStore(NODE_STORE);
-      const contentStore = tx.objectStore(CONTENT_STORE);
+      const tx = db.transaction([VFS_WORKSPACE_STORE, VFS_NODE_STORE, VFS_CONTENT_STORE], "readwrite");
+      const workspaceStore = tx.objectStore(VFS_WORKSPACE_STORE);
+      const nodeStore = tx.objectStore(VFS_NODE_STORE);
+      const contentStore = tx.objectStore(VFS_CONTENT_STORE);
 
       const nodeWorkspaceIndex = nodeStore.index("by-workspace");
       const nodeKeys = await requestToPromise<IDBValidKey[]>(nodeWorkspaceIndex.getAllKeys(IDBKeyRange.only(this.workspaceId)));
@@ -360,26 +350,6 @@ export class IndexedDbVfsPersistence {
       );
     }
 
-    const request = idb.open(this.dbName, this.dbVersion);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-
-      if (!db.objectStoreNames.contains(NODE_STORE)) {
-        const nodeStore = db.createObjectStore(NODE_STORE, { keyPath: "metadataId" });
-        nodeStore.createIndex("by-parent", "parentMetadataId", { unique: false });
-        nodeStore.createIndex("by-path", "path", { unique: false });
-        nodeStore.createIndex("by-workspace", "workspaceId", { unique: false });
-      }
-
-      if (!db.objectStoreNames.contains(CONTENT_STORE)) {
-        db.createObjectStore(CONTENT_STORE, { keyPath: "metadataId" });
-      }
-
-      if (!db.objectStoreNames.contains(WORKSPACE_STORE)) {
-        db.createObjectStore(WORKSPACE_STORE, { keyPath: "workspaceId" });
-      }
-    };
-
-    return requestToPromise(request);
+    return openXnlVfsDatabase(idb, this.dbName, this.dbVersion);
   }
 }

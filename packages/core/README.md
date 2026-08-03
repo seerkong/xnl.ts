@@ -41,6 +41,77 @@ const pretty = XNL.stringify({ nodes }, { pretty: true, indent: 2 });
 - Value literals keep numeric kind metadata (`Integer` vs `Float`) while using `number` values in JS/TS.
 - Multiline text blocks dedent like C# triple-quoted strings: drop a leading blank line, then strip the closing tag’s indentation prefix (spaces/tabs) from each line.
 
+### Mutation preview
+
+`diffNodes` and `applyMutations` remain the compatible low-level mutation
+primitives. `applyMutations` mutates the root passed to it. For an isolated,
+atomic authoring preview, use `dryRunMutations` or its
+`XNL.mutation.dryRun`/`XNL.mutation.preview` facade aliases:
+
+```ts
+import {
+  XNL,
+  diffNodes,
+  dryRunMutations,
+  type XnlMutationBatchOptions,
+} from "xnl-core";
+
+const base = XNL.parseSingle(
+  `<root #root [ <item #item {state="draft"}> ]>`,
+).node;
+const target = XNL.parseSingle(
+  `<root #root [ <item #item {state="published"}> ]>`,
+).node;
+const mutations = diffNodes(base, target);
+const options: XnlMutationBatchOptions = {
+  verifyValueBefore: true,
+  identityPolicy: "require-elements",
+};
+const result = dryRunMutations(base, mutations, options);
+// Equivalent facade call:
+const preview = XNL.mutation.preview(base, mutations, options);
+
+if (result.status === "applied") {
+  // result.value is the fully applied clone; base is unchanged.
+  XNL.stringify(result.value);
+} else {
+  // result.value is an unchanged base clone, never a partially applied tree.
+  console.error(result.diagnostics);
+}
+```
+
+- Element `#id` is the identity key used to align snapshots, detect moves, and
+  address mutation targets. It is not an ordinary updatable field.
+- The strict dry-run API rejects hand-authored add/update/delete mutations that
+  target an element `:id` with `IDENTITY_MUTATION_FORBIDDEN`. It also rejects
+  whole-node or container update mutations that would add, remove, swap,
+  relocate, or change the authority source for an identified element. Strict
+  identity continuity compares the ordered full-tree identity skeleton before
+  and after each update; replace identity by deleting the old node and adding a
+  new node.
+- Element `#id` still participates only in diff alignment, move detection, and
+  target addressing. It is not emitted as ordinary mutation payload, even when
+  `diffNodes` uses it to align a child or express a move.
+- Assignment-style structural writes to an occupied property, map key, or
+  extend child key reject with `IDENTITY_MUTATION_FORBIDDEN` when the destination
+  contains an identified element. Ordinary array insertion and empty assignment
+  destinations remain valid structural operations.
+- Extend child reorder is structural. `diffNodes` emits explicit move mutations
+  rather than `TREE_UPDATE ...:extend:order`; same-identity Extend retag uses
+  the optional `destinationKey` mutation field to migrate the keyed child slot
+  before the following payload update changes the child tag.
+- `IDENTITY_MUTATION_FORBIDDEN` reports strict identity-continuity or occupied
+  destination violations. `RESULT_STRUCTURE_INVALID` reports a final Extend
+  body whose `order`, `children` keys, and child tags are incoherent.
+- `identityPolicy` defaults to `"allow-missing"` while still rejecting duplicate
+  effective identities. Use `"require-elements"` to require every data or text
+  element to have an identity.
+- With `verifyValueBefore: true`, delete, update, and move mutations that provide
+  `valueBefore` are checked against the current observable target. A stale value
+  rejects the batch with `PRECONDITION_FAILED`.
+- A rejected batch leaves `base` unchanged and returns an isolated clone of the
+  unchanged base. Partially applied candidate state is never exposed.
+
 ### Errors
 
 Errors are thrown as `XnlParseError` with `code`, line/column, and tag/marker context in the message:

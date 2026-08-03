@@ -29,6 +29,7 @@ export interface ResolveOptions {
 
 export interface SetOptions extends ResolveOptions {
   mode?: "insert" | "replace";
+  destinationKey?: string;
 }
 
 export class XnlPathError extends Error {}
@@ -219,15 +220,16 @@ export function setPathValue(
     case "ListIndex": {
       const idx = Number(last.value);
       if (isExtendBody(parent)) {
+        const key = options.destinationKey ?? value?.tag ?? String(idx);
         if (mode === "insert") {
-          parent.order.splice(idx, 0, value.tag ?? String(idx));
-          parent.children[value.tag ?? String(idx)] = value;
+          parent.order.splice(idx, 0, key);
+          parent.children[key] = value;
         } else {
           const tag = parent.order[idx];
           if (tag === undefined && strict) {
             throw new XnlPathError(`Extend index ${idx} out of bounds`);
           }
-          const useTag = value?.tag ?? tag;
+          const useTag = options.destinationKey ?? value?.tag ?? tag;
           parent.order[idx] = useTag;
           parent.children[useTag] = value;
         }

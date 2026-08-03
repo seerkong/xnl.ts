@@ -1,0 +1,177 @@
+<behaviors capability="xnl-revisioned-persistence" version="1">
+  <requirement id="opaque-live-revision">
+    <statement>XNL VFS authoring persistence SHALL expose an authority-qualified opaque live revision used only for equality-based compare-and-swap and MUST NOT conflate it with a VCS commit id, tree hash, or collaboration version id.</statement>
+    <suite id="revision" name="Live revision identity">
+      <case id="separate-from-commit">
+        <given>A persisted VFS snapshot is checkpointed into an XNL VCS repository.</given>
+        <when>The caller inspects persistence and checkpoint receipts.</when>
+        <then>The persistence receipt SHALL expose a live revision without commit identity, while the checkpoint receipt SHALL expose liveRevision and commitId as distinct fields.</then>
+      </case>
+      <case id="cross-authority-token">
+        <given>Two authorities expose the same opaque revision value under different authority identities.</given>
+        <when>A caller submits authority A revision to authority B.</when>
+        <then>Authority B SHALL return conflict and SHALL not accept the candidate.</then>
+      </case>
+    </suite>
+  </requirement>
+  <requirement id="atomic-cas-flush">
+    <statement>A revisioned VFS authority SHALL compare expected revision and persist the complete candidate as one authority operation, returning an observable result and never advancing snapshot or revision on conflict or failure.</statement>
+    <suite id="cas" name="CAS flush">
+      <case id="successful-flush">
+        <given>A valid candidate and the current expected live revision.</given>
+        <when>The authority compare-and-swaps the candidate.</when>
+        <then>It SHALL persist the complete candidate and return a receipt containing previousRevision, new revision, authority identity, durability, and timestamp.</then>
+      </case>
+      <case id="stale-writer">
+        <given>A caller submits a candidate based on an expired live revision.</given>
+        <when>The authority evaluates the compare-and-swap.</when>
+        <then>It SHALL return conflict with the actual revision and SHALL leave the persisted snapshot unchanged.</then>
+      </case>
+      <case id="flush-failure">
+        <given>The persistence authority fails while attempting to flush a valid candidate.</given>
+        <when>The operation returns failed.</when>
+        <then>The authority SHALL retain the previous snapshot and revision so the caller can retry from a truthful base.</then>
+      </case>
+      <case id="concurrent-same-base">
+        <given>Two asynchronous writers submit different candidates with the same current expected revision.</given>
+        <when>The authority linearizes both compare-and-swap operations.</when>
+        <then>Exactly one SHALL be applied, the other SHALL conflict, and the final snapshot SHALL match the winning receipt.</then>
+      </case>
+    </suite>
+  </requirement>
+  <requirement id="mutation-to-persistence-chain">
+    <statement>The revisioned VFS coordinator SHALL construct a candidate through existing atomic mutation primitives before CAS persistence and SHALL expose applied, unchanged, conflict, rejected, and failed outcomes without mutating the caller base.</statement>
+    <suite id="coordinator" name="Mutation coordinator">
+      <case id="invalid-mutation">
+        <given>A mutation batch fails identity, precondition, path, or apply validation.</given>
+        <when>The coordinator dry-runs the batch.</when>
+        <then>It SHALL return rejected, SHALL not call the authority writer, and SHALL preserve the caller base.</then>
+      </case>
+      <case id="reject-direct-id-mutation">
+        <given>A strict authoring batch directly adds, updates, or deletes an element #id field.</given>
+        <when>The coordinator constructs the candidate.</when>
+        <then>It SHALL return rejected without calling the authority; identity replacement SHALL only use old-node delete plus new-node add, while missing identity remains controlled by an explicit policy.</then>
+      </case>
+      <case id="force-fallback-identity-mode">
+        <given>A VFS element has no explicit #id and metadata.id is its effective identity.</given>
+        <when>A caller tries to directly add, update, or delete metadata.id through the revisioned coordinator.</when>
+        <then>The coordinator SHALL force metadataIdMode identity, return rejected, and SHALL not call the authority; callers SHALL have no public option or runtime escape to switch this coordinator to metadata mode.</then>
+      </case>
+      <case id="semantic-noop">
+        <given>A valid mutation batch produces a candidate semantically equal to the caller base snapshot.</given>
+        <when>The authority evaluates the candidate at the CAS linearization point.</when>
+        <then>It SHALL return unchanged without revision advance only when expected revision is current; a stale no-op SHALL return conflict.</then>
+      </case>
+      <case id="identity-is-not-noop">
+        <given>A candidate differs only by a root or descendant explicit #id, effective metadata fallback identity, or a same-value transition between those identity authorities.</given>
+        <when>The authority performs identity-sensitive structural equality.</when>
+        <then>It SHALL treat the snapshots as different even though diffNodes reads #id for node alignment and move detection rather than emitting an ordinary payload-field update for #id.</then>
+      </case>
+      <case id="accepted-candidate">
+        <given>A valid non-empty candidate and current expected revision.</given>
+        <when>The authority applies the CAS flush.</when>
+        <then>The coordinator SHALL return the complete persisted snapshot and its receipt only after authority success.</then>
+      </case>
+    </suite>
+  </requirement>
+  <requirement id="vcs-checkpoint-boundary">
+    <statement>An XNL VCS authoring adapter SHALL update the repository worktree only after VFS persistence success and SHALL create history checkpoints from the exact authority revision-plus-snapshot pair through an explicit operation separate from VFS flush.</statement>
+    <suite id="vcs" name="Repository adapter">
+      <case id="conflict-does-not-update-worktree">
+        <given>A VFS persistence operation returns conflict, rejected, or failed.</given>
+        <when>The repository adapter handles the result.</when>
+        <then>It SHALL leave the repository worktree and branch history unchanged.</then>
+      </case>
+      <case id="revision-checked-checkpoint">
+        <given>The caller requests a checkpoint for a live revision.</given>
+        <when>The authority still exposes that revision.</when>
+        <then>The adapter SHALL commit a clone of the exact authority snapshot, verify the committed tree matches it, and return distinct liveRevision, commitId, and truthful durability fields.</then>
+      </case>
+      <case id="lossless-tree-roundtrip">
+        <given>An authority snapshot contains explicit #id, overlapping metadata and attributes keys, every XNL node/value variant, absent versus present-with-undefined optional fields, ordered body values, and ordered Extend children.</given>
+        <when>The snapshot is encoded as a versioned checkpoint tree and read back.</when>
+        <then>The reconstructed snapshot SHALL be identity-sensitive structurally equal to the source, while legacy unversioned tree objects SHALL remain readable through fallback decoding.</then>
+      </case>
+      <case id="lossless-repository-snapshot-roundtrip">
+        <given>A Repository contains a commit whose root tree carries a versioned lossless snapshot payload.</given>
+        <when>The Repository is captured, serialized as node or string, deserialized, restored, and the commit is checked out.</when>
+        <then>The v2 marker and payload SHALL survive with the same object id and the checked-out snapshot SHALL remain identity-sensitive structurally equal to the source.</then>
+      </case>
+      <case id="out-of-band-worktree-mutation">
+        <given>The public repository worktree was changed outside the adapter before checkpoint.</given>
+        <when>The adapter checkpoints a current authority revision.</when>
+        <then>The checkpoint SHALL contain the authority snapshot rather than the unrelated worktree mutation and SHALL restore that public worktree after temporary staging.</then>
+      </case>
+      <case id="stale-checkpoint">
+        <given>The checkpoint expected revision is stale.</given>
+        <when>The adapter verifies the authority before commit.</when>
+        <then>It SHALL return conflict and SHALL not create a VCS commit.</then>
+      </case>
+      <case id="checkpoint-backend-failure">
+        <given>A commit is accepted in memory but its backend update or flush fails.</given>
+        <when>The adapter observes the failure.</when>
+        <then>It SHALL return an indeterminate checkpoint result with observed history state and SHALL NOT claim that history was unchanged.</then>
+      </case>
+      <case id="checkpoint-result-boundary">
+        <given>A checkpoint read, pre-commit preparation, commit, post-commit verification, or optional flush fails.</given>
+        <when>The adapter classifies the observable outcome.</when>
+        <then>It SHALL return failed only when commit acceptance is known not to have started and the public worktree is restored; otherwise it SHALL return indeterminate with headBefore, observedHead, candidateCommitId when available, and an explicit restored-or-unknown worktree state.</then>
+      </case>
+      <case id="restore-failure-boundary">
+        <given>Checkpoint staging or commit has completed or failed and restoration of the public worktree or persisted workspace also fails.</given>
+        <when>The closed outcome is classified.</when>
+        <then>It SHALL return indeterminate with phase restore, truthful historyState, worktreeState unknown, and observed head evidence even when the preceding error occurred before commit invocation.</then>
+      </case>
+      <case id="checkpoint-durability">
+        <given>A checkpoint tree is committed and verified.</given>
+        <when>The same Repository backend has no flush capability, its active stores are overridden, or its bound awaitable flush succeeds.</when>
+        <then>The receipt SHALL report backend-flushed only when active object/content stores are the backend-owned ports and that backend confirms flush; missing capability, mixed stores, or an unrelated function SHALL remain memory-accepted.</then>
+      </case>
+    </suite>
+  </requirement>
+  <requirement id="backward-compatible-entrypoints">
+    <statement>The revisioned persistence contracts and reference authority SHALL be introduced through an explicit browser-safe xnl-vfs subpath while existing package-root browser limitations, VFS persistence APIs, and Repository APIs remain unchanged and source-compatible.</statement>
+    <suite id="compatibility" name="Compatibility and exports">
+      <case id="package-regression">
+        <given>Existing xnl-vfs and xnl-vcs consumers and tests.</given>
+        <when>The new revisioned primitives are built and exported.</when>
+        <then>Existing tests and type checks SHALL remain green, the new xnl-vfs revisioned subpath SHALL contain no Node-only imports, and no new browser-safety claim SHALL be made for existing package roots.</then>
+      </case>
+      <case id="strict-browser-surface">
+        <given>A browser consumer imports xnl-vfs/revisioned-persistence.</given>
+        <when>It invokes the coordinator.</when>
+        <then>The public input SHALL be XnlMutationBatch plus options that omit metadataIdMode, the runtime SHALL force metadataIdMode identity, and the path SHALL terminate in strict dryRunMutations without exposing the legacy VfsMutation bridge.</then>
+      </case>
+      <case id="transitive-browser-scan">
+        <given>The ESM and CJS revisioned-persistence entries have been built.</given>
+        <when>The verification recursively follows emitted chunks and resolvable bare package imports.</when>
+        <then>The reachable graph SHALL contain neither fs, path, crypto nor their node-prefixed forms.</then>
+      </case>
+    </suite>
+  </requirement>
+  <requirement id="browser-persistent-authority">
+    <statement>An IndexedDB revisioned VFS authority SHALL durably retain one authority-qualified snapshot and live revision, and SHALL linearize freshness validation, semantic no-op detection, and accepted snapshot/revision replacement in one browser-storage transaction.</statement>
+    <suite id="indexeddb-authority" name="IndexedDB revisioned authority">
+      <case id="reopen-retains-fact">
+        <given>An authority has accepted and durably stored a snapshot revision.</given>
+        <when>A new authority instance opens the same database and authority identity.</when>
+        <then>It SHALL restore the exact snapshot and revision and SHALL NOT overwrite them with its initial seed.</then>
+      </case>
+      <case id="independent-instance-cas">
+        <given>Two independently opened authority instances submit different candidates from the same current revision.</given>
+        <when>IndexedDB linearizes their readwrite transactions.</when>
+        <then>Exactly one SHALL return applied with workspace durability, the other SHALL return conflict, and reopen SHALL expose the winning snapshot and revision.</then>
+      </case>
+      <case id="browser-failure-is-atomic">
+        <given>An IndexedDB transaction aborts or fails before durable completion.</given>
+        <when>The authority returns a failed result and is reopened.</when>
+        <then>The previous snapshot and revision SHALL remain authoritative and a retry from that revision MAY succeed.</then>
+      </case>
+      <case id="browser-safe-public-surface">
+        <given>A browser consumer imports the explicit xnl-vfs/revisioned-persistence subpath.</given>
+        <when>It creates the IndexedDB authority through the public factory.</when>
+        <then>The subpath's reachable implementation SHALL use no Node-only builtins and SHALL preserve the existing RevisionedVfsAuthority and VCS-separation contracts without making a new browser-safety claim for the package root.</then>
+      </case>
+    </suite>
+  </requirement>
+</behaviors>

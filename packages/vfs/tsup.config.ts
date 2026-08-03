@@ -3,6 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: [
     "src/index.ts",
+    "src/revisioned-persistence.ts",
     "src/persistence-mode.ts",
     "src/local-fs-persistence.ts",
     "src/indexeddb-persistence.ts",
