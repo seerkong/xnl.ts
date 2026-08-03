@@ -141,3 +141,5 @@ frontend/packages/react/public/**
 # Vendored deps (keep built artifacts)
 !packages/core/dist/
 !packages/core/dist/**
+codument/**/analysis
+codument/**/reports

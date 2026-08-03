@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { stringify as stringifyLineBlock } from "../src/lineBlockFormatter";
 import { parseUniqueChildren, parseXnl, parseXnlSingleNode } from "../src/parser";
 
 describe("parseXnl", () => {
@@ -70,6 +71,29 @@ describe("parseXnl", () => {
     expect(() => parseXnl(`<t ?flag>hi</?other>`)).toThrowError(/expected 'flag' but found 'other'/i);
     expect(() => parseXnl(`<t [ 1 ] ?>hi</?>`)).toThrowError(/text block not allowed with array\/extend/i);
     expect(() => parseXnl(`<t ( <a> ) ?>hi</?>`)).toThrowError(/text block not allowed with array\/extend/i);
+  });
+
+  it("treats non-matching text closers as content until the matching marker", () => {
+    const input = `<t ?flag>before <desc ?>nested</?> middle </?other> after</?flag>`;
+    const node = parseXnl(input).nodes[0] as any;
+
+    expect(node.textMarker).toBe("flag");
+    expect(node.text).toBe("before <desc ?>nested</?> middle </?other> after");
+  });
+
+  it("round-trips text containing close-like XNL through a generated marker", () => {
+    const text = "before <desc ?>nested</?> middle </?other> after";
+    const serialized = stringifyLineBlock({
+      kind: "TextElement",
+      tag: "Think",
+      metadata: {},
+      text,
+    }, {
+      textMarkerFactory: () => "MARK",
+    });
+
+    expect(serialized).toContain("<Think ?MARK>");
+    expect((parseXnl(serialized).nodes[0] as any).text).toBe(text);
   });
 
   it("accepts text markers that start with digits", () => {
