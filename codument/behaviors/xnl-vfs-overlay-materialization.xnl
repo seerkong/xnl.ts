@@ -1,0 +1,122 @@
+<Behavior #xnl-vfs-overlay-materialization apiVersion="codument.tech/v1alpha1" version="1" (
+  <Requirements [
+    <Requirement #ordered-overlay-materialization (
+      <Statement ?01M1C6VSK420FBSNFTTKN45H8J>
+      xnl-vfs SHALL plan ordered sparse-directory and explicit-mutation overlays against one revisioned base, validate the complete candidate, and publish it through one compare-and-swap without exposing partial state.
+      </?01M1C6VSK420FBSNFTTKN45H8J>
+      <Suites [
+        <Suite #directory-overlay { name = "Sparse directory overlay" } (
+          <Cases [
+            <Case #add-replace-no-opinion (
+              <Given ?01M1C6VSK420FBSNFTTKN45H8K>
+              a stable base snapshot and a sparse directory snapshot with added and same-kind existing paths
+              </?01M1C6VSK420FBSNFTTKN45H8K>
+              <When ?01M1C6VSK420FBSNFTTKN45H8M>
+              the directory overlay is planned
+              </?01M1C6VSK420FBSNFTTKN45H8M>
+              <Then ?01M1C6VSK420FBSNFTTKN45H8N>
+              present paths SHALL add or replace, existing node identities SHALL remain stable, new node identities SHALL come from the overlay, and absent paths SHALL remain unchanged
+              </?01M1C6VSK420FBSNFTTKN45H8N>
+            )>
+            <Case #absence-is-not-delete (
+              <Given ?01M1C6VSK420FBSNFTTKN45H8P>
+              a prior materialization replaced a base file
+              </?01M1C6VSK420FBSNFTTKN45H8P>
+              <When ?01M1C6VSK420FBSNFTTKN45H8Q>
+              a fresh plan is built from the same base without that replacement
+              </?01M1C6VSK420FBSNFTTKN45H8Q>
+              <Then ?01M1C6VSK420FBSNFTTKN45H8R>
+              the candidate SHALL contain the base file; deletion SHALL require an explicit FILE_DELETE or FOLDER_DELETE mutation
+              </?01M1C6VSK420FBSNFTTKN45H8R>
+            )>
+            <Case #kind-conflict-fails-closed (
+              <Given ?01M1C6VSK420FBSNFTTKN45H8S>
+              a directory overlay file targets a base folder or a directory targets a base file
+              </?01M1C6VSK420FBSNFTTKN45H8S>
+              <When ?01M1C6VSK420FBSNFTTKN45H8T>
+              planning runs
+              </?01M1C6VSK420FBSNFTTKN45H8T>
+              <Then ?01M1C6VSK420FBSNFTTKN45H8V>
+              planning SHALL reject with overlay id/order/path diagnostics and SHALL NOT invoke a revisioned authority
+              </?01M1C6VSK420FBSNFTTKN45H8V>
+            )>
+          ]>
+        )>
+        <Suite #explicit-and-ordered { name = "Explicit mutations and ordering" } (
+          <Cases [
+            <Case #ordered-mixed-overlays (
+              <Given ?01M1C6VSK420FBSNFTTKN45H8W>
+              unique overlays with contiguous order combine directory opinions and explicit VFS mutations
+              </?01M1C6VSK420FBSNFTTKN45H8W>
+              <When ?01M1C6VSK420FBSNFTTKN45H8X>
+              they are planned
+              </?01M1C6VSK420FBSNFTTKN45H8X>
+              <Then ?01M1C6VSK420FBSNFTTKN45H8Y>
+              xnl-vfs SHALL apply them in declared order on an isolated candidate and return deterministic final VFS and strict XNL mutation batches
+              </?01M1C6VSK420FBSNFTTKN45H8Y>
+            )>
+            <Case #mutation-diagnostic-location (
+              <Given ?01M1C6VSK420FBSNFTTKN45H8Z>
+              one explicit mutation fails identity, path or XNL valueBefore precondition
+              </?01M1C6VSK420FBSNFTTKN45H8Z>
+              <When ?01M1C6VSK420FBSNFTTKN45H90>
+              planning applies that mutation
+              </?01M1C6VSK420FBSNFTTKN45H90>
+              <Then ?01M1C6VSK420FBSNFTTKN45H91>
+              the result SHALL identify overlay id/order/index and mutation index, preserve the caller base, and omit a publishable plan
+              </?01M1C6VSK420FBSNFTTKN45H91>
+            )>
+            <Case #duplicate-or-gapped-order (
+              <Given ?01M1C6VSK420FBSNFTTKN45H92>
+              overlay ids repeat, kinds are malformed, or order is duplicated/non-contiguous
+              </?01M1C6VSK420FBSNFTTKN45H92>
+              <When ?01M1C6VSK420FBSNFTTKN45H93>
+              planning validates the sequence
+              </?01M1C6VSK420FBSNFTTKN45H93>
+              <Then ?01M1C6VSK420FBSNFTTKN45H94>
+              it SHALL reject before candidate mutation or authority invocation
+              </?01M1C6VSK420FBSNFTTKN45H94>
+            )>
+          ]>
+        )>
+        <Suite #revisioned-publication { name = "Revisioned publication" } (
+          <Cases [
+            <Case #all-or-nothing-cas (
+              <Given ?01M1C6VSK420FBSNFTTKN45H95>
+              a complete overlay plan and its exact current base revision
+              </?01M1C6VSK420FBSNFTTKN45H95>
+              <When ?01M1C6VSK420FBSNFTTKN45H96>
+              the revisioned materializer publishes
+              </?01M1C6VSK420FBSNFTTKN45H96>
+              <Then ?01M1C6VSK420FBSNFTTKN45H97>
+              it SHALL reuse the strict mutation coordinator and return applied or unchanged only for the complete candidate
+              </?01M1C6VSK420FBSNFTTKN45H97>
+            )>
+            <Case #conflict-rejection-failure-preserve-current (
+              <Given ?01M1C6VSK420FBSNFTTKN45H98>
+              strict dry-run rejects, CAS revision is stale, or persistence fails
+              </?01M1C6VSK420FBSNFTTKN45H98>
+              <When ?01M1C6VSK420FBSNFTTKN45H99>
+              materialization returns rejected, conflict or failed
+              </?01M1C6VSK420FBSNFTTKN45H99>
+              <Then ?01M1C6VSK420FBSNFTTKN45H9A>
+              the authority SHALL retain the last admitted snapshot and revision without partial overlay visibility
+              </?01M1C6VSK420FBSNFTTKN45H9A>
+            )>
+            <Case #browser-safe-subpath (
+              <Given ?01M1C6VSK420FBSNFTTKN45H9B>
+              a consumer imports xnl-vfs/overlay-materialization
+              </?01M1C6VSK420FBSNFTTKN45H9B>
+              <When ?01M1C6VSK420FBSNFTTKN45H9C>
+              ESM/CJS artifacts are built and their reachable graph is scanned
+              </?01M1C6VSK420FBSNFTTKN45H9C>
+              <Then ?01M1C6VSK420FBSNFTTKN45H9D>
+              the subpath SHALL expose planner/materializer types and functions without Node-only builtins or Eidolon-specific dependencies
+              </?01M1C6VSK420FBSNFTTKN45H9D>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+  ]>
+)>

@@ -23,9 +23,10 @@
 
 ```text
 output = fn(runtime, input, config)        显式函数边界：依赖注入；纯计算保持纯，副作用只经注入契约
-output = fn(runtime, targets, invocation, config) 前端/ECS/批处理：寻址与操作语义分列，runtime 负责解析与调度
+output = fn(runtime, selector, invocation, config) 目标寻址入口：闭合选择声明与操作语义分列，runtime 负责解析与调度
 runtime = 数据(大部分) + effect 契约(少部分) + actor 依赖(复杂时)   是载体，不写逻辑
-state   = fold(reducer, events)            状态是事件的投影：单一写入者、衍生不反写
+data    = topology(schema, authority, relations, lifecycle)  数据语义、裁决权、转换与生命周期显式
+output  = projection(authority)            衍生关系单向；需要改变事实时请求 authority transition
 process = 数据血缘(D) 串 纯处理器(P)        标准封装；分发用注册表，不用 if/elif 长链
 协作    = 同步 command / 异步 message       跨边界、等外部、要调度的走 mailbox
 依赖    = 单向无环                          出现环 / 共享可变状态 → 把一节点 actor 化
@@ -39,25 +40,27 @@ process = 数据血缘(D) 串 纯处理器(P)        标准封装；分发用注
 
 ## 2. 基本原语（封闭集）
 
-DEPA 的合法"词汇表"是一个封闭集。系统里每个结构都应能映射到其中之一；映射不上的、或自造已有原语的，是漂移信号。
+DEPA 的核心维度与关系词汇保持稳定；事实节点的 `semantic_role`、`authority_model`、生命周期和具体范式标签则是开放集合。系统里每个关键结构应能说明其维度、边界与事实关系；不能说明或与已声明关系冲突，才是漂移信号。事件、投影、snapshot、Signal/Stream 等属于按架构证据出现的词汇，不是所有系统必备的封闭原语。
 
 | 原语 | 是什么 | 维度 |
 |------|--------|------|
-| **事件 event** | 不可变、追加式、有序的事实记录（"发生了什么"） | Data |
-| **投影 projection** | 从事件 fold 出的衍生状态（只读、可重建、不反写） | Data |
-| **快照 snapshot** | 可丢弃可重建的中间产物（checkpoint） | Data |
+| **数据节点 data node** | 带结构、语义、角色、authority model 与生命周期的分析对象 | Data |
+| **有向关系 relation** | owns/records/restores/projects/replicates/caches/observes/commands 等事实关系 | Data |
+| **transition boundary** | 改变 authority 的受控边界；可由事务、repository、API、owner 或消息入口实现 | Data |
+| **事件 / 投影 / 快照** | 在相应架构中出现的 record、observation 或 recovery material；角色由证据决定 | Data profile |
 | **runtime** | 长生命周期依赖与状态的**数据载体**（D 主 + E 少 + A 时含） | D/E/A |
 | **input / config** | 单次调用的 payload / 静态枚举开关 | Effect |
-| **targets** | 一次 invocation 的稳定目标引用集合；不是直接 UI/ECS/画布对象，解析、权限和批处理归 runtime | Data / Processor |
+| **selector** | 一次 invocation 的 profile-owned 闭合选择声明；不是直接对象或解析后的目标集合，解析、权限、基数与批处理归 runtime | Data / Processor |
 | **invocation** | 一次不可变操作的语义封套：`type`、可选 `kind`、`payload`、metadata；可同步产生，也可被投递 | Data / Processor |
 | **核心逻辑 fn** | `fn(runtime, input, config)` 的显式函数边界：纯计算不混 IO；需要副作用时只调用 runtime 中注入的 effect 契约，绝不自行取得具体实现 | Effect |
-| **副作用契约 effect** | "怎么产生副作用"的契约/工厂：声明在 runtime、实现在 impl | Effect |
+| **副作用契约 effect** | “怎么产生副作用”的契约/工厂：声明在 runtime、由 support 提供具体实现 | Effect |
 | **处理器 / adapter** | outer↔inner 转换的 adapter 是 `data→data` 纯函数；core 是同一封装链中的业务处理器，若需 IO 仅经注入的 effect 契约 | Processor |
 | **分发引擎 dispatch** | 枚举 id → handler 的可组合注册表（动态路由时用） | Processor |
 | **command / message** | 同步命令（同栈）/ 异步消息（经 mailbox） | Processor / Actor |
 | **actor + mailbox** | 单一所有权的并发/解环单元，外部经消息读写 | Actor |
 | **capsule** | 单公开入口、internals 隐藏、对外只暴露稳定契约的模块单元 | 组织 |
-| **事实等级 fact-grade** | 数据节点在 7 级阶梯上的位置（权威 → 投影） | 事实源 |
+| **事实角色 fact-role** | 数据节点的 semantic role + authority model + relation | 事实源 |
+| **authority owner** | 在声明范围内拥有最终裁决权、汇聚受控 transition 的节点；不是所有值都需要 owner | Data |
 
 ---
 
@@ -97,14 +100,14 @@ runtime 只装数据与依赖引用，**不写业务方法**。它是 Data（大
 长生命周期/共享/跨步骤状态 → `runtime`；单次 payload → `input`；单次静态枚举/开关 → `config`。
 破：稳定依赖（registry/client/session）偷渡进 input/config；函数对象塞进 config；config 重复 runtime 已有字段（两处真源必漂移）。
 
-交互式、目标寻址入口使用 `fn(runtime, targets, invocation, config)`：`targets` 只说明“对谁做”，`invocation` 只说明“做什么”，二者不互塞；runtime 解析 refs、做可见性/权限/批处理，config 不承载动态消息调度。`invocation` 可以被同步调用；只有跨 actor/mailbox 投递时才是 `message`。
+交互式、目标寻址入口使用 `fn(runtime, selector, invocation, config)`：`selector` 是闭合选择声明，只说明“对谁做”，`invocation` 只说明“做什么”，二者不互塞；runtime 解析 selector、做可见性/权限/基数/排序/批处理，config 不承载动态消息调度。解析后的 targets 仅存在于 runtime 内部。`invocation` 可以被同步调用；只有跨 actor/mailbox 投递时才是 `message`。
 
-**前端简例（选中表格行后批量改角色）**：UI 只把选中项转换成稳定 `targets`，并产生 `invocation`；handler 把解析、授权和批处理交给 runtime，返回结构化结果。
+**前端简例（选中表格行后批量改角色）**：UI 只把选中项转换成 profile selector，并产生 `invocation`；handler 把解析、授权和批处理交给 runtime，返回结构化结果。
 
 ```ts
-async function bulkEditUsers(runtime, targets, invocation, config) {
-  return runtime.targets.authorizeResolveAndBatch({
-    targets,                                      // users://row/42，不是 DOM/行对象
+async function bulkEditUsers(runtime, selector, invocation, config) {
+  return runtime.selectors.authorizeResolveAndBatch({
+    selector,                                     // { byRefs: ["users://row/42"] }，不是 DOM/行对象
     invocation,                                      // { type: 'users.bulk-edit', payload: { patch } }
     config,                                          // { mode: 'best-effort', maxConcurrency: 8 }
     perform: (rows) => runtime.effects.users.applyRolePatch(rows, invocation.payload.patch),
@@ -125,11 +128,11 @@ async function bulkEditUsers(runtime, targets, invocation, config) {
 ```
 
 ### I4 · 副作用契约与编排分离
-effect 以契约/工厂声明在 runtime，编排在 factory/bootstrap，core 只调注入的契约；contract / logic / impl 分层、单向依赖（contract ← logic ← impl）。
-破：contract 文件里写副作用编排；core 直接 import 具体 impl；应用级 registry 只经全局变量传。
+effect 以契约/工厂声明在 runtime，编排在 factory/bootstrap，core 只调注入的契约。package 层以 `contract | logic | support | adapter | capsule | shell` 表达首要职责：logic 与 support 都依赖公开 contract，logic 不 import 具体 support，capsule/shell 才在公开边界组装所需 closure；完整判据见 [`fa/protocols/package-role-protocol.md`](fa/protocols/package-role-protocol.md)。
+破：contract 文件里写副作用编排；core 直接 import 具体 support；应用级 registry 只经全局变量传；package 名的 role 与实际职责不一致。
 
 ```text
-❌ 契约 + 编排 + impl 糊在一起
+❌ 契约 + 编排 + 具体实现糊在一起
    class PaymentContract { charge(a){ new StripeClient(KEY).charge(a) } }  // 三者混进契约
 ✅ 契约声明 / 编排在 bootstrap / core 只调契约
    interface PaymentEffect { charge(a): Promise<Receipt> }   // 契约：怎么产生
@@ -137,15 +140,15 @@ effect 以契约/工厂声明在 runtime，编排在 factory/bootstrap，core �
    // core: await runtime.payment.charge(a)                  // core 只调注入的契约
 ```
 
-### I5 · 单一写入者 + 衍生不反写 + 状态可重建
-一份数据只有一个权威写入者，**修改只走唯一入口、不散弹式分散改**；同一类事实真相放在接近位置统一维护；投影/缓存/快照只读、不反写上游；允许多份衍生数据，但写入口唯一；当前状态尽量能从事件重放重建。
+### I5 · 单一 authority owner + 受控 transition + 衍生不反写
+一份当前真相只有一个 authority owner；事件、signal、mutation、dispatch、action、recovery 可以是多个受控 transition 入口，但不能绕过 owner 形成第二真相。投影/缓存/视图只读来源；历史通过追加补偿或新版本纠正；当前状态尽量能从声明的记录或 transition 重建。
 
 ```text
 ❌ 投影反写源 / 两个半真源同时生效
-   cache.set(id, v); writeBackToLog(v)        // 投影回写上游，日志与投影脱节
-✅ 单写 + 发新事件，状态是投影
-   appendEvent({ type: "OrderPaid", id })     // 只往 append-only 日志追加
-   state = fold(reducer, events)              // 当前状态 = 重放事件，只读
+   cache.set(id, v); writeBackToLog(v)        // 投影绕过 owner 回写来源
+✅ 单 owner + 多个受控入口
+   owner.dispatch({ type: "OrderPaid", id }) // command 进入唯一 owner
+   owner.state = transition(owner.state, event) // owner 内部应用 transition
 ```
 
 ### I6 · 标准封装：数据血缘(D) 与处理器(P) 分列
@@ -211,17 +214,18 @@ effect 以契约/工厂声明在 runtime，编排在 factory/bootstrap，core �
 
 ## 4. 四维的收敛形态（D / E / P / A）
 
-> **为什么切成这四维**：一段处理逻辑要回答四个相互独立的问题——数据怎么组织（结构能否先于逻辑、状态能否从事件重建）、副作用怎么隔离（依赖能否显式注入、逻辑能否纯化）、处理怎么标准（封装是否同构、分发是否受控）、协作怎么解耦（跨边界是否经显式消息、共享状态归谁）。四个问题彼此正交，所以拆成四维分别判，避免"一处对了就以为整体对了"。
+> **为什么切成这四维**：一段处理逻辑要回答四个相互独立的问题——数据怎么组织（结构、authority、转换、关系和生命周期是否明确）、副作用怎么隔离（依赖能否显式注入、逻辑能否纯化）、处理怎么标准（封装是否同构、分发是否受控）、协作怎么解耦（跨边界是否经显式消息、共享状态归谁）。四个问题彼此正交，所以拆成四维分别判，避免“一处对了就以为整体对了”。
 >
 > 四维**正交**：一段代码可以某维符合、另一维违反，各判各的（例：`fn(runtime,input,config)` 干净【Effect 符合】，但分发硬编码成一长串 if-else【Processor 违反】）。
 
 ### Data — 数据一等公民
-- **收敛形态**：结构先于逻辑（先定义数据/schema，再实现操作）；状态变化记为**追加式事件**；当前状态 = `fold(reducer, events)`，是投影不是第二真相；事件 → reducer → 投影**单向**。
-- **符合信号**：存在独立数据定义层；找得到一条不可变事件序列；状态能重放重建；投影被消费方只读。
-- **违反信号**：状态藏在可变全局/单例就地 mutate；就地改历史（update/delete 历史条目）；投影反写真源；逻辑先于结构（数据是操作里长出来的散落字段）。
+- **收敛形态**：结构与语义先于操作；关键事实的 authority model、owner、transition、relation 与 lifecycle 可解释；衍生关系单向，不绕过 authority boundary。
+- **符合信号**：存在可定位的 schema/type/contract；写入/转换边界清楚；record/recovery/cache/view 的角色与方向可追踪；一致性、恢复和失效语义与需求相称。
+- **违反信号**：多个独立 authority；下游反写来源；关系未声明；一致性承诺与实现冲突；关键结构只能从散落逻辑猜测。
+- **可选 profile**：有 canonical event authority 时追加 EventSourcedStateProfile；有响应式运行时图时追加 ReactiveDataGraphProfile。未激活一律 `NOT_APPLICABLE`。
 
 ### Effect — 副作用与逻辑分离
-- **收敛形态**：`output = fn(runtime, input, config)`；依赖经 runtime 显式注入；副作用契约声明在 runtime、真正 IO 在 impl；contract / logic / impl 分层。
+- **收敛形态**：`output = fn(runtime, input, config)`；依赖经 runtime 显式注入；副作用契约声明在 runtime、真正 IO 在 support；logic 与 support 都依赖公开 contract，logic 不直接依赖具体 support。
 - **符合信号**：签名一眼看全部依赖；runtime 可换 mock 来测；core 只调注入的契约；config 为 null 或纯静态值。
 - **违反信号**：core 读全局/单例/环境变量、现 new client、直接 IO；契约与编排糊在一起；`runtime: { everything: any }` 巨型上下文。
 
@@ -231,36 +235,35 @@ effect 以契约/工厂声明在 runtime，编排在 factory/bootstrap，core �
 - **违反信号**：执行路径各异；硬编码 if/elif 分发；core 处理框架关注点；同步伪装异步或异步硬塞同步。
 
 ### Actor — 异步通信与解环
-- **收敛形态**：依赖图出现环、或多模块共享可变状态时，把一节点定义成 actor，用 command/message 协作；单一所有权、经 mailbox 读写、selective receive。
+- **收敛形态**：依赖图出现本质环、或多模块共享可变状态时，把一节点定义成 actor，用声明的 command/message ingress 协作；单一所有权，投递、调度与 lifecycle 语义明确；selective receive 等能力只按需求采用。
 - **符合信号**：共享态收进单一 owner，外部经消息读写；timeout/retry/cancel/priority 走 message；调度（fiber/task）与身份（actor）分离。
 - **违反信号**：并发任务直接 mutate 共享对象；满屏裸锁糊共享状态替代消息；用隐式 DI 藏循环依赖。
 - actor 首先为**打断环、显式化共享状态所有权**而用，并发只是顺带。
 
 ---
 
-## 5. 事实源阶梯与边界（state-truth 结构）
+## 5. 事实角色与 authority 边界（state-truth 结构）
 
-"谁是某份数据的唯一真源"是最容易腐蚀、也最承重的结构。吸引子要求每个关键数据节点能被定级、定 owner。
+"谁是某份数据的 authority、哪些关系允许写入"是最容易腐蚀、也最承重的结构。吸引子要求每个关键数据节点能被标注 role/model/relation，并明确 owner。
 
-**7 级事实阶梯**（高位=权威，低位=投影）：
+事实节点不再被强行排成固定七级阶梯。每个节点标注 `semantic_role`、`authority_model`、`authority owner` 和有向 `relation`；常见角色包括 current authority、historical record、runtime control、recovery material、derived observation。
 
 ```text
-1 内存权威态      ← 唯一写入者持有的 live 真相（最高）
-2 领域规范事件    ← domain canonical event（追加式、不可变）
-3 控制面状态      ← live 控制流读这里
-4 追加流水账      ← append-only journal（旁路，不驱动 live）
-5 检查点快照      ← checkpoint（只在恢复/启动读，不影响 live 控制）
-6 衍生投影/缓存    ← 可重建、只读、单向、不反写上游
-7 表层视图        ← UI 控件/选中态（最低，只发 command，不直接改事实）
+current_authority ──records──▶ historical_record
+       │                           │
+       ├──projects──▶ derived_observation
+       └──commands◀── surface / recovery / action
+historical_record ──replays/restores──▶ current_authority
 ```
 
 **边界规则**（破任一即结构漂移）：
-- **唯一写入者**：每个节点恰好一个权威 owner；多个半真源同时生效是红灯。
-- **衍生不反写**：低位（6/7）发现"应该改"时发新事件回到高位，不直接改投影再让两边脱节。
-- **持久层不驱动 live**：用快照/journal/文件 mtime/存在性 判 live 运行状态，是越级读取/反写的红灯。
-- **UI 只发命令**：7 级控件不绕过 command/message 直接改 1/3 级事实。
+- **单一 authority owner**：多个物理写点或 transition 入口不等于多个 owner；多个独立 owner 同时决定同一真相才是冲突。
+- **衍生不反写**：derived observation 只能通过 command/event 请求 owner transition，不直接覆盖来源。
+- **恢复边界显式**：checkpoint/journal/record 只有在声明的 recovery/control 关系中参与 live；不能暗中成为第二 authority。
+- **记录规则服从声明语义**：若 record 被声明为不可变历史，则用补偿记录、新版本或受控 ref transition 纠正；普通 mutable authority 不因允许 update 而违反。
+- **UI 只发命令**：surface/observation 通过 command/message 请求 owner，不直接写事实。
 
-**worked 例**："这个订单流程是否在跑？" → 读 **3 级控制面**（live 内存控制态），**不读** 5 级 checkpoint 文件的 mtime/存在性；checkpoint 只在崩溃恢复/启动时读。把"在不在跑"挂到持久层元信息上，就是把控制真相错放到了 5 级。
+**worked 例**："这个订单流程是否在跑？" → 读 runtime control owner 的 live state；不读 checkpoint/journal 的 mtime、存在性或末尾记录来猜测。checkpoint 只有在声明的 recovery relation 中恢复 owner，不能悄悄成为第二 control authority。
 
 ---
 
@@ -419,8 +422,8 @@ public class StdRunComponentLogic {
 
 吸引子的"方程"很大一部分是**方向**。下面这些方向不可逆。
 
-- **事件 → 投影**（单向）：投影不反写事件。
-- **contract ← logic ← impl**：core 依赖契约，impl 实现契约；契约不反依赖逻辑/实现，也不在两处重复定义同一类型。
+- **authority → observation**（单向）：projection/cache/view 不绕过 authority boundary 反写来源。事件溯源 profile 中，这可具体化为 canonical events → projection。
+- **package role 依赖纪律**：contract 是稳定底座；logic 与 support 都依赖公开 contract，logic 不直接 import 具体 support；adapter 只触两侧公开面；capsule/shell 在更外层组装且不触 internals。package role/name 的完整矩阵见 [`fa/protocols/package-role-protocol.md`](fa/protocols/package-role-protocol.md)。
 - **outer → inner**（adapter）：可复用组件对调用域无感知；inner 绝不反向 import outer-domain 模块。
 - **capsule 间单向无环**：A 的入口只 import B 的入口 + B 的 public types，链 `A → B → C` 无回边；触对方 `internals` 是红灯。
 - **跨域 runtime 嵌套单向**：写侧内嵌读侧，读侧绝不回指写侧。
@@ -440,13 +443,13 @@ public class StdRunComponentLogic {
 ❌ 多个半真源       内存权威 + 磁盘快照 都被当源同时生效   // 必然漂移，无法判定谁对
 ```
 
-**Data**：状态只活内存无可重建源 · 多个半事实源并存 · 先写文件再回读传状态 · 投影与事实纠缠改不动 · 就地改历史。
+**Data**：结构/语义/authority 只能靠猜 · 多个独立裁决者并存 · 绕过 transition boundary 读写 · projection/cache 反写来源 · 一致性/恢复/lifecycle 承诺与实现冲突。仅在相应 profile 激活时，才把破坏 canonical event history 或 reactive graph lifecycle 计入追加违反。
 
 **Effect**：core 直接 IO / 现 new client · 副作用契约与编排糊在一起 · 隐式全局依赖 · 应用级 registry 只经全局变量传 · contract 模块 import 重型副作用实现。
 
 **Processor**：if/elif 字符串分发 · 未知 id 静默回退/返回 None · command/message 混用 · 可复用组件对调用域有感知（import outer-domain 分支）· core 处理路径解析/错误码映射等框架关注点。
 
-**Actor**：并发任务直接 mutate 共享对象 · 用裸锁糊共享状态替代消息 · 调度与身份纠缠 · 缺 selective receive · 用隐式 DI 藏环。
+**Actor**：并发任务直接 mutate 共享对象 · 用裸锁糊共享状态替代消息 · 调度与身份纠缠 · 消息 contract/delivery/lifecycle 未声明或实现不符 · 用隐式 DI 藏环。
 
 **事实源边界**：checkpoint 读取影响 live 控制 · journal 字段驱动下一步 · UI 状态反向驱动主循环 · 文件 mtime/存在性当运行状态 · 投影反写源 · 快照夹带单次 payload。
 
@@ -454,7 +457,7 @@ public class StdRunComponentLogic {
 
 **过度设计**：空壳 adapter · 只有一个实现的策略表 · 无人用的"以防万一"开关 · 复杂度由"将来可能"驱动 · 自造已有 vendor 原语。
 
-> 这些是"排除集"——审查/收敛时拿它逐条比对，命中即记一条带证据的现象（`path:line`），归到对应维度，定方向后再排序落地。
+> 这些是“排除集”——审查/收敛时拿它逐条比对，命中即记一条带 evidence locator 的现象（代码用 `path:line`，其他载体用 API/schema/DDL、trace、文档 section 或复现步骤），归到对应维度，定方向后再排序落地。
 
 ---
 
@@ -463,7 +466,7 @@ public class StdRunComponentLogic {
 架构工作不是"一次画对终态"，而是**一轮轮把偏离的轨迹收敛回吸引子**。一次收敛沿这条脉络走，可在三种范围复用（系统间 / 模块包级 / 同模块级）：
 
 1. **第一性提问**：从一个反复出现/难根治的**表象**穿透到**事实源边界问题**（谁是真源、谁在反写、有没有多个半真源），先出问题清单——不先加 guardrail。
-2. **事实源边界**：把每个关键数据节点**定级**（§5 阶梯）、填**唯一写入者**、做**反写检查**，产出事实链。把"嫌疑"变成"判定"。
+2. **事实源边界**：为每个关键节点标注 role/model/owner/relation，区分 transition 入口与 physical write，做 authority conflict/backwrite 检查，把"嫌疑"变成"判定"。
 3. **证据盘点**：每个"X 有问题"的论断都落成带 `path:line` 的证据——节点→等级→owner、读写路径、包边界、事故。
 4. **设计收敛**：把每个问题映射到结构图（控制面/数据面/扩展面 × 平台/领域/应用层级），产出处置决策 + vendor 原语映射 + 候选改造边界。
 5. **切片建议**：从收敛候选里筛**第一批可立即落地**的改造，每条可独立执行、可验收，给依赖顺序与**非目标**（不做什么）。超范围的发现登记 backlog，不就地展开。
@@ -496,19 +499,20 @@ public class StdRunComponentLogic {
 | 接请求/组件执行流 | core 自己去 outer 掏字段了吗？runtime 在 core 内 new 了吗？ | I6 · §7 |
 | 处理前端 intent、选中目标或 ECS 批量操作 | 把 type/payload/refs 全塞进 input 了吗？直接传/缓存 UI/ECS 对象了吗？每个 handler 自己写权限和批循环了吗？ | I3 · I7 · I8 |
 | 加分发/路由 | 写成 if/elif 长链了吗？固定逻辑硬套分发了吗？ | I7 |
-| 管状态/决定谁写谁 | 这份数据谁是唯一写入者？投影反写上游了吗？能从事件重建吗？ | I5 · §5 |
+| 管状态/决定谁写谁 | 这份数据的 authority owner 是谁？入口是否经 owner？投影反写上游了吗？能按声明路径恢复吗？ | I5 · §5 |
 | 判数据真源/能否反写 | 在用快照/journal/mtime 判 live 吗？投影回写了吗？ | I5 · §5 |
 | 依赖成环/共享可变状态 | 在用隐式 DI 藏环吗？该 actor 化吗？ | I9 |
 | 跨并发/异步协作 | 该 command 还是 message？涉及 timeout/retry 吗？ | I8 |
-| 组织模块/包 | 单入口了吗？internals 隐藏了吗？依赖单向吗？ | I10 |
+| 组织模块 | 单入口了吗？internals 隐藏了吗？依赖单向吗？ | I10 |
+| 新建、拆分、重命名 package | basename 最后一词是闭合 role 吗？declared role 与 observed role 一致吗？adapter 在执行适配的一方吗？发布策略是否另行裁决？ | I4 · I10 · [package role 协议](fa/protocols/package-role-protocol.md) |
 | 想加抽象/框架/开关 | 有第二实现吗？vendor 有原语吗？这开关有人用吗？ | I11 |
 
 **常驻反射**（不用查表就该守）：
 
-- `output = fn(runtime, input, config)`：依赖全显式注入，不读全局/单例/`this`；副作用经契约、真正 IO 在 impl。
-- 前端/ECS/批处理用 `output = fn(runtime, targets, invocation, config)`：refs 是寻址，invocation 是操作语义；runtime 负责解析、权限与批处理；跨 actor 才把 invocation 投递为 message。
+- `output = fn(runtime, input, config)`：依赖全显式注入，不读全局/单例/`this`；副作用经契约、真正 IO 在 support。
+- 前端/ECS/actor/批处理用 `output = fn(runtime, selector, invocation, config)`：selector 是 profile-owned closed union，invocation 是操作语义；runtime 负责解析、权限与批处理；跨 actor 才把 invocation 投递为 message。
 - runtime 是数据载体、不写业务方法；长生命周期/共享 → runtime，单次 payload → input，静态枚举/开关 → config。
-- 一份数据一个写入者；衍生只读、不反写上游；状态尽量能从事件重建。
+- 数据 authority 与 transition 边界明确；衍生不绕过 authority 反写；持久化、恢复与生命周期按需求声明。
 - 标准封装 + 注册表分发；固定逻辑不套分发/空壳 adapter。
 - 同步 command / 异步 message（跨 actor、等外部、要 timeout/retry/cancel/priority 的走 mailbox）。
 - 依赖成环或共享可变状态：不靠隐式 DI 藏环，把一节点 actor 化、改发消息。
@@ -540,18 +544,21 @@ DEPA 的结构让测试天然好写；但测试本身也会**沿实现时序腐�
    assert runtime.db.users.create.calledWith(data)
 ```
 
-- **contract / impl 分离 → 对契约测**：core 只依赖契约，测试注入 mock 契约；impl 单独测；不让测试里出现真实数据库/HTTP。
-- **把不变量当成测试性质**：单一写入者、衍生不反写、状态可从事件重放重建、依赖单向无环——都是可断言的结构性质，值得有针对性的守护。
+- **contract / support 分离 → 对契约测**：core 只依赖契约，测试注入 mock 契约；support 单独测；不让 core 测试里出现真实数据库/HTTP。
+- **把不变量当成测试性质**：authority 边界、衍生不反写、声明的一致性/恢复承诺、依赖单向无环——都是可断言的结构性质，值得有针对性的守护。事件重放只在 EventSourcedStateProfile 激活时成为必测性质。
 
 ```text
 ✅ 结构性质测试
-   assert fold(reducer, replay(events)) == currentState   // 状态可重建
-   assert no_write_path(projection -> events)             // 衍生不反写
-   assert no_import(capsuleA -> capsuleB.internals)        // 依赖不触 internals
+   assert writes_go_through(authorityBoundary)             // authority transition 受控
+   assert no_backwrite(observation -> authority)           // 衍生不反写
+   assert no_import(capsuleA -> capsuleB.internals)         // 依赖不触 internals
+
+✅ EventSourcedStateProfile 激活时追加
+   assert fold(reducer, replay(events)) == currentState     // 声明的重放承诺成立
 ```
 
 - **adapter / runtime 构造要覆盖**：outer→inner 字段映射、config 传递、output 透传、runtime 构造（尤其 registry 加载与下传）都要测——封装流程最易错处。
-- **删旧前先用回归守住旧行为**：替换旧 OO/旧 wrapper 时，先用回归测试钉住旧行为；再按职责把旧对象归位到 runtime 数据、纯计算 core、effect impl、adapter 或 capsule，最后删除旧壳。
+- **删旧前先用回归守住旧行为**：替换旧 OO/旧 wrapper 时，先用回归测试钉住旧行为；再按职责把旧对象归位到 runtime 数据、纯计算 core、effect support、adapter 或 capsule，最后删除旧壳。
 - **流程慢就建 test harness**：完整跑一遍验证很慢时，建一套专属测试工具/夹具支持未来同类问题。可测试性本身是代码质量指标——DOP + 四层分离写出来的代码天然好测。
 - **测试数据与测试代码分离**：当测试数据多、体积大时，把测试数据分离到一个**专门目录**，与测试逻辑分开——便于复用、维护与版本管理，不要把大块 fixture 内联进测试代码。具体放哪按项目约定（如 `tests/resources/` 之类），规则是"分离"，位置不强制。
 - **三级验证阶梯**：验"做了没"逐级加深——**存在性**（目标产物/函数/测试确实存在、不是空壳）→ **实质性**（它真做了该做的事、断言真行为而非占位）→ **连通性**（与上下游真接通、端到端跑得通，不是孤立通过）。只过存在性就报完成，是最常见的假完成。
@@ -599,13 +606,15 @@ DEPA 的结构让测试天然好写；但测试本身也会**沿实现时序腐�
 | **owner doc / data owner** | 前者是承载架构规则的可版本化文档；后者是某份数据唯一的权威写入者，二者不可混为一谈 |
 | **runtime** | 长生命周期依赖与状态的数据载体（D 主 + E 少 + A 时含），不写业务逻辑 |
 | **fn(runtime,input,config)** | 显式依赖的函数边界：纯计算不混 IO；需要副作用时只调用 runtime 中注入的 effect 契约 |
-| **fn(runtime,targets,invocation,config)** | 交互式、目标寻址处理边界：refs 说明目标，invocation 说明操作，runtime 解析/授权/批处理，message 仅是跨 actor 的投递形态 |
+| **fn(runtime,selector,invocation,config)** | 交互式、目标寻址处理边界：closed selector 声明选择，invocation 说明操作，runtime 解析/授权/批处理，message 仅是跨 actor 的投递形态 |
 | **invocation** | 一次不可变处理请求的语义封套：`type`、可选 `kind`、`payload` 与 metadata；可同步调用或异步投递 |
-| **targets** | 一次 invocation 的稳定目标引用集合；不等于直接对象，不能与 invocation payload 重复持有 |
-| **effect contract / impl** | contract 声明可调用的副作用能力；impl 提供具体 DB、网络、文件等实现。core 依赖前者，不直接 import 后者 |
+| **selector** | 一次 invocation 的 profile-owned 闭合选择声明；不等于直接对象或 resolved targets，不能与 invocation payload 重复持有 |
+| **effect contract / support** | contract 声明可调用的副作用能力；support 提供具体 DB、网络、文件等实现并经 runtime 注入。core 依赖前者，不直接 import 后者 |
+| **package role** | package basename 的最后一词，闭合集为 `contract | logic | support | adapter | capsule | shell`；描述首要架构职责，不等同于 public/private 或发布策略 |
 | **数据血缘(D) / 处理器(P)** | 封装流程里"数据名词链"与"逻辑纯函数"两块，分列、绝不同格 |
-| **事实等级 / 唯一写入者** | 数据节点在 7 级阶梯的位置 / 它唯一的权威写入者 |
-| **衍生不反写** | 投影/缓存/快照只读，要改发新事件回上游，不直接改投影 |
+| **事实角色 / authority model** | 数据节点承担的语义角色 / 它拥有当前真相的机制与边界 |
+| **authority owner** | 决定当前真相的唯一 owner；transition 入口和 physical write 不等同于 owner |
+| **衍生不反写** | 投影/缓存/视图通过 command/event 请求 owner，不直接覆盖来源 |
 | **capsule** | 单入口、internals 隐藏、对外只暴露稳定契约的模块单元 |
 | **command / message** | 同步命令（同栈）/ 异步消息（经 mailbox） |
 | **actor** | 单一所有权的解环/并发单元；环或共享可变状态时把一节点 actor 化 |

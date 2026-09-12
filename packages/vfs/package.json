@@ -1,6 +1,6 @@
 {
   "name": "xnl-vfs",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -15,6 +15,11 @@
       "types": "./dist/revisioned-persistence.d.ts",
       "import": "./dist/revisioned-persistence.js",
       "require": "./dist/revisioned-persistence.cjs"
+    },
+    "./overlay-materialization": {
+      "types": "./dist/overlay-materialization.d.ts",
+      "import": "./dist/overlay-materialization.js",
+      "require": "./dist/overlay-materialization.cjs"
     },
     "./persistence-mode": {
       "types": "./dist/persistence-mode.d.ts",
@@ -47,8 +52,8 @@
   },
   "dependencies": {
     "diff": "8.0.3",
-    "xnl-collab-core": "workspace:*",
-    "xnl-core": "workspace:^"
+    "xnl-collab-core": "0.1.3",
+    "xnl-core": "0.1.13"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

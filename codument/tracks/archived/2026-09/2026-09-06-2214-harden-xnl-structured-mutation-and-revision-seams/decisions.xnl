@@ -1,0 +1,6 @@
+<decision #track.structured_seams.scope apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P1" blocks = [] durable_candidate = false } (
+ <question ?q>本 Track 如何验证和扩展通用结构接缝？</?q>
+ <recommendation ?r>先做公共 conformance，仅针对真实失败补通用实现；领域规范化仍归调用者。</?r>
+ <options [<option { key = "conformance" recommended = true } (<title ?t>既有 API conformance 优先</?t><description ?d>保留公共模块事实边界，严格前置值、CAS 与 checkpoint 分别验证。</?d><tradeoff ?tr>不在底层新增领域归属语义。</?tr>)>]>
+ <answer { option_key = "conformance" source = "mission" } ?a>已批准 Mission G3；auto questioning/manual commit，Node.js/Bun macOS arm64 验证。</?a>
+)>

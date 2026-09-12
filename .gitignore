@@ -143,3 +143,4 @@ frontend/packages/react/public/**
 !packages/core/dist/**
 codument/**/analysis
 codument/**/reports
+codument/.local/

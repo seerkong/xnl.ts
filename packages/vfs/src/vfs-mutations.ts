@@ -1,9 +1,9 @@
 import { applyMutations, diffNodes, parsePath, type DataElementNode, type ExtendBody, type XnlMutation, type XnlNode } from "xnl-core";
 import { VfsError } from "./errors";
-import { xnlFileHandler } from "./handlers";
 import { createFileNode, createFolderNode, folderChildren, isFile, isFolder, readFileContent, readFileType, readMetadataId, readName } from "./model";
 import { VFS_ROOT, basenameVfsPath, dirnameVfsPath, normalizeVfsPath, toSegments } from "./path";
 import type { VfsFileType } from "./types";
+import { xnlFileHandler } from "./xnl-file-handler";
 
 export type VfsMutationType =
   | "FOLDER_CREATE"

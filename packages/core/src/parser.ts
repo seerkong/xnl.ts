@@ -1,4 +1,5 @@
 import { XnlParseError } from "./errors";
+import { markLiteralObject } from "./value-context";
 import {
   AttributeMap,
   DataElementNode,
@@ -158,7 +159,7 @@ function parseNode(state: ParseState): DataElementNode | TextElementNode {
 }
 
 function parseMetadata(state: ParseState): AttributeMap {
-  const attrs: AttributeMap = {};
+  const attrs: AttributeMap = markLiteralObject({});
   while (true) {
     skipWhitespaceAndComments(state);
     if (lookAhead(state, "{") || lookAhead(state, "[") || lookAhead(state, "(") || lookAhead(state, "?") || lookAhead(state, ">")) {
@@ -171,14 +172,14 @@ function parseMetadata(state: ParseState): AttributeMap {
     skipWhitespaceAndComments(state);
     consumeChar(state, "=", "UNEXPECTED_TOKEN", "Expected '=' after metadata key");
     skipWhitespaceAndComments(state);
-    attrs[key] = parseValueNode(state);
+    Object.defineProperty(attrs, key, { value: parseValueNode(state), enumerable: true, writable: true, configurable: true });
   }
   return attrs;
 }
 
 function parseAttributeBlock(state: ParseState, name: string): AttributeMap {
   consumeChar(state, "{", "UNEXPECTED_TOKEN", "Expected '{' to start attribute block");
-  const attrs: AttributeMap = {};
+  const attrs: AttributeMap = markLiteralObject({});
   while (true) {
     skipWhitespaceAndComments(state);
     if (consumeIf(state, "}")) {
@@ -191,7 +192,7 @@ function parseAttributeBlock(state: ParseState, name: string): AttributeMap {
     skipWhitespaceAndComments(state);
     consumeChar(state, "=", "UNEXPECTED_TOKEN", "Expected '=' after key in attribute block");
     skipWhitespaceAndComments(state);
-    attrs[key] = parseValueNode(state);
+    Object.defineProperty(attrs, key, { value: parseValueNode(state), enumerable: true, writable: true, configurable: true });
   }
 }
 
@@ -344,7 +345,7 @@ function parseValueNode(state: ParseState): XnlNode {
 
 function parseObjectLiteral(state: ParseState): Record<string, XnlNode> {
   consumeChar(state, "{", "UNEXPECTED_TOKEN", "Expected '{' to start object literal");
-  const entries: Record<string, XnlNode> = {};
+  const entries: Record<string, XnlNode> = markLiteralObject({});
   while (true) {
     skipWhitespaceAndComments(state);
     if (consumeIf(state, "}")) break;
@@ -352,7 +353,7 @@ function parseObjectLiteral(state: ParseState): Record<string, XnlNode> {
     skipWhitespaceAndComments(state);
     consumeChar(state, "=", "UNEXPECTED_TOKEN", "Expected '=' after key in object literal");
     skipWhitespaceAndComments(state);
-    entries[key] = parseValueNode(state);
+    Object.defineProperty(entries, key, { value: parseValueNode(state), enumerable: true, writable: true, configurable: true });
     skipWhitespaceAndComments(state);
   }
   return entries;
@@ -382,6 +383,15 @@ function parseStringLiteral(state: ParseState): string {
       const next = consume(state);
       if (next === "n") value += "\n";
       else if (next === "t") value += "\t";
+      else if (next === "r") value += "\r";
+      else if (next === "b") value += "\b";
+      else if (next === "f") value += "\f";
+      else if (next === "u") {
+        const digits = state.input.slice(state.pos, state.pos + 4);
+        if (!/^[0-9a-fA-F]{4}$/.test(digits)) throw error(state, "INVALID_LITERAL", "Invalid Unicode escape");
+        value += String.fromCharCode(parseInt(digits, 16));
+        state.pos += 4;
+      }
       else if (next === '"') value += '"';
       else if (next === "'") value += "'";
       else value += next;

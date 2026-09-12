@@ -1,0 +1,29 @@
+<BehaviorPatch #xnl-structured-edit-conformance apiVersion="codument.tech/v1alpha1" version="1" { capability = "xnl-structured-edit-conformance" } (
+  <Mutations [
+    <Upsert { selector = "behavior://xnl-structured-edit-conformance/requirements/native-revision-seams" } (
+      <Requirement #native-revision-seams (
+        <Statement ?text_1>
+公共 XNL 编辑链 SHALL 保留原生结构、稳定 identity 和事务边界；VCS checkpoint SHALL 不成为 live authority。
+</?text_1>
+        <Suites [<Suite #public-conformance { name = "公共结构与 revision 接缝" } (
+          <Cases [
+            <Case #native-values (<Given ?text_2>
+原生嵌套对象数组及稳定节点 identity
+</?text_2><When ?text_3>
+diff 后严格 dryRun
+</?text_3><Then ?text_4>
+完整目标结构重建且原输入保持不变；stale 前置值拒绝整批。
+</?text_4>)>
+            <Case #revision-boundaries (<Given ?text_5>
+两个文件共享一个 VFS revision 与历史 checkpoint
+</?text_5><When ?text_6>
+竞争提交和历史 checkout
+</?text_6><Then ?text_7>
+只有一个 CAS 接受；失败不泄漏部分文件；checkout 不更改 live authority。
+</?text_7>)>
+          ]>
+        )>]>
+      )>
+    )>
+  ]>
+)>

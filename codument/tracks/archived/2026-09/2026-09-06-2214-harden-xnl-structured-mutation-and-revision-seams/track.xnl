@@ -1,0 +1,37 @@
+<Track #harden-xnl-structured-mutation-and-revision-seams apiVersion="codument.tech/v1alpha1" version="1" { status = "completed" goal = "验证原生结构 mutation、稳定 identity、多文件 CAS 与历史 checkpoint 公共接缝。" description = "覆盖 A01/A02/A05/A06/C03/C12 的通用部分，不引入领域规则或第二个 live authority。" question_mode = "decision-tree" question_severity = "auto" commit_mode = "manual" created_at = "2026-09-06T18:58:33.369Z" updated_at = "2026-09-06T19:14:13.544Z" modeling_base_commit = "3367ef2c15f0062c9e2821b4765b4748a811ee13" engineering_base_commit = "3367ef2c15f0062c9e2821b4765b4748a811ee13" } (
+  <Ports { scope = "track" }>
+  <TaskSpace #space_harden-xnl-structured-mutation-and-revision-seams { name = "harden-xnl-structured-mutation-and-revision-seams" version = "1" } (
+    <SubNodes [
+      <TaskGroup #P1 { name = "结构化 mutation 与 revision conformance" status = "DONE" order = 1 } (
+        <SubNodes [
+          <Task #P1-T1 { name = "补齐公共入口 conformance 与真实缺口" status = "DONE" order = 1 } (
+            <Description ?text_1>
+
+            通过原生对象数组验证 diff/dryRun，重排、嵌套前置值、失败原子性；多文件 VFS CAS 和 VCS checkpoint 隔离。发现缺口仅修通用库。
+            </?text_1>
+            <Acceptance [
+              <Criterion #P1-T1-AC1 { checked = true } ?text_2>
+
+              公开入口 conformance 与 core/vfs/vcs 回归通过；stale 和非法 batch 零部分写入。
+              </?text_2>
+            ]>
+          )>
+          <Task #P1-T2 { name = "隔离消费验证和接入说明" status = "DONE" order = 2 } (
+            <Description ?text_3>
+
+            构建 pack 依赖闭包，用 Node/Bun 从隔离目录加载 tarball；记录可复用 API 和 authority 边界。
+            </?text_3>
+            <Acceptance [
+              <Criterion #P1-T2-AC1 { checked = true } ?text_4>
+
+              macOS arm64 Node/Bun 隔离 tarball smoke 通过，strict Track 校验通过，接入说明不包含会话路径。
+              </?text_4>
+            ]>
+          )>
+        ]>
+      )>
+    ]>
+  )>
+  <Schedule []>
+  <Hooks []>
+)>

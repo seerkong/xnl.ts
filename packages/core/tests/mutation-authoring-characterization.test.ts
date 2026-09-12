@@ -170,6 +170,7 @@ describe("authoring mutation characterization", () => {
         {
           type: "OBJECT_DELETE",
           path: "<id='left'>:body",
+          valueBefore: [],
         },
       ]);
       expect(mutations.some(targetsElementId)).toBe(false);

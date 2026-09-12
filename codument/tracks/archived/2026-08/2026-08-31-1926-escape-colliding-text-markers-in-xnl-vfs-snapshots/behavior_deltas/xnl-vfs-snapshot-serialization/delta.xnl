@@ -1,0 +1,30 @@
+<BehaviorPatch #track.escape-colliding-text-markers-in-xnl-vfs-snapshots.behavior_patch.xnl-vfs-snapshot-serialization apiVersion="codument.tech/v1alpha1" version="1" { capability = "xnl-vfs-snapshot-serialization" } (
+  <Mutations [
+    <Upsert { selector = "behavior://xnl-vfs-snapshot-serialization/requirements/lossless-full-snapshot-text-quoting" } (
+      <Requirement #lossless-full-snapshot-text-quoting (
+        <Statement ?>xnl-vfs full snapshot serialization SHALL quote every text and XNL file payload with a deterministic collision-free XNL text marker so the emitted snapshot remains parseable and exact-content round-trippable.</?>
+        <Suites [
+          <Suite #nested-content { name = "Nested XNL and text content" } (
+            <Cases [
+              <Case #nested-empty-marker-terminator (
+                <Given ?>a VFS XNL or text file contains the sequence `&lt;/?&gt;` from an inner TextElement</?>
+                <When ?>the VFS is serialized as a full snapshot string and deserialized</?>
+                <Then ?>the outer snapshot SHALL remain parseable and the restored file payload and node identity SHALL exactly equal the source</?>
+              )>
+              <Case #candidate-marker-collision (
+                <Given ?>a payload also contains the terminator for the serializer's initial marker candidate</?>
+                <When ?>full snapshot serialization selects a marker</?>
+                <Then ?>it SHALL deterministically choose another non-colliding marker without rewriting or base64-wrapping the payload</?>
+              )>
+              <Case #deterministic-output (
+                <Given ?>the same identity-sensitive VFS snapshot</?>
+                <When ?>it is serialized repeatedly</?>
+                <Then ?>the emitted full snapshot bytes SHALL be identical</?>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+  ]>
+)>

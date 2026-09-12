@@ -414,11 +414,11 @@ function isRemoveMarker(node: any): boolean {
 }
 
 function isDataElement(node: any): node is DataElementNode {
-  return node && node.kind === "DataElement";
+  return node && node.kind === "DataElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 
 function isTextElement(node: any): node is TextElementNode {
-  return node && node.kind === "TextElement";
+  return node && node.kind === "TextElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 
 function isPlainObject(value: any): value is Record<string, any> {

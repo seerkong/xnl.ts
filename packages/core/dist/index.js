@@ -26,6 +26,35 @@ var XnlParseError = class extends Error {
   }
 };
 
+// src/value-context.ts
+var literalObjects = /* @__PURE__ */ new WeakSet();
+function isLiteralObject(value) {
+  return value !== null && typeof value === "object" && literalObjects.has(value);
+}
+function markLiteralObject(value) {
+  literalObjects.add(value);
+  return value;
+}
+function markLiteralTree(value, seen = /* @__PURE__ */ new WeakSet()) {
+  if (value === null || typeof value !== "object" || seen.has(value)) return;
+  seen.add(value);
+  markLiteralObject(value);
+  for (const key of Object.keys(value)) markLiteralTree(value[key], seen);
+}
+function cloneWithValueContext(value) {
+  const clone = structuredClone(value);
+  const seen = /* @__PURE__ */ new WeakSet();
+  const copy = (source, target) => {
+    if (source === null || typeof source !== "object" || seen.has(source)) return;
+    seen.add(source);
+    if (target === null || typeof target !== "object") return;
+    if (isLiteralObject(source)) markLiteralObject(target);
+    for (const key of Object.keys(source)) copy(source[key], target[key]);
+  };
+  copy(value, clone);
+  return clone;
+}
+
 // src/parser.ts
 function parseXnl(input, options = {}) {
   const warnings = [];
@@ -134,7 +163,7 @@ function parseNode(state) {
   }
 }
 function parseMetadata(state) {
-  const attrs = {};
+  const attrs = markLiteralObject({});
   while (true) {
     skipWhitespaceAndComments(state);
     if (lookAhead(state, "{") || lookAhead(state, "[") || lookAhead(state, "(") || lookAhead(state, "?") || lookAhead(state, ">")) {
@@ -147,13 +176,13 @@ function parseMetadata(state) {
     skipWhitespaceAndComments(state);
     consumeChar(state, "=", "UNEXPECTED_TOKEN", "Expected '=' after metadata key");
     skipWhitespaceAndComments(state);
-    attrs[key] = parseValueNode(state);
+    Object.defineProperty(attrs, key, { value: parseValueNode(state), enumerable: true, writable: true, configurable: true });
   }
   return attrs;
 }
 function parseAttributeBlock(state, name) {
   consumeChar(state, "{", "UNEXPECTED_TOKEN", "Expected '{' to start attribute block");
-  const attrs = {};
+  const attrs = markLiteralObject({});
   while (true) {
     skipWhitespaceAndComments(state);
     if (consumeIf(state, "}")) {
@@ -166,7 +195,7 @@ function parseAttributeBlock(state, name) {
     skipWhitespaceAndComments(state);
     consumeChar(state, "=", "UNEXPECTED_TOKEN", "Expected '=' after key in attribute block");
     skipWhitespaceAndComments(state);
-    attrs[key] = parseValueNode(state);
+    Object.defineProperty(attrs, key, { value: parseValueNode(state), enumerable: true, writable: true, configurable: true });
   }
 }
 function parseArrayBody(state, name) {
@@ -302,7 +331,7 @@ function parseValueNode(state) {
 }
 function parseObjectLiteral(state) {
   consumeChar(state, "{", "UNEXPECTED_TOKEN", "Expected '{' to start object literal");
-  const entries = {};
+  const entries = markLiteralObject({});
   while (true) {
     skipWhitespaceAndComments(state);
     if (consumeIf(state, "}")) break;
@@ -310,7 +339,7 @@ function parseObjectLiteral(state) {
     skipWhitespaceAndComments(state);
     consumeChar(state, "=", "UNEXPECTED_TOKEN", "Expected '=' after key in object literal");
     skipWhitespaceAndComments(state);
-    entries[key] = parseValueNode(state);
+    Object.defineProperty(entries, key, { value: parseValueNode(state), enumerable: true, writable: true, configurable: true });
     skipWhitespaceAndComments(state);
   }
   return entries;
@@ -338,7 +367,15 @@ function parseStringLiteral(state) {
       const next = consume(state);
       if (next === "n") value += "\n";
       else if (next === "t") value += "	";
-      else if (next === '"') value += '"';
+      else if (next === "r") value += "\r";
+      else if (next === "b") value += "\b";
+      else if (next === "f") value += "\f";
+      else if (next === "u") {
+        const digits = state.input.slice(state.pos, state.pos + 4);
+        if (!/^[0-9a-fA-F]{4}$/.test(digits)) throw error(state, "INVALID_LITERAL", "Invalid Unicode escape");
+        value += String.fromCharCode(parseInt(digits, 16));
+        state.pos += 4;
+      } else if (next === '"') value += '"';
       else if (next === "'") value += "'";
       else value += next;
     } else {
@@ -556,7 +593,7 @@ function skipComment(state) {
 
 // src/types.ts
 function isWord(value) {
-  return value !== null && typeof value === "object" && value.kind === "Word";
+  return value !== null && typeof value === "object" && !isLiteralObject(value) && value.kind === "Word";
 }
 function wordToString(word) {
   if (!word) return void 0;
@@ -576,7 +613,7 @@ function stringify(value, options = {}) {
   return content;
 }
 function isDocument(value) {
-  return value && Array.isArray(value.nodes);
+  return value && !isLiteralObject(value) && Array.isArray(value.nodes);
 }
 function serializeNode(node, state) {
   if (isComment(node)) {
@@ -695,13 +732,13 @@ ${lines.join("\n")}
 ${closingPad}]`;
 }
 function isComment(node) {
-  return typeof node === "object" && node !== null && node.kind === "Comment";
+  return typeof node === "object" && node !== null && !isLiteralObject(node) && node.kind === "Comment";
 }
 function isElement(node) {
-  return typeof node === "object" && node !== null && (node.kind === "DataElement" || node.kind === "TextElement");
+  return typeof node === "object" && node !== null && !isLiteralObject(node) && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata) && (node.kind === "DataElement" || node.kind === "TextElement");
 }
 function isPlainObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value) && value.kind === void 0;
+  return typeof value === "object" && value !== null && !Array.isArray(value) && !isElement(value) && !isWord(value) && !isComment(value);
 }
 function serializeKey(key) {
   if (/^[A-Za-z_][A-Za-z0-9_-]*$/.test(key)) return key;
@@ -858,16 +895,17 @@ function pad(state) {
   return state.indent.repeat(state.depth);
 }
 function isDocument2(value) {
-  return value && Array.isArray(value.nodes);
+  return value && !isLiteralObject(value) && Array.isArray(value.nodes);
 }
 function isElement2(value) {
-  return typeof value === "object" && value !== null && (value.kind === "DataElement" || value.kind === "TextElement");
+  return typeof value === "object" && value !== null && !isLiteralObject(value) && (value.kind === "DataElement" || value.kind === "TextElement");
 }
 function isComment2(value) {
-  return typeof value === "object" && value !== null && value.kind === "Comment";
+  return typeof value === "object" && value !== null && !isLiteralObject(value) && value.kind === "Comment";
 }
 function isPlainObject2(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  if (isLiteralObject(value)) return true;
   const kind = value.kind;
   return kind !== "DataElement" && kind !== "TextElement" && kind !== "Comment" && kind !== "Word";
 }
@@ -907,6 +945,12 @@ function incrementRandom(values) {
 }
 
 // src/path/index.ts
+function ownValue(value, key) {
+  return value != null && Object.prototype.hasOwnProperty.call(value, key) ? value[key] : void 0;
+}
+function setOwn(value, key, entry) {
+  Object.defineProperty(value, key, { value: entry, enumerable: true, configurable: true, writable: true });
+}
 var XnlPathError = class extends Error {
 };
 function parsePath(input) {
@@ -933,11 +977,19 @@ function parsePath(input) {
       i += 2;
       if (input[i] === "'") {
         i += 1;
-        const end = input.indexOf("'", i);
-        if (end === -1) throw new XnlPathError("Unterminated map key literal");
-        const key = input.slice(i, end);
+        let key = "";
+        let closed = false;
+        while (i < input.length) {
+          const ch = input[i++];
+          if (ch === "'") {
+            closed = true;
+            break;
+          }
+          if (ch === "\\" && (input[i] === "\\" || input[i] === "'")) key += input[i++];
+          else key += ch;
+        }
+        if (!closed) throw new XnlPathError("Unterminated map key literal");
         items.push({ type: "MapKey", value: key });
-        i = end + 1;
       } else {
         const digits = readWhile(input, i, (ch) => /[0-9]/.test(ch));
         if (!digits) throw new XnlPathError("ListIndex must be numeric");
@@ -998,11 +1050,11 @@ function resolvePath(target, path, options = {}) {
     }
     if (item.type === "InstanceProperty") {
       if (current && isDataElement(current)) {
-        current = current[item.value];
+        current = ownValue(current, item.value);
       } else if (current && isTextElement(current)) {
-        current = current[item.value];
+        current = ownValue(current, item.value);
       } else if (isPlainObject3(current) || isDocument3(current)) {
-        current = current[item.value];
+        current = ownValue(current, item.value);
       } else {
         if (strict) throw new XnlPathError(`InstanceProperty '${item.value}' not allowed on current node`);
         return void 0;
@@ -1023,10 +1075,10 @@ function resolvePath(target, path, options = {}) {
         if (strict) throw new XnlPathError("MapKey requires a map/object target");
         return void 0;
       }
-      if (!(item.value in current) && strict) {
+      if (!Object.prototype.hasOwnProperty.call(current, item.value) && strict) {
         throw new XnlPathError(`Key '${item.value}' not found`);
       }
-      current = current[item.value];
+      current = ownValue(current, item.value);
       continue;
     }
     if (item.type === "ListIndex") {
@@ -1062,7 +1114,7 @@ function setPathValue(target, path, value, options = {}) {
   const { parent, last } = getParentAndLast(target, parsed, { strict, createMissing: true });
   switch (last.type) {
     case "InstanceProperty":
-      parent[last.value] = value;
+      setOwn(parent, last.value, value);
       return target;
     case "MapKey":
       if (isExtendBody(parent)) {
@@ -1073,7 +1125,7 @@ function setPathValue(target, path, value, options = {}) {
         return target;
       }
       ensureMap(parent, strict);
-      parent[last.value] = value;
+      setOwn(parent, last.value, value);
       return target;
     case "ListIndex": {
       const idx = Number(last.value);
@@ -1119,7 +1171,7 @@ function deleteAtPath(target, path, options = {}) {
   switch (last.type) {
     case "InstanceProperty":
       if (isPlainObject3(parent) || isDataElement(parent) || isTextElement(parent) || isDocument3(parent)) {
-        if (!(last.value in parent) && strict) {
+        if (!Object.prototype.hasOwnProperty.call(parent, last.value) && strict) {
           throw new XnlPathError(`InstanceProperty '${last.value}' not found`);
         }
         delete parent[last.value];
@@ -1190,23 +1242,23 @@ function getParentAndLast(target, path, opts) {
     }
     if (item.type === "InstanceProperty") {
       if (current && isDataElement(current)) {
-        if (current[item.value] === void 0 && createMissing) {
+        if (ownValue(current, item.value) === void 0 && createMissing) {
           if (item.value === "metadata" || item.value === "attributes") {
-            current[item.value] = {};
+            setOwn(current, item.value, {});
           } else if (item.value === "body") {
-            current[item.value] = [];
+            setOwn(current, item.value, []);
           } else if (item.value === "extend") {
-            current[item.value] = { order: [], children: {} };
+            setOwn(current, item.value, { order: [], children: {} });
           }
         }
-        current = current[item.value];
+        current = ownValue(current, item.value);
       } else if (current && isTextElement(current)) {
-        current = current[item.value];
+        current = ownValue(current, item.value);
       } else if (isPlainObject3(current) || isDocument3(current)) {
-        if (current[item.value] === void 0 && createMissing && isPlainObject3(current)) {
-          current[item.value] = {};
+        if (ownValue(current, item.value) === void 0 && createMissing && isPlainObject3(current)) {
+          setOwn(current, item.value, {});
         }
-        current = current[item.value];
+        current = ownValue(current, item.value);
       } else {
         throw new XnlPathError(`InstanceProperty '${item.value}' not allowed on current node`);
       }
@@ -1231,10 +1283,10 @@ function getParentAndLast(target, path, opts) {
         continue;
       }
       ensureMap(current, strict);
-      if (!(item.value in current) && createMissing) {
-        current[item.value] = {};
+      if (!Object.prototype.hasOwnProperty.call(current, item.value) && createMissing) {
+        setOwn(current, item.value, {});
       }
-      current = current[item.value];
+      current = ownValue(current, item.value);
       if (current === void 0 && strict && !createMissing) {
         throw new XnlPathError(`Key '${item.value}' not found`);
       }
@@ -1459,19 +1511,19 @@ function findInNode(node, id) {
   return void 0;
 }
 function isElementNode(node) {
-  return node && (node.kind === "DataElement" || node.kind === "TextElement");
+  return isDataElement(node) || isTextElement(node);
 }
 function isDataElement(node) {
-  return node && node.kind === "DataElement";
+  return node && !isLiteralObject(node) && node.kind === "DataElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 function isTextElement(node) {
-  return node && node.kind === "TextElement";
+  return node && !isLiteralObject(node) && node.kind === "TextElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 function isExtendBody(value) {
-  return value && typeof value === "object" && Array.isArray(value.order) && value.children;
+  return value && !isLiteralObject(value) && typeof value === "object" && Array.isArray(value.order) && value.children;
 }
 function isDocument3(value) {
-  return value && typeof value === "object" && Array.isArray(value.nodes);
+  return value && !isLiteralObject(value) && typeof value === "object" && Array.isArray(value.nodes);
 }
 function isPlainObject3(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) && !isElementNode(value) && !isExtendBody(value) && !isWord(value);
@@ -1505,7 +1557,13 @@ function isMetadataMapPath(path) {
   return last?.type === "InstanceProperty" && last.value === "metadata";
 }
 function cloneValue(value) {
-  return structuredClone(value);
+  return cloneWithValueContext(value);
+}
+function bindLiteralPaths(root, options) {
+  for (const path of options.literalValuePaths ?? []) {
+    const value = resolvePath(root, path, { strict: false });
+    if (value !== void 0) markLiteralTree(value);
+  }
 }
 function validateIdentities(root, policy) {
   const diagnostics = [];
@@ -1822,6 +1880,7 @@ function errorMessage(error2) {
 }
 var dryRunMutations = (base, mutations, options = {}) => {
   const rejectedValue = cloneValue(base);
+  bindLiteralPaths(rejectedValue, options);
   const reject = (diagnostics) => ({
     status: "rejected",
     value: rejectedValue,
@@ -1912,6 +1971,7 @@ var dryRunMutations = (base, mutations, options = {}) => {
       }
       const skeletonBefore = isUpdateMutation(mutation) ? collectIdentitySkeleton(current) : void 0;
       current = applySingle(current, mutation, options);
+      bindLiteralPaths(current, options);
       if (skeletonBefore) {
         const skeletonAfter = collectIdentitySkeleton(current);
         if (!identitySkeletonsEqual(skeletonBefore, skeletonAfter)) {
@@ -1973,19 +2033,42 @@ var dryRunMutations = (base, mutations, options = {}) => {
   };
 };
 function applyMutations(root, mutations, opts = {}) {
+  bindLiteralPaths(root, opts);
   let current = root;
   for (const mutation of mutations) {
     current = applySingle(current, mutation, opts);
+    bindLiteralPaths(current, opts);
   }
   return current;
 }
 function diffNodes(oldNode, newNode, basePath = [], opts = {}) {
+  if (opts.literalValuePaths?.length) {
+    oldNode = cloneValue(oldNode);
+    newNode = cloneValue(newNode);
+    bindLiteralPaths(oldNode, opts);
+    bindLiteralPaths(newNode, opts);
+  }
+  const mutations = diffNodesInternal(oldNode, newNode, basePath, opts);
+  const path = Array.isArray(basePath) ? basePath : parsePath(basePath);
+  if (path.length > 0 && !(path.length === 1 && path[0]?.type === "UniqueName")) return mutations;
+  let current = cloneValue(oldNode);
+  return mutations.map((mutation) => {
+    const next = cloneValue(mutation);
+    if (supportsValueBefore(next)) {
+      const targetPath = Array.isArray(next.path) ? next.path : parsePath(next.path);
+      next.valueBefore = cloneValue(resolveObservableTarget(current, next, targetPath));
+    }
+    current = applySingle(current, cloneValue(next), opts);
+    return next;
+  });
+}
+function diffNodesInternal(oldNode, newNode, basePath = [], opts = {}) {
   const pathItems = Array.isArray(basePath) ? basePath : parsePath(basePath);
   if (!sameKind(oldNode, newNode)) {
-    throw new XnlPathError("Root kinds must match to diff");
+    return [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueBefore: oldNode, valueAfter: newNode }];
   }
   if (isValueLiteral(oldNode) || isComment3(oldNode)) {
-    return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueAfter: newNode }];
+    return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueBefore: oldNode, valueAfter: newNode }];
   }
   if (Array.isArray(oldNode) && Array.isArray(newNode)) {
     return diffArray(oldNode, newNode, pathItems, void 0, void 0, opts);
@@ -2000,11 +2083,12 @@ function diffNodes(oldNode, newNode, basePath = [], opts = {}) {
     const mutations = diffDataElement(oldNode, newNode, pathItems, opts);
     return reconcileMoves(mutations, opts);
   }
-  return [];
+  return isEqual(oldNode, newNode) ? [] : [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueBefore: oldNode, valueAfter: newNode }];
 }
 function applySingle(root, mutation, opts) {
   const { type, path, valueAfter } = mutation;
   const pathItems = Array.isArray(path) ? path : parsePath(path);
+  if (pathItems.length === 0 && (type === "OBJECT_UPDATE" || type === "TREE_UPDATE")) return valueAfter;
   if (resolveMetaIdMode(opts) === "identity" && isMetadataIdPath(pathItems)) {
     return root;
   }
@@ -2249,7 +2333,7 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
       if (isEqual(oldItem, newItem)) {
         continue;
       }
-      const nested = diffNodes(oldItem, newItem, path, opts);
+      const nested = diffNodesInternal(oldItem, newItem, path, opts);
       if (nested.length === 0) {
         if (!useIdentity) {
           mutations.push({
@@ -2295,8 +2379,8 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
     if (resolveMetaIdMode(opts) === "identity" && isMetadataMapPath(basePath) && key === "id") {
       continue;
     }
-    const oldVal = (oldMap || {})[key];
-    const newVal = (newMap || {})[key];
+    const oldVal = oldMap && Object.prototype.hasOwnProperty.call(oldMap, key) ? oldMap[key] : void 0;
+    const newVal = newMap && Object.prototype.hasOwnProperty.call(newMap, key) ? newMap[key] : void 0;
     const path = [...basePath, mk(key)];
     if (oldVal === void 0 && newVal !== void 0) {
       mutations.push({
@@ -2319,7 +2403,7 @@ function diffMap(oldMap, newMap, basePath, parentBefore, parentAfter, opts) {
       continue;
     }
     if (!isEqual(oldVal, newVal)) {
-      const nested = diffNodes(oldVal, newVal, path, opts);
+      const nested = diffNodesInternal(oldVal, newVal, path, opts);
       if (nested.length === 0) {
         mutations.push({ type: "OBJECT_UPDATE", path: pathToDsl(path), valueAfter: newVal });
       } else {
@@ -2407,7 +2491,7 @@ function diffExtend(oldExtend, newExtend, basePath, parentBefore, parentAfter, o
     }
     const id = readIdOrMetadaataId(match.oldChild) ?? readIdOrMetadaataId(match.newChild);
     const childPath = id ? [{ type: "UniqueName", value: id }] : [...pathBase, mk(newTag)];
-    const nested = diffNodes(match.oldChild, match.newChild, childPath, opts);
+    const nested = diffNodesInternal(match.oldChild, match.newChild, childPath, opts);
     if (nested.length === 0) {
       if (!isStructurallyEqual(match.oldChild, match.newChild)) {
         mutations.push({ type: "TREE_UPDATE", path: pathToDsl(childPath), valueAfter: match.newChild });
@@ -2434,7 +2518,7 @@ function pathToDsl(path) {
       continue;
     }
     if (item.type === "MapKey") {
-      out += `::'${item.value}'`;
+      out += `::'${item.value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
       continue;
     }
     out += `::${item.value}`;
@@ -2471,19 +2555,19 @@ function isPlainObject4(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) && !isDataElement2(value) && !isTextElement2(value) && !isWord(value);
 }
 function isDataElement2(node) {
-  return node && node.kind === "DataElement";
+  return node && !isLiteralObject(node) && node.kind === "DataElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 function isTextElement2(node) {
-  return node && node.kind === "TextElement";
+  return node && !isLiteralObject(node) && node.kind === "TextElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 function isExtendBody2(node) {
-  return node && typeof node === "object" && Array.isArray(node.order) && node.children;
+  return node && !isLiteralObject(node) && typeof node === "object" && Array.isArray(node.order) && node.children;
 }
 function isValueLiteral(node) {
   return typeof node === "string" || typeof node === "number" || typeof node === "boolean" || node === null || isWord(node);
 }
 function isComment3(node) {
-  return node && node.kind === "Comment";
+  return node && !isLiteralObject(node) && node.kind === "Comment";
 }
 var ip = (value) => ({ type: "InstanceProperty", value });
 var mk = (value) => ({ type: "MapKey", value });
@@ -2595,7 +2679,7 @@ function reconcileMoves(mutations, opts) {
     };
     result.push(move);
     moveUpdates.push(
-      ...diffNodes(
+      ...diffNodesInternal(
         del.valueBefore,
         add.valueAfter,
         [{ type: "UniqueName", value: id }],
@@ -2974,10 +3058,10 @@ function isRemoveMarker(node) {
   return isDataElement3(node) && node.tag === "delta" && isRemoveFlag(node);
 }
 function isDataElement3(node) {
-  return node && node.kind === "DataElement";
+  return node && node.kind === "DataElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 function isTextElement3(node) {
-  return node && node.kind === "TextElement";
+  return node && node.kind === "TextElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 function isPlainObject5(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) && !isDataElement3(value) && !isWord(value);
@@ -3097,8 +3181,8 @@ function resolveVfsSrc(src, opts) {
 function collectExports(content) {
   const doc = parseXnl(content);
   const batch = doc.nodes.filter(isDataElement4);
-  const { exports } = batchLoad([batch]);
-  return exports;
+  const { exports: exports$1 } = batchLoad([batch]);
+  return exports$1;
 }
 function loadImportTarget(target, resolver) {
   if (resolver.isDir(target)) {
@@ -3200,6 +3284,33 @@ function resolveImports(rootDoc, resolver, opts) {
   return { resolved: rootDoc, symbols, warnings };
 }
 
+// src/literal.ts
+function stringifyLiteral(value, options = {}) {
+  const ancestors = /* @__PURE__ */ new WeakSet();
+  const serialize = (node) => {
+    if (node === null || typeof node === "boolean" || typeof node === "string") return JSON.stringify(node);
+    if (typeof node === "number") {
+      if (!Number.isFinite(node)) throw new TypeError("XNL literal numbers must be finite");
+      return JSON.stringify(node);
+    }
+    if (typeof node !== "object") throw new TypeError("Unsupported XNL literal value");
+    if (ancestors.has(node)) throw new TypeError("XNL literals cannot contain cycles");
+    if (!Array.isArray(node) && Object.getPrototypeOf(node) !== Object.prototype && Object.getPrototypeOf(node) !== null) {
+      throw new TypeError("XNL literals require plain objects");
+    }
+    ancestors.add(node);
+    try {
+      if (Array.isArray(node)) return `[${Array.from(node, serialize).join(" ")}]`;
+      const keys = Object.keys(node);
+      if (options.sortKeys) keys.sort();
+      return `{${keys.map((key) => `${JSON.stringify(key)} = ${serialize(node[key])}`).join(" ")}}`;
+    } finally {
+      ancestors.delete(node);
+    }
+  };
+  return serialize(value);
+}
+
 // src/NodeHelper.ts
 function GetWordFullName(word) {
   const parts = [...word.namespace ?? [], word.name].filter((part) => part.length > 0);
@@ -3215,6 +3326,7 @@ function MakeWord(wordStr, namespace = []) {
 
 // src/index.ts
 var XNL = {
+  stringifyLiteral,
   parseMany: parseXnl,
   parseSingle: parseXnlSingleNode,
   parseUnique: parseUniqueChildren,
@@ -3243,6 +3355,6 @@ var XNL = {
   }
 };
 
-export { GetWordFullName, MakeWord, XNL, XnlImportError, XnlParseError, XnlPathError, applyMutations, batchLoad, deleteAtPath, diffNodes, dryRunMutations, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify2 as stringifyLineBlock, wordToString };
+export { GetWordFullName, MakeWord, XNL, XnlImportError, XnlParseError, XnlPathError, applyMutations, batchLoad, deleteAtPath, diffNodes, dryRunMutations, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify2 as stringifyLineBlock, stringifyLiteral, wordToString };
 //# sourceMappingURL=index.js.map
 //# sourceMappingURL=index.js.map

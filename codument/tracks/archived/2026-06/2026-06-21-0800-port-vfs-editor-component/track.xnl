@@ -1,0 +1,167 @@
+<Track #port-vfs-editor-component version="1" apiVersion="codument.tech/v1alpha1" { status = "completed" goal = "移植 infra-dev/vfs-editor 为 xnl.ts 子包 `packages/vfs-editor`(xnl-vfs-editor)——可复用 Vue3 组件库，数据层重写到 xnl-vfs(+xnl-vcs)、布局存 vfs extend(键稳定 XNL id·不反写 XNL)、显式保存=commit；并在 demo/vfs-editor 建消费该组件的可运行应用。" description = "落实 eidolon-workbench DEPA 分析（xnl-editor-depa-refactor）的 D1/D2 与 R1/R2/R4/R5：把自造 vfs 的独立应用收敛到 xnl 生态的成熟中立库，抽成可复用组件 + demo。重 UI 依赖作 peerDeps；构建用 vite lib(Vue SFC)。本 track 完工后再做 workbench 侧 track。" type = "feature" commit_mode = "manual" created_at = "2026-06-21T00:00:00Z" updated_at = "2026-06-21T00:00:00Z" } (
+  <Ports { scope = "track" } [
+    <MaterialBundle { role = "input" name = "behavior-deltas" domain = "behavior" path = "vfs://./behavior_deltas/" }>
+    <MaterialBundle { role = "output" name = "behavior" domain = "codument" path = "vfs://@/codument/behaviors/" }>
+    <MaterialBundle { role = "output" name = "package" domain = "code" path = "vfs://@/packages/vfs-editor/" }>
+    <MaterialBundle { role = "output" name = "demo" domain = "code" path = "vfs://@/demo/vfs-editor/" }>
+  ]>
+  <TaskSpace #space_port-vfs-editor-component { name = "port-vfs-editor-component" } (
+    <Description ?01M1W1C2D07GCHEE18FDZXYGFB>
+    Phases: 脚手架 → 移植组件 → 重写数据层(xnl-vfs) → 历史层(xnl-vcs) → demo 应用 → 验证。
+    </?01M1W1C2D07GCHEE18FDZXYGFB>
+    <SubNodes [
+      <TaskGroup #P1 { name = "子包脚手架 + 行为增量" status = "DONE" order = 0 } (
+        <Description ?01M1W1C2D07GCHEE18FDZXYGFC>
+        建 packages/vfs-editor 骨架（package.json peerDeps、vite lib + plugin-vue、tsconfig/vue-tsc、src/index 占位、exports 指 dist）；行为增量已撰写。
+        </?01M1W1C2D07GCHEE18FDZXYGFC>
+        <Ports { scope = "phase" } [
+          <MaterialBundle { role = "input" name = "delta" domain = "behavior" path = "vfs://./behavior_deltas/xnl-vfs-editor/" }>
+        ]>
+        <Gate [
+          <Criterion ?01M1W1C2D07GCHEE18FDZXYGFD>
+          包可被 workspace 识别；vite lib 构建管线就绪；peerDeps externalize 配置正确
+          </?01M1W1C2D07GCHEE18FDZXYGFD>
+        ]>
+        <SubNodes [
+          <Task { id = "T1.1" name = "scaffold packages/vfs-editor" status = "DONE" order = 0 priority = "P0" } (
+            <Description ?01M1W1C2D07GCHEE18FDZXYGFE>
+            package.json(name xnl-vfs-editor, peerDeps vue/element-plus/ag-grid-community/ag-grid-vue3/monaco/pinia, deps xnl-vfs/xnl-vcs/xnl-core/jszip/idb)、vite.config(lib+plugin-vue+external)、tsconfig+tsconfig.build、src/index.ts 占位、build=vite build+vue-tsc -d。注意：xnl.ts 构建工具链需 node22（默认 node16 下 vite7 报 crypto）。
+            </?01M1W1C2D07GCHEE18FDZXYGFE>
+            <Acceptance [
+              <Criterion { id = "T1.1-AC1" checked = true } ?01M1W1C2D07GCHEE18FDZXYGFF>
+              bun workspace 识别新包；占位 build 产出 dist(.js/.cjs/.d.ts)；vue-tsc lint 0 错；peerDeps externalize
+              </?01M1W1C2D07GCHEE18FDZXYGFF>
+            ]>
+          )>
+        ]>
+      )>
+      <TaskGroup #P2 { name = "移植可复用组件 + 树渲染降 community" status = "DONE" order = 1 } (
+        <Description ?01M1W1C2D07GCHEE18FDZXYGFG>
+        移植 VfsEditor.vue + renderers + dialogs + composables + types + utils 到 packages/vfs-editor/src，调整 import；并把 ag-grid-enterprise Tree Data 重写为 ag-grid-community（扁平行+缩进+展开折叠自实现）。保功能（暂留对内部 store 接口的调用，下一阶段替换实现）。
+        </?01M1W1C2D07GCHEE18FDZXYGFG>
+        <Gate [
+          <Criterion ?01M1W1C2D07GCHEE18FDZXYGFH>
+          组件树/composables/types 就位，vue-tsc 通过；树渲染不依赖 ag-grid-enterprise
+          </?01M1W1C2D07GCHEE18FDZXYGFH>
+        ]>
+        <SubNodes [
+          <Task { id = "T2.1" name = "port SFC + composables + types" status = "DONE" order = 0 priority = "P0" } (
+            <Acceptance [
+              <Criterion { id = "T2.1-AC1" checked = true } ?01M1W1C2D07GCHEE18FDZXYGFJ>
+              VfsEditor/renderers/dialogs/composables(useVfsTree,useZipExport)/types 移入；vue-tsc 0 错、vite lib build 出 dist+d.ts
+              </?01M1W1C2D07GCHEE18FDZXYGFJ>
+            ]>
+          )>
+          <Task { id = "T2.2" name = "树渲染重写为 ag-grid-community" status = "DONE" order = 1 priority = "P0" } (
+            <Description ?01M1W1C2D07GCHEE18FDZXYGFK>
+            去 ag-grid-enterprise Tree Data；community + expanded:Set + 自算可见行(DFS 树序,折叠跳后代,注入 _depth/_expanded/_hasChildren) + 名称列 chevron 缩进。AllCommunityModule 注册 + theme legacy。拖拽降级为发 node-move 事件（受控）。决策：列排序禁用、树序为准。
+            </?01M1W1C2D07GCHEE18FDZXYGFK>
+            <Acceptance [
+              <Criterion { id = "T2.2-AC1" checked = true } ?01M1W1C2D07GCHEE18FDZXYGFM>
+              文件树 community 下可展开/折叠/选中/双击；grep enterprise 无命中
+              </?01M1W1C2D07GCHEE18FDZXYGFM>
+            ]>
+          )>
+        ]>
+      )>
+      <TaskGroup #P3 { name = "数据层重写到 xnl-vfs（R1/D1）" status = "DONE" order = 2 } (
+        <Description ?01M1W1C2D07GCHEE18FDZXYGFN>
+        删 bespoke vfsStore/db（未移植）；新 store/{xnlVfsStore,mapping}（VirtualFileSystem+IndexedDbVfsPersistence，一 tree 一实例+workspaceId）；CRUD 全调 xnl-vfs；VfsNode↔DataElementNode 映射。注：vfs 文件树编辑器无图节点布局（D1 的"布局→extend"针对 workbench 流程图编辑器）；本编辑器 ext-state=sourceType/content 经默认/attributes，会话 UI(选中/展开)留组件内存。
+        </?01M1W1C2D07GCHEE18FDZXYGFN>
+        <Gate [
+          <Criterion ?01M1W1C2D07GCHEE18FDZXYGFP>
+          无 bespoke db；CRUD 全过 xnl-vfs；idb 仅作 vfs 后端；不反写 XNL content
+          </?01M1W1C2D07GCHEE18FDZXYGFP>
+        ]>
+        <SubNodes [
+          <Task { id = "T3.1" name = "xnlVfsStore 薄绑定 + mapping（替 bespoke db）" status = "DONE" order = 0 priority = "P0" } (
+            <Acceptance [
+              <Criterion { id = "T3.1-AC1" checked = true } ?01M1W1C2D07GCHEE18FDZXYGFQ>
+              CRUD/树视图全经 xnl-vfs（mkdir/writeFile/rename/unlink/rmdir）；无 bespoke vfsStore/db（未移植）；idb 仅 IndexedDbVfsPersistence 后端；lint0/build 绿
+              </?01M1W1C2D07GCHEE18FDZXYGFQ>
+            ]>
+          )>
+          <Task { id = "T3.2" name = "ext-state 归位（D1，文件树版）" status = "DONE" order = 1 priority = "P0" } (
+            <Acceptance [
+              <Criterion { id = "T3.2-AC1" checked = true } ?01M1W1C2D07GCHEE18FDZXYGFR>
+              静态文件 content 入 attributes.content（非 XNL 业务反写）；app 元数据键稳定 metadata.id；会话 UI 留组件内存；映射读默认 sourceType=static
+              </?01M1W1C2D07GCHEE18FDZXYGFR>
+            ]>
+          )>
+        ]>
+      )>
+      <TaskGroup #P4 { name = "历史层 xnl-vcs（R2/D2）" status = "DONE" order = 3 } (
+        <Description ?01M1W1C2D07GCHEE18FDZXYGFS>
+        createXnlVcsHistory：Repository(IndexedDbRepositoryBackend，共享同一 vfs)+init/reopen-by-head-state；apply 每编辑（store）/ 去抖 saveFromVfs autosave（工作树）/ 显式 save()=repo.commit；history=log、checkout 重建+刷新。
+        </?01M1W1C2D07GCHEE18FDZXYGFS>
+        <Gate [
+          <Criterion ?01M1W1C2D07GCHEE18FDZXYGFT>
+          显式保存产 commit；编辑去抖 autosave 不入历史；log/checkout 可用
+          </?01M1W1C2D07GCHEE18FDZXYGFT>
+        ]>
+        <SubNodes [
+          <Task { id = "T4.1" name = "xnlVcsHistory + save=commit + autosave + checkout" status = "DONE" order = 0 priority = "P0" } (
+            <Acceptance [
+              <Criterion { id = "T4.1-AC1" checked = true } ?01M1W1C2D07GCHEE18FDZXYGFV>
+              显式 save()→repo.commit；autosave 经 IndexedDbVfsPersistence.saveFromVfs（工作树）；log/checkout 实现；reopen 经 backend.readHead 恢复；lint0/build 绿
+              </?01M1W1C2D07GCHEE18FDZXYGFV>
+            ]>
+          )>
+        ]>
+      )>
+      <TaskGroup #P5 { name = "demo 应用 demo/vfs-editor" status = "DONE" order = 4 } (
+        <Description ?01M1W1C2D07GCHEE18FDZXYGFW>
+        建 demo/vfs-editor（package.json 依赖 xnl-vfs-editor + 实体 peerDeps、vite + index.html）；编辑器为主——移植 App/main/router/views(TreeList/TreeEditor)；不移 LLMConfig/PromptSelector/prompt-service；demo 构造 vfs/vcs 实例并装配组件。
+        </?01M1W1C2D07GCHEE18FDZXYGFW>
+        <Gate [
+          <Criterion ?01M1W1C2D07GCHEE18FDZXYGFX>
+          demo 消费 xnl-vfs-editor、vite 可构建可起、端到端可用
+          </?01M1W1C2D07GCHEE18FDZXYGFX>
+        ]>
+        <SubNodes [
+          <Task { id = "T5.1" name = "build demo app on the component" status = "DONE" order = 0 priority = "P0" } (
+            <Description ?01M1W1C2D07GCHEE18FDZXYGFY>
+            demo/vfs-editor：vite+vue-router+element-plus；App/router/views(TreeList/TreeEditor)+共享 store 单例；消费 xnl-vfs-editor 的 VfsEditor + useXnlVfsStore；request-* → ElMessageBox 提示 + textarea 内容面板 + 保存(commit) + 历史抽屉(checkout)。node:crypto 经 vite-plugin-node-polyfills 兜（不改库）。
+            </?01M1W1C2D07GCHEE18FDZXYGFY>
+            <Acceptance [
+              <Criterion { id = "T5.1-AC1" checked = true } ?01M1W1C2D07GCHEE18FDZXYGFZ>
+              demo vite build 通过(1944 模块)+preview 服务 200；渲染 VfsEditor、接 create/edit/save(commit)/checkout/export 接线齐（交互 E2E 非 headless 跑，证据=build+serve+单测+逻辑）
+              </?01M1W1C2D07GCHEE18FDZXYGFZ>
+            ]>
+          )>
+        ]>
+      )>
+      <TaskGroup #P6 { name = "验证" status = "DONE" order = 5 } (
+        <Gate [
+          <Criterion ?01M1W1C2D07GCHEE18FDZXYGG0>
+          包 vite build + vue-tsc 0 错 + 移植测试零回归；demo vite build 通过、dev 可起；DEPA 自检通过
+          </?01M1W1C2D07GCHEE18FDZXYGG0>
+        ]>
+        <SubNodes [
+          <Task { id = "T6.1" name = "构建/类型/测试/demo 验证 + DEPA 自检" status = "DONE" order = 0 priority = "P0" } (
+            <Acceptance [
+              <Criterion { id = "T6.1-AC1" checked = true } ?01M1W1C2D07GCHEE18FDZXYGG1>
+              xnl-vfs-editor vite lib build 出 dist(.js/.cjs/.css/.d.ts) + vue-tsc --noEmit 0 错
+              </?01M1W1C2D07GCHEE18FDZXYGG1>
+              <Criterion { id = "T6.1-AC2" checked = true } ?01M1W1C2D07GCHEE18FDZXYGG2>
+              移植 useZipExport.spec 1 文件 2 用例全过（vitest+jsdom）
+              </?01M1W1C2D07GCHEE18FDZXYGG2>
+              <Criterion { id = "T6.1-AC3" checked = true } ?01M1W1C2D07GCHEE18FDZXYGG3>
+              demo vite build 通过(1944 模块) + preview 服务 200（交互 E2E 非 headless，详见 T5.1）
+              </?01M1W1C2D07GCHEE18FDZXYGG3>
+              <Criterion { id = "T6.1-AC4" checked = true } ?01M1W1C2D07GCHEE18FDZXYGG4>
+              DEPA 自检：grep 0 enterprise、无 bespoke db 代码(仅注释/store 名)、CRUD 单写经 xnl-vfs mutation、未用 peerDeps externalize；去掉未用 peerDep(pinia/monaco)
+              </?01M1W1C2D07GCHEE18FDZXYGG4>
+            ]>
+          )>
+        ]>
+        <Hooks [
+          <Hook { on = "phase:after" } (
+            <GapLoop { max_rounds = 5 on_exhausted = "block" }>
+          )>
+        ]>
+      )>
+    ]>
+  )>
+  <Schedule>
+)>

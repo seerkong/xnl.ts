@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plan>
   <metadata>
+    <ApiVersion>codument.tech/v1alpha1</ApiVersion>
     <track_id>update-text-closer-syntax</track_id>
     <track_name>Use slash-prefixed text closers `&lt;/#...&gt;`</track_name>
     <goal>Convert archived OpenSpec change update-text-closer-syntax into Codument archive format.</goal>

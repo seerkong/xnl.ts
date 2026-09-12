@@ -1,0 +1,91 @@
+<Track #extend-xnl-core-dsl-syntax version="1" apiVersion="codument.tech/v1alpha1" { status = "completed" goal = "Support dotted FQN tag names (`&lt;dg.materials.CrudTable&gt;`) in xnl-core parser with roundtrip fidelity and zero regression on path/mutation/loader tooling." description = "Downstream dg-cell-mvi lowcode v3 unit DSL uses definition FQNs as element-tree tags. Only gap found by capability verification: parseNode tag reading rejects '.'. Additive grammar change; tag stays a joined string." type = "feature" commit_mode = "manual" created_at = "2026-07-02T19:12:00Z" updated_at = "2026-07-02T19:20:00Z" } (
+  <Ports { scope = "track" } [
+    <MaterialBundle { role = "input" name = "behavior-deltas" domain = "behavior" path = "vfs://./behavior_deltas/" }>
+    <MaterialBundle { role = "output" name = "behavior" domain = "codument" path = "vfs://@/codument/behaviors/" }>
+    <MaterialBundle { role = "output" name = "core" domain = "code" path = "vfs://@/packages/core/src/" }>
+  ]>
+  <TaskSpace #space_extend-xnl-core-dsl-syntax { name = "extend-xnl-core-dsl-syntax" } (
+    <Description ?01M1W1C2D3DFAX7BD1RT9T4AM5>
+    Phases: grammar/behavior delta, parser implementation, regression tests.
+    </?01M1W1C2D3DFAX7BD1RT9T4AM5>
+    <SubNodes [
+      <TaskGroup #P1 { name = "Grammar and behavior delta" status = "DONE" order = 0 } (
+        <Description ?01M1W1C2D3DFAX7BD1RT9T4AM6>
+        Author xnl-dotted-tag behavior delta; freeze segment grammar and error boundaries.
+        </?01M1W1C2D3DFAX7BD1RT9T4AM6>
+        <SubNodes [
+          <Task { id = "T1.1" name = "Author xnl-dotted-tag behavior delta" status = "DONE" order = 0 priority = "P0" } (
+            <Description ?01M1W1C2D3DFAX7BD1RT9T4AM7>
+            behavior_deltas/xnl-dotted-tag: dotted-tag-grammar, tag-string-compat, roundtrip-fidelity, tooling-regression.
+            </?01M1W1C2D3DFAX7BD1RT9T4AM7>
+            <Acceptance [
+              <Criterion { id = "T1.1-AC1" checked = true } ?01M1W1C2D3DFAX7BD1RT9T4AM8>
+              behavior://xnl-dotted-tag requirements authored
+              </?01M1W1C2D3DFAX7BD1RT9T4AM8>
+            ]>
+          )>
+        ]>
+      )>
+      <TaskGroup #P2 { name = "Parser implementation" status = "DONE" order = 1 } (
+        <Description ?01M1W1C2D3DFAX7BD1RT9T4AM9>
+        Extend parseNode tag reading to dotted segments; tag remains joined string; invalid dot forms raise parse errors.
+        </?01M1W1C2D3DFAX7BD1RT9T4AM9>
+        <SubNodes [
+          <Task { id = "T2.1" name = "Implement dotted tag reading in parseNode" status = "DONE" order = 0 priority = "P0" } (
+            <Description ?01M1W1C2D3DFAX7BD1RT9T4AMA>
+            packages/core/src/parser.ts: read tag as seg(.seg)*, each segment via existing identifier grammar; join with '.'; error on empty/leading/trailing segment.
+            </?01M1W1C2D3DFAX7BD1RT9T4AMA>
+            <Acceptance [
+              <Criterion { id = "T2.1-AC1" checked = true } ?01M1W1C2D3DFAX7BD1RT9T4AMB>
+              Dotted tags parse; invalid dot forms raise UNEXPECTED_TOKEN-class errors
+              </?01M1W1C2D3DFAX7BD1RT9T4AMB>
+            ]>
+          )>
+          <Task { id = "T2.2" name = "Verify formatter roundtrip (expected zero change)" status = "DONE" order = 1 priority = "P0" } (
+            <Description ?01M1W1C2D3DFAX7BD1RT9T4AMC>
+            Confirm formatter/lineBlockFormatter print dotted tags verbatim; parse-&gt;stringify-&gt;parse stable.
+            </?01M1W1C2D3DFAX7BD1RT9T4AMC>
+            <Acceptance [
+              <Criterion { id = "T2.2-AC1" checked = true } ?01M1W1C2D3DFAX7BD1RT9T4AMD>
+              Roundtrip stable for dotted-tag documents in both formatters
+              </?01M1W1C2D3DFAX7BD1RT9T4AMD>
+            ]>
+          )>
+        ]>
+      )>
+      <TaskGroup #P3 { name = "Tests and regression" status = "DONE" order = 2 } (
+        <Description ?01M1W1C2D3DFAX7BD1RT9T4AME>
+        Dotted-tag test suite + full-suite regression + typecheck.
+        </?01M1W1C2D3DFAX7BD1RT9T4AME>
+        <SubNodes [
+          <Task { id = "T3.1" name = "Add dotted-tag tests" status = "DONE" order = 0 priority = "P0" } (
+            <Description ?01M1W1C2D3DFAX7BD1RT9T4AMF>
+            Grammar cases (valid/invalid), full section combination (#id+metadata+{}+()+[]), roundtrip both formatters, mutation diff/apply on dotted-tag node, path resolve/set through dotted-tag node.
+            </?01M1W1C2D3DFAX7BD1RT9T4AMF>
+            <Acceptance [
+              <Criterion { id = "T3.1-AC1" checked = true } ?01M1W1C2D3DFAX7BD1RT9T4AMG>
+              All delta suites covered by tests
+              </?01M1W1C2D3DFAX7BD1RT9T4AMG>
+            ]>
+          )>
+          <Task { id = "T3.2" name = "Run package tests and typecheck" status = "DONE" order = 1 priority = "P0" } (
+            <Description ?01M1W1C2D3DFAX7BD1RT9T4AMH>
+            xnl-core full test suite green; tsc --noEmit clean; existing tests unchanged.
+            </?01M1W1C2D3DFAX7BD1RT9T4AMH>
+            <Acceptance [
+              <Criterion { id = "T3.2-AC1" checked = true } ?01M1W1C2D3DFAX7BD1RT9T4AMJ>
+              Full suite passes; no existing test modified to accommodate the change
+              </?01M1W1C2D3DFAX7BD1RT9T4AMJ>
+            ]>
+          )>
+        ]>
+        <Hooks [
+          <Hook { on = "phase:after" } (
+            <GapLoop { max_rounds = 5 on_exhausted = "block" }>
+          )>
+        ]>
+      )>
+    ]>
+  )>
+  <Schedule>
+)>

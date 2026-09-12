@@ -35,6 +35,20 @@ function refIdFromHash(hash: string): string {
   return `c_${hash.slice(0, 12)}`;
 }
 
+function collisionFreeTextMarker(payload: string): string {
+  if (!payload.includes("</?>")) {
+    return "";
+  }
+
+  let marker = "VFS";
+  let suffix = 0;
+  while (payload.includes(`</?${marker}>`)) {
+    suffix += 1;
+    marker = `VFS${suffix}`;
+  }
+  return marker;
+}
+
 function asVfsFileType(value: unknown): VfsFileType {
   return value === "xnl" || value === "binary" || value === "text" ? value : "text";
 }
@@ -154,7 +168,7 @@ function buildContentsNode(contents: Map<string, ContentRecord>): DataElementNod
         hash: `sha256:${entry.hash}`,
       },
       text: entry.payload,
-      textMarker: "",
+      textMarker: collisionFreeTextMarker(entry.payload),
     }));
 
   return {

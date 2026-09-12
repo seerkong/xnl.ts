@@ -1,6 +1,6 @@
 {
   "name": "xnl-vcs",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -36,9 +36,9 @@
     "registry": "https://registry.npmjs.com"
   },
   "dependencies": {
-    "xnl-core": "workspace:^",
-    "xnl-collab-core": "workspace:*",
-    "xnl-vfs": "workspace:^"
+    "xnl-core": "0.1.13",
+    "xnl-collab-core": "0.1.3",
+    "xnl-vfs": "0.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

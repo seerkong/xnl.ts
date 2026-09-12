@@ -1,3 +1,4 @@
+import { isLiteralObject } from "./value-context";
 import {
   AttributeMap,
   CommentNode,
@@ -34,7 +35,7 @@ export function stringify(value: XnlDocument | XnlNode, options: StringifyOption
 }
 
 function isDocument(value: any): value is XnlDocument {
-  return value && Array.isArray((value as XnlDocument).nodes);
+  return value && !isLiteralObject(value) && Array.isArray((value as XnlDocument).nodes);
 }
 
 function serializeNode(node: XnlNode, state: StringifyState): string {
@@ -157,19 +158,24 @@ function serializeArrayLiteral(arr: XnlNode[], state: StringifyState): string {
 }
 
 function isComment(node: XnlNode): node is CommentNode {
-  return typeof node === "object" && node !== null && (node as CommentNode).kind === "Comment";
+  return typeof node === "object" && node !== null && !isLiteralObject(node) && (node as CommentNode).kind === "Comment";
 }
 
 function isElement(node: XnlNode): node is ElementNode {
   return (
     typeof node === "object" &&
     node !== null &&
+    !isLiteralObject(node) &&
+    typeof (node as DataElementNode).tag === "string" &&
+    (node as DataElementNode).metadata !== null &&
+    typeof (node as DataElementNode).metadata === "object" &&
+    !Array.isArray((node as DataElementNode).metadata) &&
     ((node as DataElementNode).kind === "DataElement" || (node as TextElementNode).kind === "TextElement")
   );
 }
 
 function isPlainObject(value: any): value is Record<string, XnlNode> {
-  return typeof value === "object" && value !== null && !Array.isArray(value) && (value as any).kind === undefined;
+  return typeof value === "object" && value !== null && !Array.isArray(value) && !isElement(value) && !isWord(value) && !isComment(value);
 }
 
 function serializeKey(key: string): string {

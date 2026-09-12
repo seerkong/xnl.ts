@@ -1,0 +1,160 @@
+<BehaviorPatch #track.add-vfs-import-resolver.behavior_patch.xnl-import apiVersion="codument.tech/v1alpha1" version="1" { capability = "xnl-import" } (
+  <Mutations [
+    <Upsert { selector = "behavior://xnl-import/requirements/import-directive" } (
+      <Requirement #import-directive (
+        <Statement ?01M1W1C2C9JTNXBHG3WPGNKAST>
+        The system SHALL parse a document-head `&lt;Imports&gt;` container with `&lt;Import as="X" src="vfs://..."&gt;` directives, where `as` is an alias namespace prefix and `src` is a vfs path to a file or directory.
+        </?01M1W1C2C9JTNXBHG3WPGNKAST>
+        <Suites [
+          <Suite #import-grammar { name = "Import directive grammar" } (
+            <Cases [
+              <Case #file-import (
+                <Given ?01M1W1C2C9JTNXBHG3WPGNKASV>
+                A document head contains `&lt;Import as="review" src="vfs://@/defs/types/review/"&gt;`.
+                </?01M1W1C2C9JTNXBHG3WPGNKASV>
+                <When ?01M1W1C2C9JTNXBHG3WPGNKASW>
+                The import resolver processes the document.
+                </?01M1W1C2C9JTNXBHG3WPGNKASW>
+                <Then ?01M1W1C2C9JTNXBHG3WPGNKASX>
+                The resolver SHALL load the referenced target and register its exported symbols under alias `review`.
+                </?01M1W1C2C9JTNXBHG3WPGNKASX>
+              )>
+              <Case #vfs-addressing (
+                <Given ?01M1W1C2C9JTNXBHG3WPGNKASY>
+                An `src` uses `vfs://@/`, `vfs://./`, or `vfs://../`.
+                </?01M1W1C2C9JTNXBHG3WPGNKASY>
+                <When ?01M1W1C2C9JTNXBHG3WPGNKASZ>
+                The resolver normalizes the path.
+                </?01M1W1C2C9JTNXBHG3WPGNKASZ>
+                <Then ?01M1W1C2C9JTNXBHG3WPGNKAT0>
+                `@/` SHALL resolve against the workspace root, `./` against the importing file's directory, and `../` against its parent.
+                </?01M1W1C2C9JTNXBHG3WPGNKAT0>
+              )>
+              <Case #dir-package (
+                <Given ?01M1W1C2C9JTNXBHG3WPGNKAT1>
+                An `src` points to a directory.
+                </?01M1W1C2C9JTNXBHG3WPGNKAT1>
+                <When ?01M1W1C2C9JTNXBHG3WPGNKAT2>
+                The resolver loads it.
+                </?01M1W1C2C9JTNXBHG3WPGNKAT2>
+                <Then ?01M1W1C2C9JTNXBHG3WPGNKAT3>
+                The resolver SHALL collect and parse the directory's `.xnl` files as a type package in stable (sorted) order.
+                </?01M1W1C2C9JTNXBHG3WPGNKAT3>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+    <Upsert { selector = "behavior://xnl-import/requirements/alias-namespace" } (
+      <Requirement #alias-namespace (
+        <Statement ?01M1W1C2C9JTNXBHG3WPGNKAT4>
+        The system SHALL resolve `alias:name` references in the importing document against per-alias symbol tables built from imported exports, reusing the existing loader export/batchLoad mechanism.
+        </?01M1W1C2C9JTNXBHG3WPGNKAT4>
+        <Suites [
+          <Suite #alias-resolution { name = "Alias namespace resolution" } (
+            <Cases [
+              <Case #resolve-reference (
+                <Given ?01M1W1C2C9JTNXBHG3WPGNKAT5>
+                An import `as="coding"` exposes an exported node named `coding-attractor`.
+                </?01M1W1C2C9JTNXBHG3WPGNKAT5>
+                <When ?01M1W1C2C9JTNXBHG3WPGNKAT6>
+                The document references `coding:coding-attractor`.
+                </?01M1W1C2C9JTNXBHG3WPGNKAT6>
+                <Then ?01M1W1C2C9JTNXBHG3WPGNKAT7>
+                The reference SHALL resolve to that exported node.
+                </?01M1W1C2C9JTNXBHG3WPGNKAT7>
+              )>
+              <Case #same-alias-merge (
+                <Given ?01M1W1C2C9JTNXBHG3WPGNKAT8>
+                Multiple `&lt;Import as="coding"&gt;` directives share alias `coding`.
+                </?01M1W1C2C9JTNXBHG3WPGNKAT8>
+                <When ?01M1W1C2C9JTNXBHG3WPGNKAT9>
+                The resolver builds the symbol table.
+                </?01M1W1C2C9JTNXBHG3WPGNKAT9>
+                <Then ?01M1W1C2C9JTNXBHG3WPGNKATA>
+                Their exported symbols SHALL merge into one `coding` namespace.
+                </?01M1W1C2C9JTNXBHG3WPGNKATA>
+              )>
+              <Case #duplicate-id-error (
+                <Given ?01M1W1C2C9JTNXBHG3WPGNKATB>
+                Two imports under the same alias export the same id from different sources.
+                </?01M1W1C2C9JTNXBHG3WPGNKATB>
+                <When ?01M1W1C2C9JTNXBHG3WPGNKATC>
+                The resolver merges them.
+                </?01M1W1C2C9JTNXBHG3WPGNKATC>
+                <Then ?01M1W1C2C9JTNXBHG3WPGNKATD>
+                The resolver SHALL raise a duplicate-import error and SHALL NOT silently overwrite.
+                </?01M1W1C2C9JTNXBHG3WPGNKATD>
+              )>
+              <Case #unresolved-reference (
+                <Given ?01M1W1C2C9JTNXBHG3WPGNKATE>
+                A document references `alias:name` with no matching exported symbol.
+                </?01M1W1C2C9JTNXBHG3WPGNKATE>
+                <When ?01M1W1C2C9JTNXBHG3WPGNKATF>
+                The resolver resolves references.
+                </?01M1W1C2C9JTNXBHG3WPGNKATF>
+                <Then ?01M1W1C2C9JTNXBHG3WPGNKATG>
+                The resolver SHALL raise an unresolved-import error.
+                </?01M1W1C2C9JTNXBHG3WPGNKATG>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+    <Upsert { selector = "behavior://xnl-import/requirements/resolver-dependency-inversion" } (
+      <Requirement #resolver-dependency-inversion (
+        <Statement ?01M1W1C2C9JTNXBHG3WPGNKATH>
+        The xnl-core import resolver SHALL accept a file/directory resolver interface rather than depending on xnl-vfs directly, so it runs without a filesystem.
+        </?01M1W1C2C9JTNXBHG3WPGNKATH>
+        <Suites [
+          <Suite #dependency-inversion { name = "Resolver dependency inversion" } (
+            <Cases [
+              <Case #injected-resolver (
+                <Given ?01M1W1C2C9JTNXBHG3WPGNKATJ>
+                A caller provides an `ImportResolver` with `readFile`, `readDir`, and `isDir`.
+                </?01M1W1C2C9JTNXBHG3WPGNKATJ>
+                <When ?01M1W1C2C9JTNXBHG3WPGNKATK>
+                `resolveImports(rootDoc, resolver, opts)` runs.
+                </?01M1W1C2C9JTNXBHG3WPGNKATK>
+                <Then ?01M1W1C2C9JTNXBHG3WPGNKATM>
+                The resolver SHALL read all import sources only through the injected interface.
+                </?01M1W1C2C9JTNXBHG3WPGNKATM>
+                <Ands [
+                  <And ?01M1W1C2C9JTNXBHG3WPGNKATN>
+                  xnl-core SHALL NOT import xnl-vfs as a hard dependency.
+                  </?01M1W1C2C9JTNXBHG3WPGNKATN>
+                ]>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+    <Upsert { selector = "behavior://xnl-import/requirements/zero-import-fallback" } (
+      <Requirement #zero-import-fallback (
+        <Statement ?01M1W1C2C9JTNXBHG3WPGNKATP>
+        The system SHALL leave documents without an `&lt;Imports&gt;` container unchanged, preserving existing proto/Prefabs/batchLoad behavior.
+        </?01M1W1C2C9JTNXBHG3WPGNKATP>
+        <Suites [
+          <Suite #zero-import { name = "Zero-import fallback" } (
+            <Cases [
+              <Case #no-imports (
+                <Given ?01M1W1C2C9JTNXBHG3WPGNKATQ>
+                A document has no `&lt;Imports&gt;` container.
+                </?01M1W1C2C9JTNXBHG3WPGNKATQ>
+                <When ?01M1W1C2C9JTNXBHG3WPGNKATR>
+                The resolver runs.
+                </?01M1W1C2C9JTNXBHG3WPGNKATR>
+                <Then ?01M1W1C2C9JTNXBHG3WPGNKATS>
+                The document SHALL be returned unchanged and existing loader behavior SHALL be preserved.
+                </?01M1W1C2C9JTNXBHG3WPGNKATS>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+  ]>
+)>

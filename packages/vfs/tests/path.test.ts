@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { VFS_CONTRACTS } from "../src/contracts";
 import { basenameVfsPath, dirnameVfsPath, joinVfsPath, normalizeVfsPath, relativeVfsPath, toSegments, VFS_ROOT } from "../src/path";
 
 describe("vfs path utilities", () => {
+  it("matches every declared normalization contract without a platform path runtime", () => {
+    for (const example of VFS_CONTRACTS.pathExamples) {
+      expect(normalizeVfsPath(example.input)).toBe(example.output);
+    }
+  });
+
   it("normalizes root with slash", () => {
     expect(normalizeVfsPath("vfs:///")).toBe("vfs:///");
   });

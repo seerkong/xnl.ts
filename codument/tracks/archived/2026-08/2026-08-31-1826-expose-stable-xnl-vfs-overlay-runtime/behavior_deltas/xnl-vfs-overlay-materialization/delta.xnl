@@ -1,0 +1,68 @@
+<BehaviorPatch #track.expose-stable-xnl-vfs-overlay-runtime.behavior_patch.xnl-vfs-overlay-materialization apiVersion="codument.tech/v1alpha1" version="1" { capability = "xnl-vfs-overlay-materialization" } (
+  <Mutations [
+    <Upsert { selector = "behavior://xnl-vfs-overlay-materialization/requirements/ordered-overlay-materialization" } (
+      <Requirement #ordered-overlay-materialization (
+        <Statement ?>xnl-vfs SHALL plan ordered sparse-directory and explicit-mutation overlays against one revisioned base, validate the complete candidate, and publish it through one compare-and-swap without exposing partial state.</?>
+        <Suites [
+          <Suite #directory-overlay { name = "Sparse directory overlay" } (
+            <Cases [
+              <Case #add-replace-no-opinion (
+                <Given ?>a stable base snapshot and a sparse directory snapshot with added and same-kind existing paths</?>
+                <When ?>the directory overlay is planned</?>
+                <Then ?>present paths SHALL add or replace, existing node identities SHALL remain stable, new node identities SHALL come from the overlay, and absent paths SHALL remain unchanged</?>
+              )>
+              <Case #absence-is-not-delete (
+                <Given ?>a prior materialization replaced a base file</?>
+                <When ?>a fresh plan is built from the same base without that replacement</?>
+                <Then ?>the candidate SHALL contain the base file; deletion SHALL require an explicit FILE_DELETE or FOLDER_DELETE mutation</?>
+              )>
+              <Case #kind-conflict-fails-closed (
+                <Given ?>a directory overlay file targets a base folder or a directory targets a base file</?>
+                <When ?>planning runs</?>
+                <Then ?>planning SHALL reject with overlay id/order/path diagnostics and SHALL NOT invoke a revisioned authority</?>
+              )>
+            ]>
+          )>
+          <Suite #explicit-and-ordered { name = "Explicit mutations and ordering" } (
+            <Cases [
+              <Case #ordered-mixed-overlays (
+                <Given ?>unique overlays with contiguous order combine directory opinions and explicit VFS mutations</?>
+                <When ?>they are planned</?>
+                <Then ?>xnl-vfs SHALL apply them in declared order on an isolated candidate and return deterministic final VFS and strict XNL mutation batches</?>
+              )>
+              <Case #mutation-diagnostic-location (
+                <Given ?>one explicit mutation fails identity, path or XNL valueBefore precondition</?>
+                <When ?>planning applies that mutation</?>
+                <Then ?>the result SHALL identify overlay id/order/index and mutation index, preserve the caller base, and omit a publishable plan</?>
+              )>
+              <Case #duplicate-or-gapped-order (
+                <Given ?>overlay ids repeat, kinds are malformed, or order is duplicated/non-contiguous</?>
+                <When ?>planning validates the sequence</?>
+                <Then ?>it SHALL reject before candidate mutation or authority invocation</?>
+              )>
+            ]>
+          )>
+          <Suite #revisioned-publication { name = "Revisioned publication" } (
+            <Cases [
+              <Case #all-or-nothing-cas (
+                <Given ?>a complete overlay plan and its exact current base revision</?>
+                <When ?>the revisioned materializer publishes</?>
+                <Then ?>it SHALL reuse the strict mutation coordinator and return applied or unchanged only for the complete candidate</?>
+              )>
+              <Case #conflict-rejection-failure-preserve-current (
+                <Given ?>strict dry-run rejects, CAS revision is stale, or persistence fails</?>
+                <When ?>materialization returns rejected, conflict or failed</?>
+                <Then ?>the authority SHALL retain the last admitted snapshot and revision without partial overlay visibility</?>
+              )>
+              <Case #browser-safe-subpath (
+                <Given ?>a consumer imports xnl-vfs/overlay-materialization</?>
+                <When ?>ESM/CJS artifacts are built and their reachable graph is scanned</?>
+                <Then ?>the subpath SHALL expose planner/materializer types and functions without Node-only builtins or Eidolon-specific dependencies</?>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+  ]>
+)>

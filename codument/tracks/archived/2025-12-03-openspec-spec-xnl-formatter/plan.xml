@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plan>
   <metadata>
+    <ApiVersion>codument.tech/v1alpha1</ApiVersion>
     <track_id>openspec-spec-xnl-formatter</track_id>
     <track_name>Archive OpenSpec xnl-formatter specification snapshot</track_name>
     <goal>Preserve the current OpenSpec xnl-formatter capability specification as an archived Codument track.</goal>

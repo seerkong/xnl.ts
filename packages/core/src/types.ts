@@ -1,3 +1,5 @@
+import { isLiteralObject } from "./value-context";
+
 export type ValueLiteral = string | boolean | null | number;
 
 export type AttributeMap = Record<string, XnlNode>;
@@ -46,7 +48,7 @@ export type ContainerNode = Array<XnlNode> | Object | ElementNode;
 export type XnlNode = ValueLiteral | XnlWord | ContainerNode | CommentNode;
 
 export function isWord(value: any): value is XnlWord {
-  return value !== null && typeof value === "object" && (value as any).kind === "Word";
+  return value !== null && typeof value === "object" && !isLiteralObject(value) && (value as any).kind === "Word";
 }
 
 export function wordToString(word?: XnlWord | null): string | undefined {

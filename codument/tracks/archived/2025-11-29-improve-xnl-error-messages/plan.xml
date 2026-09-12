@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plan>
   <metadata>
+    <ApiVersion>codument.tech/v1alpha1</ApiVersion>
     <track_id>improve-xnl-error-messages</track_id>
     <track_name>improve parser error messaging</track_name>
     <goal>Convert archived OpenSpec change improve-xnl-error-messages into Codument archive format.</goal>

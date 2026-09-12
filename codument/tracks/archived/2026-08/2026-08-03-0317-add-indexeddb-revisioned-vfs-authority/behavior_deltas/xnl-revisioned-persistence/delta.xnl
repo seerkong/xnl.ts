@@ -1,0 +1,61 @@
+<BehaviorPatch #track.r_2_0_2_6_-_0_8_-_0_3_-_0_3_1_7_-_a_d_d_-_i_n_d_e_x_e_d_d_b_-_r_e_v_i_s_i_o_n_e_d_-_v_f_s_-_a_u_t_h_o_r_i_t_y.behavior_patch.xnl-revisioned-persistence apiVersion="codument.tech/v1alpha1" version="1" { capability = "xnl-revisioned-persistence" } (
+  <Mutations [
+    <Upsert { selector = "behavior://xnl-revisioned-persistence/requirements/browser-persistent-authority" } (
+      <Requirement #browser-persistent-authority (
+        <Statement ?01M1W1C2DJPW5927QANX76WAD9>
+        An IndexedDB revisioned VFS authority SHALL durably retain one authority-qualified snapshot and live revision, and SHALL linearize freshness validation, semantic no-op detection, and accepted snapshot/revision replacement in one browser-storage transaction.
+        </?01M1W1C2DJPW5927QANX76WAD9>
+        <Suites [
+          <Suite #indexeddb-authority { name = "IndexedDB revisioned authority" } (
+            <Cases [
+              <Case #reopen-retains-fact (
+                <Given ?01M1W1C2DJPW5927QANX76WADA>
+                An authority has accepted and durably stored a snapshot revision.
+                </?01M1W1C2DJPW5927QANX76WADA>
+                <When ?01M1W1C2DJPW5927QANX76WADB>
+                A new authority instance opens the same database and authority identity.
+                </?01M1W1C2DJPW5927QANX76WADB>
+                <Then ?01M1W1C2DJPW5927QANX76WADC>
+                It SHALL restore the exact snapshot and revision and SHALL NOT overwrite them with its initial seed.
+                </?01M1W1C2DJPW5927QANX76WADC>
+              )>
+              <Case #independent-instance-cas (
+                <Given ?01M1W1C2DJPW5927QANX76WADD>
+                Two independently opened authority instances submit different candidates from the same current revision.
+                </?01M1W1C2DJPW5927QANX76WADD>
+                <When ?01M1W1C2DJPW5927QANX76WADE>
+                IndexedDB linearizes their readwrite transactions.
+                </?01M1W1C2DJPW5927QANX76WADE>
+                <Then ?01M1W1C2DJPW5927QANX76WADF>
+                Exactly one SHALL return applied with workspace durability, the other SHALL return conflict, and reopen SHALL expose the winning snapshot and revision.
+                </?01M1W1C2DJPW5927QANX76WADF>
+              )>
+              <Case #browser-failure-is-atomic (
+                <Given ?01M1W1C2DJPW5927QANX76WADG>
+                An IndexedDB transaction aborts or fails before durable completion.
+                </?01M1W1C2DJPW5927QANX76WADG>
+                <When ?01M1W1C2DJPW5927QANX76WADH>
+                The authority returns a failed result and is reopened.
+                </?01M1W1C2DJPW5927QANX76WADH>
+                <Then ?01M1W1C2DJPW5927QANX76WADJ>
+                The previous snapshot and revision SHALL remain authoritative and a retry from that revision MAY succeed.
+                </?01M1W1C2DJPW5927QANX76WADJ>
+              )>
+              <Case #browser-safe-public-surface (
+                <Given ?01M1W1C2DJPW5927QANX76WADK>
+                A browser consumer imports the explicit xnl-vfs/revisioned-persistence subpath.
+                </?01M1W1C2DJPW5927QANX76WADK>
+                <When ?01M1W1C2DJPW5927QANX76WADM>
+                It creates the IndexedDB authority through the public factory.
+                </?01M1W1C2DJPW5927QANX76WADM>
+                <Then ?01M1W1C2DJPW5927QANX76WADN>
+                The subpath's reachable implementation SHALL use no Node-only builtins and SHALL preserve the existing RevisionedVfsAuthority and VCS-separation contracts without making a new browser-safety claim for the package root.
+                </?01M1W1C2DJPW5927QANX76WADN>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+  ]>
+)>

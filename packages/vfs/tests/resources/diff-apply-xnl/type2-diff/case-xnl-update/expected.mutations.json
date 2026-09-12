@@ -8,6 +8,7 @@
         {
           "type": "OBJECT_UPDATE",
           "path": "::0:metadata::'version'",
+          "valueBefore": "1",
           "valueAfter": "2"
         }
       ],

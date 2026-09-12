@@ -1,0 +1,8 @@
+<component #domain.literal.serializer { kind = "component" } (
+ <desc ?d>显式 literal-data 模式保留任意 JSON 兼容键，避免 AST discriminator 推断；输入不是 durable authority。</?d>
+ <runtime (<types ?r>type Runtime = undefined;</?r>)>
+ <input (<types ?i>type XnlLiteral = null | boolean | number | string | XnlLiteral[] | {[key: string]: XnlLiteral};</?i>)>
+ <config (<types ?c>interface StringifyLiteralOptions { readonly sortKeys?: boolean; }</?c>)>
+ <output (<types ?o>type Output = string;</?o>)>
+ <pseudo { role = "rule" } ?p>递归输出原生对象/数组，引用 key 并转义 string；sortKeys 仅排序对象；拒绝非有限数、undefined、非 plain object 和循环。</?p>
+)>

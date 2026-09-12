@@ -1,0 +1,166 @@
+<BehaviorPatch #track.r_2_0_2_6_-_0_7_-_3_0_-_2_0_3_6_-_h_a_r_d_e_n_-_x_n_l_-_a_u_t_h_o_r_i_n_g_-_m_u_t_a_t_i_o_n_s.behavior_patch.xnl-mutation-transaction apiVersion="codument.tech/v1alpha1" version="1" { capability = "xnl-mutation-transaction" } (
+  <Mutations [
+    <Upsert { selector = "behavior://xnl-mutation-transaction/requirements/identity-key-semantics" } (
+      <Requirement #identity-key-semantics (
+        <Statement ?01M1W1C2D62N38X718YJEER4PS>
+        XNL mutation diff SHALL use element #id as the identity key for node alignment and move detection and MUST NOT emit ordinary field updates for #id.
+        </?01M1W1C2D62N38X718YJEER4PS>
+        <Suites [
+          <Suite #identity { name = "Identity semantics" } (
+            <Cases [
+              <Case #detect-move-by-id (
+                <Given ?01M1W1C2D62N38X718YJEER4PT>
+                Two trees contain the same uniquely identified element under different parents or indexes.
+                </?01M1W1C2D62N38X718YJEER4PT>
+                <When ?01M1W1C2D62N38X718YJEER4PV>
+                diffNodes compares the trees in identity mode.
+                </?01M1W1C2D62N38X718YJEER4PV>
+                <Then ?01M1W1C2D62N38X718YJEER4PW>
+                The mutation set SHALL identify the structural move by that #id rather than treating #id as changed payload.
+                </?01M1W1C2D62N38X718YJEER4PW>
+              )>
+              <Case #reject-duplicate-id (
+                <Given ?01M1W1C2D62N38X718YJEER4PX>
+                A base or candidate tree contains the same effective identity more than once.
+                </?01M1W1C2D62N38X718YJEER4PX>
+                <When ?01M1W1C2D62N38X718YJEER4PY>
+                The strict mutation batch API validates the tree.
+                </?01M1W1C2D62N38X718YJEER4PY>
+                <Then ?01M1W1C2D62N38X718YJEER4PZ>
+                The batch SHALL be rejected with a structured duplicate-identity diagnostic before acceptance.
+                </?01M1W1C2D62N38X718YJEER4PZ>
+              )>
+              <Case #configurable-missing-id (
+                <Given ?01M1W1C2D62N38X718YJEER4Q0>
+                An element has no effective identity.
+                </?01M1W1C2D62N38X718YJEER4Q0>
+                <When ?01M1W1C2D62N38X718YJEER4Q1>
+                The batch runs with allow-missing or require-elements identity policy.
+                </?01M1W1C2D62N38X718YJEER4Q1>
+                <Then ?01M1W1C2D62N38X718YJEER4Q2>
+                Allow-missing SHALL accept the absence while require-elements SHALL reject it with a structured diagnostic.
+                </?01M1W1C2D62N38X718YJEER4Q2>
+              )>
+              <Case #reject-direct-id-mutation (
+                <Given ?01M1W1C2D62N38X718YJEER4Q3>
+                A caller submits an add, update, or delete mutation whose target is an element #id field.
+                </?01M1W1C2D62N38X718YJEER4Q3>
+                <When ?01M1W1C2D62N38X718YJEER4Q4>
+                The strict mutation batch API validates the mutation before apply.
+                </?01M1W1C2D62N38X718YJEER4Q4>
+                <Then ?01M1W1C2D62N38X718YJEER4Q5>
+                The batch SHALL reject it with IDENTITY_MUTATION_FORBIDDEN, SHALL leave the base unchanged, and identity replacement SHALL only be representable as old-node delete plus new-node add.
+                </?01M1W1C2D62N38X718YJEER4Q5>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+    <Upsert { selector = "behavior://xnl-mutation-transaction/requirements/atomic-dry-run" } (
+      <Requirement #atomic-dry-run (
+        <Statement ?01M1W1C2D62N38X718YJEER4Q6>
+        xnl-core SHALL provide an explicit mutation batch dry-run that never modifies its base input and exposes only a fully applied result or a structured rejection.
+        </?01M1W1C2D62N38X718YJEER4Q6>
+        <Suites [
+          <Suite #batch { name = "Atomic mutation batch" } (
+            <Cases [
+              <Case #successful-preview (
+                <Given ?01M1W1C2D62N38X718YJEER4Q7>
+                A valid base tree and ordered mutation batch.
+                </?01M1W1C2D62N38X718YJEER4Q7>
+                <When ?01M1W1C2D62N38X718YJEER4Q8>
+                The caller dry-runs the batch.
+                </?01M1W1C2D62N38X718YJEER4Q8>
+                <Then ?01M1W1C2D62N38X718YJEER4Q9>
+                The result SHALL contain the fully updated clone and the original base SHALL remain deeply equal to its pre-call value.
+                </?01M1W1C2D62N38X718YJEER4Q9>
+              )>
+              <Case #failed-preview (
+                <Given ?01M1W1C2D62N38X718YJEER4QA>
+                A batch whose later mutation cannot be applied.
+                </?01M1W1C2D62N38X718YJEER4QA>
+                <When ?01M1W1C2D62N38X718YJEER4QB>
+                The caller dry-runs the batch.
+                </?01M1W1C2D62N38X718YJEER4QB>
+                <Then ?01M1W1C2D62N38X718YJEER4QC>
+                The result SHALL be rejected, SHALL expose no partially applied authority, and SHALL leave the original base unchanged.
+                </?01M1W1C2D62N38X718YJEER4QC>
+              )>
+              <Case #stale-precondition (
+                <Given ?01M1W1C2D62N38X718YJEER4QD>
+                A delete, update, or move mutation has valueBefore that differs from the observable target.
+                </?01M1W1C2D62N38X718YJEER4QD>
+                <When ?01M1W1C2D62N38X718YJEER4QE>
+                Precondition verification is enabled.
+                </?01M1W1C2D62N38X718YJEER4QE>
+                <Then ?01M1W1C2D62N38X718YJEER4QF>
+                The batch SHALL be rejected with PRECONDITION_FAILED before that mutation is applied.
+                </?01M1W1C2D62N38X718YJEER4QF>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+    <Upsert { selector = "behavior://xnl-mutation-transaction/requirements/diff-apply-parity" } (
+      <Requirement #diff-apply-parity (
+        <Statement ?01M1W1C2D62N38X718YJEER4QG>
+        For supported XNL tree changes, applying the ordered diff to a clone of the base SHALL produce an AST equal to the target.
+        </?01M1W1C2D62N38X718YJEER4QG>
+        <Suites [
+          <Suite #parity { name = "Diff/apply parity" } (
+            <Cases [
+              <Case #same-level-and-cross-level-move (
+                <Given ?01M1W1C2D62N38X718YJEER4QH>
+                Targets containing same-level reorder, cross-level move, and a three-node rotation.
+                </?01M1W1C2D62N38X718YJEER4QH>
+                <When ?01M1W1C2D62N38X718YJEER4QJ>
+                diffNodes creates mutations and the strict batch API applies them.
+                </?01M1W1C2D62N38X718YJEER4QJ>
+                <Then ?01M1W1C2D62N38X718YJEER4QK>
+                Every applied result SHALL equal the complete target AST, including order and parentage.
+                </?01M1W1C2D62N38X718YJEER4QK>
+              )>
+              <Case #mixed-structural-change (
+                <Given ?01M1W1C2D62N38X718YJEER4QM>
+                A target combines move, add, delete, attribute update, text update, and tag update.
+                </?01M1W1C2D62N38X718YJEER4QM>
+                <When ?01M1W1C2D62N38X718YJEER4QN>
+                The diff is dry-run against the base.
+                </?01M1W1C2D62N38X718YJEER4QN>
+                <Then ?01M1W1C2D62N38X718YJEER4QP>
+                The applied result SHALL equal the target without modifying #id as ordinary payload.
+                </?01M1W1C2D62N38X718YJEER4QP>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+    <Upsert { selector = "behavior://xnl-mutation-transaction/requirements/backward-compatible-primitives" } (
+      <Requirement #backward-compatible-primitives (
+        <Statement ?01M1W1C2D62N38X718YJEER4QQ>
+        The existing diffNodes and mutable applyMutations APIs SHALL remain source-compatible while the strict transaction behavior, including rejection of direct #id field mutation, is introduced through explicit new exports.
+        </?01M1W1C2D62N38X718YJEER4QQ>
+        <Suites [
+          <Suite #compatibility { name = "Compatibility" } (
+            <Cases [
+              <Case #existing-suite (
+                <Given ?01M1W1C2D62N38X718YJEER4QR>
+                Existing parser, path, loader, formatter and mutation consumers.
+                </?01M1W1C2D62N38X718YJEER4QR>
+                <When ?01M1W1C2D62N38X718YJEER4QS>
+                xnl-core builds and its complete test suite runs.
+                </?01M1W1C2D62N38X718YJEER4QS>
+                <Then ?01M1W1C2D62N38X718YJEER4QT>
+                Existing supported behavior SHALL remain green and no consumer SHALL be forced into strict identity policy.
+                </?01M1W1C2D62N38X718YJEER4QT>
+              )>
+            ]>
+          )>
+        ]>
+      )>
+    )>
+  ]>
+)>

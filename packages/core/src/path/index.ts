@@ -1,3 +1,4 @@
+import { isLiteralObject } from "../value-context";
 import {
   AttributeMap,
   DataElementNode,
@@ -10,6 +11,14 @@ import {
   wordToString,
   XnlWord,
 } from "../types";
+
+function ownValue(value: any, key: string): any {
+  return value != null && Object.prototype.hasOwnProperty.call(value, key) ? value[key] : undefined;
+}
+
+function setOwn(value: any, key: string, entry: any): void {
+  Object.defineProperty(value, key, { value: entry, enumerable: true, configurable: true, writable: true });
+}
 
 export type PathItemType = "UniqueName" | "MetadataSelector" | "InstanceProperty" | "MapKey" | "ListIndex";
 
@@ -58,11 +67,16 @@ export function parsePath(input: string): XnlPath {
       i += 2;
       if (input[i] === "'") {
         i += 1;
-        const end = input.indexOf("'", i);
-        if (end === -1) throw new XnlPathError("Unterminated map key literal");
-        const key = input.slice(i, end);
+        let key = "";
+        let closed = false;
+        while (i < input.length) {
+          const ch = input[i++];
+          if (ch === "'") { closed = true; break; }
+          if (ch === "\\" && (input[i] === "\\" || input[i] === "'")) key += input[i++];
+          else key += ch;
+        }
+        if (!closed) throw new XnlPathError("Unterminated map key literal");
         items.push({ type: "MapKey", value: key });
-        i = end + 1;
       } else {
         const digits = readWhile(input, i, (ch) => /[0-9]/.test(ch));
         if (!digits) throw new XnlPathError("ListIndex must be numeric");
@@ -133,11 +147,11 @@ export function resolvePath(target: XnlDocument | XnlNode, path: string | XnlPat
 
     if (item.type === "InstanceProperty") {
       if (current && isDataElement(current)) {
-        current = (current as any)[item.value];
+        current = ownValue(current, item.value);
       } else if (current && isTextElement(current)) {
-        current = (current as any)[item.value];
+        current = ownValue(current, item.value);
       } else if (isPlainObject(current) || isDocument(current)) {
-        current = (current as any)[item.value];
+        current = ownValue(current, item.value);
       } else {
         if (strict) throw new XnlPathError(`InstanceProperty '${item.value}' not allowed on current node`);
         return undefined;
@@ -158,10 +172,10 @@ export function resolvePath(target: XnlDocument | XnlNode, path: string | XnlPat
         if (strict) throw new XnlPathError("MapKey requires a map/object target");
         return undefined;
       }
-      if (!(item.value in (current as any)) && strict) {
+      if (!(Object.prototype.hasOwnProperty.call(current, item.value)) && strict) {
         throw new XnlPathError(`Key '${item.value}' not found`);
       }
-      current = (current as any)[item.value];
+      current = ownValue(current, item.value);
       continue;
     }
     if (item.type === "ListIndex") {
@@ -204,7 +218,7 @@ export function setPathValue(
 
   switch (last.type) {
     case "InstanceProperty":
-      (parent as any)[last.value] = value;
+      setOwn(parent, last.value, value);
       return target;
     case "MapKey":
       if (isExtendBody(parent)) {
@@ -215,7 +229,7 @@ export function setPathValue(
         return target;
       }
       ensureMap(parent, strict);
-      (parent as any)[last.value] = value;
+      setOwn(parent, last.value, value);
       return target;
     case "ListIndex": {
       const idx = Number(last.value);
@@ -262,7 +276,7 @@ export function deleteAtPath(target: XnlDocument | XnlNode, path: string | XnlPa
   switch (last.type) {
     case "InstanceProperty":
       if (isPlainObject(parent) || isDataElement(parent) || isTextElement(parent) || isDocument(parent)) {
-        if (!(last.value in (parent as any)) && strict) {
+        if (!(Object.prototype.hasOwnProperty.call(parent, last.value)) && strict) {
           throw new XnlPathError(`InstanceProperty '${last.value}' not found`);
         }
         delete (parent as any)[last.value];
@@ -341,23 +355,23 @@ function getParentAndLast(
     }
     if (item.type === "InstanceProperty") {
       if (current && isDataElement(current)) {
-        if ((current as any)[item.value] === undefined && createMissing) {
+        if (ownValue(current, item.value) === undefined && createMissing) {
           if (item.value === "metadata" || item.value === "attributes") {
-            (current as any)[item.value] = {};
+            setOwn(current, item.value, {});
           } else if (item.value === "body") {
-            (current as any)[item.value] = [];
+            setOwn(current, item.value, []);
           } else if (item.value === "extend") {
-            (current as any)[item.value] = { order: [], children: {} } as ExtendBody;
+            setOwn(current, item.value, { order: [], children: {} } as ExtendBody);
           }
         }
-        current = (current as any)[item.value];
+        current = ownValue(current, item.value);
       } else if (current && isTextElement(current)) {
-        current = (current as any)[item.value];
+        current = ownValue(current, item.value);
       } else if (isPlainObject(current) || isDocument(current)) {
-        if ((current as any)[item.value] === undefined && createMissing && isPlainObject(current)) {
-          (current as any)[item.value] = {};
+        if (ownValue(current, item.value) === undefined && createMissing && isPlainObject(current)) {
+          setOwn(current, item.value, {});
         }
-        current = (current as any)[item.value];
+        current = ownValue(current, item.value);
       } else {
         throw new XnlPathError(`InstanceProperty '${item.value}' not allowed on current node`);
       }
@@ -382,10 +396,10 @@ function getParentAndLast(
         continue;
       }
       ensureMap(current, strict);
-      if (!(item.value in (current as any)) && createMissing) {
-        (current as any)[item.value] = {};
+      if (!(Object.prototype.hasOwnProperty.call(current, item.value)) && createMissing) {
+        setOwn(current, item.value, {});
       }
-      current = (current as any)[item.value];
+      current = ownValue(current, item.value);
       if (current === undefined && strict && !createMissing) {
         throw new XnlPathError(`Key '${item.value}' not found`);
       }
@@ -628,23 +642,23 @@ function findInNode(node: XnlNode, id: string): ElementNode | undefined {
 }
 
 function isElementNode(node: any): node is ElementNode {
-  return node && (node.kind === "DataElement" || node.kind === "TextElement");
+  return isDataElement(node) || isTextElement(node);
 }
 
 function isDataElement(node: any): node is DataElementNode {
-  return node && node.kind === "DataElement";
+  return node && !isLiteralObject(node) && node.kind === "DataElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 
 function isTextElement(node: any): node is TextElementNode {
-  return node && node.kind === "TextElement";
+  return node && !isLiteralObject(node) && node.kind === "TextElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 
 function isExtendBody(value: any): value is ExtendBody {
-  return value && typeof value === "object" && Array.isArray(value.order) && value.children;
+  return value && !isLiteralObject(value) && typeof value === "object" && Array.isArray(value.order) && value.children;
 }
 
 function isDocument(value: any): value is XnlDocument {
-  return value && typeof value === "object" && Array.isArray((value as any).nodes);
+  return value && !isLiteralObject(value) && typeof value === "object" && Array.isArray((value as any).nodes);
 }
 
 function isPlainObject(value: any): value is Record<string, any> {

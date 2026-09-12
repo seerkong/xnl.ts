@@ -1,111 +1,139 @@
-<decision #reject-xnl-identity-replacement-bypass.update-skeleton {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>如何识别 whole-node/container update 中隐藏的 identity replacement？</?>
-  <answer { }
-  (
-    <raw-answer ?>比较每次 update 前后的 full-tree relative structural path -> effective identity skeleton。</?>
-    <decision-text ?>Strict update mutations SHALL preserve the complete full-tree identity skeleton。</?>
-    <rationale ?>target map 可能决定 ancestor 的 fallback identity；只比较 identity set 又无法发现 swap 或 hidden move，全树结构路径 skeleton 同时闭合这些绕过。</?>
-    <evidence ?>TREE_UPDATE #root:body::0 可在 require-elements 下把 #old 原地替换为 #new。</?>
-  )
-  >
+<decision #reject-xnl-identity-replacement-bypass.update-skeleton apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2DB6YY92GNRTSPF4PDR>
+  如何识别 whole-node/container update 中隐藏的 identity replacement？
+  </?01M1W1C2DB6YY92GNRTSPF4PDR>
+  <answer {  } (
+    <raw-answer ?01M1W1C2DB6YY92GNRTSPF4PDS>
+    比较每次 update 前后的 full-tree relative structural path -> effective identity skeleton。
+    </?01M1W1C2DB6YY92GNRTSPF4PDS>
+    <decision-text ?01M1W1C2DB6YY92GNRTSPF4PDT>
+    Strict update mutations SHALL preserve the complete full-tree identity skeleton。
+    </?01M1W1C2DB6YY92GNRTSPF4PDT>
+    <rationale ?01M1W1C2DB6YY92GNRTSPF4PDV>
+    target map 可能决定 ancestor 的 fallback identity；只比较 identity set 又无法发现 swap 或 hidden move，全树结构路径 skeleton 同时闭合这些绕过。
+    </?01M1W1C2DB6YY92GNRTSPF4PDV>
+    <evidence ?01M1W1C2DB6YY92GNRTSPF4PDW>
+    TREE_UPDATE #root:body::0 可在 require-elements 下把 #old 原地替换为 #new。
+    </?01M1W1C2DB6YY92GNRTSPF4PDW>
+  )>
 )>
 
-<decision #reject-xnl-identity-replacement-bypass.occupied-destination {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>strict add/move 如何处理已占用 assignment destination？</?>
-  <answer { }
-  (
-    <raw-answer ?>不得覆盖 identified subtree；先显式 delete，或选择空目标/list insertion。</?>
-    <decision-text ?>Strict add and move SHALL reject assignment-style destinations that would overwrite an existing identified subtree。</?>
-    <rationale ?>setPathValue 的 add 对 property/map 是 replace，move 又复用 add；不加 destination guard 会继续形成 identity replacement bypass。</?>
-    <evidence ?>TREE_ADD #root:body 与 move 到 occupied map slot 会静默移除原 identity。</?>
-  )
-  >
+<decision #reject-xnl-identity-replacement-bypass.occupied-destination apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2DB6YY92GNRTSPF4PDX>
+  strict add/move 如何处理已占用 assignment destination？
+  </?01M1W1C2DB6YY92GNRTSPF4PDX>
+  <answer {  } (
+    <raw-answer ?01M1W1C2DB6YY92GNRTSPF4PDY>
+    不得覆盖 identified subtree；先显式 delete，或选择空目标/list insertion。
+    </?01M1W1C2DB6YY92GNRTSPF4PDY>
+    <decision-text ?01M1W1C2DB6YY92GNRTSPF4PDZ>
+    Strict add and move SHALL reject assignment-style destinations that would overwrite an existing identified subtree。
+    </?01M1W1C2DB6YY92GNRTSPF4PDZ>
+    <rationale ?01M1W1C2DB6YY92GNRTSPF4PE0>
+    setPathValue 的 add 对 property/map 是 replace，move 又复用 add；不加 destination guard 会继续形成 identity replacement bypass。
+    </?01M1W1C2DB6YY92GNRTSPF4PE0>
+    <evidence ?01M1W1C2DB6YY92GNRTSPF4PE1>
+    TREE_ADD #root:body 与 move 到 occupied map slot 会静默移除原 identity。
+    </?01M1W1C2DB6YY92GNRTSPF4PE1>
+  )>
 )>
 
-<decision #reject-xnl-identity-replacement-bypass.structural-expression {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>合法 identity replacement 如何表达？</?>
-  <answer { }
-  (
-    <raw-answer ?>旧节点 delete + 新节点 add；位置变化使用 move。</?>
-    <decision-text ?>Identity replacement SHALL use explicit delete plus add, and identified-node relocation SHALL use move。</?>
-    <rationale ?>显式结构 mutation 保留 identity authority、precondition、审计和 move 语义。</?>
-    <evidence ?>项目级 XNL Identity attractor 与已提升 xnl-mutation-transaction behavior。</?>
-  )
-  >
+<decision #reject-xnl-identity-replacement-bypass.structural-expression apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2DB6YY92GNRTSPF4PE2>
+  合法 identity replacement 如何表达？
+  </?01M1W1C2DB6YY92GNRTSPF4PE2>
+  <answer {  } (
+    <raw-answer ?01M1W1C2DB6YY92GNRTSPF4PE3>
+    旧节点 delete + 新节点 add；位置变化使用 move。
+    </?01M1W1C2DB6YY92GNRTSPF4PE3>
+    <decision-text ?01M1W1C2DB6YY92GNRTSPF4PE4>
+    Identity replacement SHALL use explicit delete plus add, and identified-node relocation SHALL use move。
+    </?01M1W1C2DB6YY92GNRTSPF4PE4>
+    <rationale ?01M1W1C2DB6YY92GNRTSPF4PE5>
+    显式结构 mutation 保留 identity authority、precondition、审计和 move 语义。
+    </?01M1W1C2DB6YY92GNRTSPF4PE5>
+    <evidence ?01M1W1C2DB6YY92GNRTSPF4PE6>
+    项目级 XNL Identity attractor 与已提升 xnl-mutation-transaction behavior。
+    </?01M1W1C2DB6YY92GNRTSPF4PE6>
+  )>
 )>
 
-<decision #reject-xnl-identity-replacement-bypass.identity-authority {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>Strict continuity 是否只比较 effective identity 字符串？</?>
-  <answer { }
-  (
-    <raw-answer ?>否。比较 identity 字符串及其 raw authority source：explicit #id 或 metadata compatibility fallback。</?>
-    <decision-text ?>Strict update identity descriptors SHALL preserve both identity value and authority source。</?>
-    <rationale ?>#id 是 diff 对齐和 move 识别的身份权威，不是普通 payload；同值 fallback 切换会改变权威来源，不能由 whole-node update 隐式完成。</?>
-    <evidence ?>项目 Identity attractor、用户澄清，以及 metadata fallback 的兼容边界。</?>
-  )
-  >
+<decision #reject-xnl-identity-replacement-bypass.identity-authority apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2DB6YY92GNRTSPF4PE7>
+  Strict continuity 是否只比较 effective identity 字符串？
+  </?01M1W1C2DB6YY92GNRTSPF4PE7>
+  <answer {  } (
+    <raw-answer ?01M1W1C2DB6YY92GNRTSPF4PE8>
+    否。比较 identity 字符串及其 raw authority source：explicit #id 或 metadata compatibility fallback。
+    </?01M1W1C2DB6YY92GNRTSPF4PE8>
+    <decision-text ?01M1W1C2DB6YY92GNRTSPF4PE9>
+    Strict update identity descriptors SHALL preserve both identity value and authority source。
+    </?01M1W1C2DB6YY92GNRTSPF4PE9>
+    <rationale ?01M1W1C2DB6YY92GNRTSPF4PEA>
+    #id 是 diff 对齐和 move 识别的身份权威，不是普通 payload；同值 fallback 切换会改变权威来源，不能由 whole-node update 隐式完成。
+    </?01M1W1C2DB6YY92GNRTSPF4PEA>
+    <evidence ?01M1W1C2DB6YY92GNRTSPF4PEB>
+    项目 Identity attractor、用户澄清，以及 metadata fallback 的兼容边界。
+    </?01M1W1C2DB6YY92GNRTSPF4PEB>
+  )>
 )>
 
-<decision #reject-xnl-identity-replacement-bypass.extend-order {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>Extend child 重排应当如何进入 mutation 链？</?>
-  <answer { }
-  (
-    <raw-answer ?>由 diff 生成显式 same-level move，不更新 extend.order 容器。</?>
-    <decision-text ?>Identified Extend child reorder SHALL be represented by explicit move mutations and SHALL preserve diff/strict-apply parity。</?>
-    <rationale ?>Extend 的 order 表示结构位置；把它作为 payload update 会隐藏移动，也与 ordered full-tree identity continuity 冲突。</?>
-    <evidence ?>当前 diffExtend 对 order 发 TREE_UPDATE，setPathValue 的 Extend ListIndex 同时写 order 与 children[tag]。</?>
-  )
-  >
+<decision #reject-xnl-identity-replacement-bypass.extend-order apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2DB6YY92GNRTSPF4PEC>
+  Extend child 重排应当如何进入 mutation 链？
+  </?01M1W1C2DB6YY92GNRTSPF4PEC>
+  <answer {  } (
+    <raw-answer ?01M1W1C2DB6YY92GNRTSPF4PED>
+    由 diff 生成显式 same-level move，不更新 extend.order 容器。
+    </?01M1W1C2DB6YY92GNRTSPF4PED>
+    <decision-text ?01M1W1C2DB6YY92GNRTSPF4PEE>
+    Identified Extend child reorder SHALL be represented by explicit move mutations and SHALL preserve diff/strict-apply parity。
+    </?01M1W1C2DB6YY92GNRTSPF4PEE>
+    <rationale ?01M1W1C2DB6YY92GNRTSPF4PEF>
+    Extend 的 order 表示结构位置；把它作为 payload update 会隐藏移动，也与 ordered full-tree identity continuity 冲突。
+    </?01M1W1C2DB6YY92GNRTSPF4PEF>
+    <evidence ?01M1W1C2DB6YY92GNRTSPF4PEG>
+    当前 diffExtend 对 order 发 TREE_UPDATE，setPathValue 的 Extend ListIndex 同时写 order 与 children[tag]。
+    </?01M1W1C2DB6YY92GNRTSPF4PEG>
+  )>
 )>
 
-<decision #reject-xnl-identity-replacement-bypass.direct-metadata-fallback {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>Strict identity mode 如何处理直接修改 metadata fallback id？</?>
-  <answer { }
-  (
-    <raw-answer ?>当节点没有 explicit #id、metadata id 正承担 effective identity 时拒绝；已有 explicit #id 时保留现有 compatibility 行为。</?>
-    <decision-text ?>Strict identity mode SHALL reject direct mutation of an effective metadata fallback identity without promoting metadata id to ordinary diff payload。</?>
-    <rationale ?>metadata fallback 是兼容身份权威；接受成功 no-op 会掩盖调用方试图改身份，而全局把 metadata id 当字段比较又会破坏既有 identity mode。</?>
-    <evidence ?>Fresh AttractorCheck 对 resolveDirectElementIdTarget 与 applySingle metadata-id skip 的审查。</?>
-  )
-  >
+<decision #reject-xnl-identity-replacement-bypass.direct-metadata-fallback apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2DB6YY92GNRTSPF4PEH>
+  Strict identity mode 如何处理直接修改 metadata fallback id？
+  </?01M1W1C2DB6YY92GNRTSPF4PEH>
+  <answer {  } (
+    <raw-answer ?01M1W1C2DB6YY92GNRTSPF4PEJ>
+    当节点没有 explicit #id、metadata id 正承担 effective identity 时拒绝；已有 explicit #id 时保留现有 compatibility 行为。
+    </?01M1W1C2DB6YY92GNRTSPF4PEJ>
+    <decision-text ?01M1W1C2DB6YY92GNRTSPF4PEK>
+    Strict identity mode SHALL reject direct mutation of an effective metadata fallback identity without promoting metadata id to ordinary diff payload。
+    </?01M1W1C2DB6YY92GNRTSPF4PEK>
+    <rationale ?01M1W1C2DB6YY92GNRTSPF4PEM>
+    metadata fallback 是兼容身份权威；接受成功 no-op 会掩盖调用方试图改身份，而全局把 metadata id 当字段比较又会破坏既有 identity mode。
+    </?01M1W1C2DB6YY92GNRTSPF4PEM>
+    <evidence ?01M1W1C2DB6YY92GNRTSPF4PEN>
+    Fresh AttractorCheck 对 resolveDirectElementIdTarget 与 applySingle metadata-id skip 的审查。
+    </?01M1W1C2DB6YY92GNRTSPF4PEN>
+  )>
 )>
 
-<decision #reject-xnl-identity-replacement-bypass.extend-retag {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>同 identity Extend child 修改 tag 时如何保持 tag-keyed storage 一致？</?>
-  <answer { }
-  (
-    <raw-answer ?>diff 用 move.destinationKey 同时承载新 children key 与目标 index，再更新 child tag；strict 在 batch 最终验证 coherence。</?>
-    <decision-text ?>Extend retag SHALL use an explicit move destination key plus payload update and SHALL satisfy a batch-final order/key/tag coherence invariant。</?>
-    <rationale ?>只更新 child.tag 会让 children[oldTag]、order 与节点 tag 分裂；逐 mutation 校验又会误伤合法 move-then-retag 原子批次。</?>
-    <evidence ?>Fresh AttractorCheck 对 ExtendBody、parser tag-key storage 与 diffDataElement tag update 的审查。</?>
-  )
-  >
+<decision #reject-xnl-identity-replacement-bypass.extend-retag apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2DB6YY92GNRTSPF4PEP>
+  同 identity Extend child 修改 tag 时如何保持 tag-keyed storage 一致？
+  </?01M1W1C2DB6YY92GNRTSPF4PEP>
+  <answer {  } (
+    <raw-answer ?01M1W1C2DB6YY92GNRTSPF4PEQ>
+    diff 用 move.destinationKey 同时承载新 children key 与目标 index，再更新 child tag；strict 在 batch 最终验证 coherence。
+    </?01M1W1C2DB6YY92GNRTSPF4PEQ>
+    <decision-text ?01M1W1C2DB6YY92GNRTSPF4PER>
+    Extend retag SHALL use an explicit move destination key plus payload update and SHALL satisfy a batch-final order/key/tag coherence invariant。
+    </?01M1W1C2DB6YY92GNRTSPF4PER>
+    <rationale ?01M1W1C2DB6YY92GNRTSPF4PES>
+    只更新 child.tag 会让 children[oldTag]、order 与节点 tag 分裂；逐 mutation 校验又会误伤合法 move-then-retag 原子批次。
+    </?01M1W1C2DB6YY92GNRTSPF4PES>
+    <evidence ?01M1W1C2DB6YY92GNRTSPF4PET>
+    Fresh AttractorCheck 对 ExtendBody、parser tag-key storage 与 diffDataElement tag update 的审查。
+    </?01M1W1C2DB6YY92GNRTSPF4PET>
+  )>
 )>

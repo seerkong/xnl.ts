@@ -1,3 +1,4 @@
+import { isLiteralObject } from "./value-context";
 import type {
   AttributeMap,
   CommentNode,
@@ -207,23 +208,25 @@ function pad(state: StringifyState): string {
 }
 
 function isDocument(value: any): value is XnlDocument {
-  return value && Array.isArray((value as XnlDocument).nodes);
+  return value && !isLiteralObject(value) && Array.isArray((value as XnlDocument).nodes);
 }
 
 function isElement(value: XnlNode): value is ElementNode {
   return (
     typeof value === "object" &&
     value !== null &&
+    !isLiteralObject(value) &&
     ((value as DataElementNode).kind === "DataElement" || (value as TextElementNode).kind === "TextElement")
   );
 }
 
 function isComment(value: XnlNode): value is CommentNode {
-  return typeof value === "object" && value !== null && (value as CommentNode).kind === "Comment";
+  return typeof value === "object" && value !== null && !isLiteralObject(value) && (value as CommentNode).kind === "Comment";
 }
 
 function isPlainObject(value: unknown): value is Record<string, XnlNode> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  if (isLiteralObject(value)) return true;
   const kind = (value as any).kind;
   return kind !== "DataElement" && kind !== "TextElement" && kind !== "Comment" && kind !== "Word";
 }

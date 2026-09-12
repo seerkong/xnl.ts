@@ -5,6 +5,9 @@ import { parsePath, resolvePath, setPathValue, deleteAtPath } from "./path";
 import { applyMutations, diffNodes, dryRunMutations } from "./mutation";
 import { loadFromString, resolveNode, batchLoad } from "./loader";
 import { resolveImports, resolveVfsSrc } from "./import";
+import { stringifyLiteral } from "./literal";
+export { stringifyLiteral } from "./literal";
+export type { XnlLiteral, StringifyLiteralOptions } from "./literal";
 export { parseXnl } from "./parser";
 export { parseXnlSingleNode, parseUniqueChildren } from "./parser";
 export { XnlParseError } from "./errors";
@@ -61,6 +64,7 @@ export type {
 export { GetWordFullName, MakeWord } from "./NodeHelper";
 
 export const XNL = {
+  stringifyLiteral,
   parseMany: Parser.parseXnl,
   parseSingle: Parser.parseXnlSingleNode,
   parseUnique: Parser.parseUniqueChildren,

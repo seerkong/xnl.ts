@@ -136,3 +136,38 @@ try {
   console.error(e.code, e.message); // DUPLICATE_CHILD ...
 }
 ```
+
+
+### Explicit literal data
+
+`stringifyLiteral(value, { sortKeys: true })` serializes JSON-compatible data as native XNL objects/arrays. It never interprets `kind`, `nodes`, `tag`, or other payload keys as AST discriminators. Use it when a value may have those keys; `XNL.stringify` remains the AST formatter. Keys are quoted, `sortKeys` recursively sorts objects, and arrays retain order. Non-finite numbers, undefined, non-plain objects and cycles are rejected instead of silently losing data.
+
+### Literal context during mutation
+
+The parser retains the grammar role of object literals separately from their keys. A parsed `{ kind = "Word" name = "value" }` is a data map; an unquoted `namespace.value` is an AST Word. Structural diff, strict apply and formatting preserve that distinction, including real elements embedded next to literal objects. No marker is added to business data or XNL text.
+
+JSON serialization, external `structuredClone`, and VFS/VCS transport of raw AST objects do **not** retain the parser's in-memory grammar provenance. Constructed or transported ASTs must supply the same explicit, serializable literal boundaries to diff and apply:
+
+```ts
+const context = {
+  literalValuePaths: ["#config:attributes::'rules'"],
+};
+const mutations = diffNodes(before, after, [], context);
+const result = dryRunMutations(before, mutations, {
+  ...context,
+  verifyValueBefore: true,
+  identityPolicy: "require-elements",
+});
+// The mutable apply API accepts the same context:
+// applyMutations(tree, mutations, context);
+```
+
+Every selected value and all its descendants are literal data, so `kind`, `id`, `metadata`, `order`, and `children` carry no AST meaning within that boundary. Select a narrower path when the same attribute map also contains real AST nodes. Paths resolve against each complete tree; identity selectors keep them stable during element reordering. Include the union of old and new entity paths: an absent path on one side is ignored. Persist these paths beside transported snapshots/mutation batches and supply them again after checkout or reconstruction. Omitting context retains the existing AST interpretation of unmarked objects; object shape alone cannot distinguish a business object from an identical constructed AST node.
+
+```ts
+import { stringifyLiteral, parseXnl } from "xnl-core";
+const text = `<Config { rules = ${stringifyLiteral({kind: "DataElement", enabled: true}, {sortKeys: true})} }>`;
+const document = parseXnl(text);
+```
+
+Root `diffNodes(base, target)` produces expected values against the sequential intermediate state, including moves after nested deletions. Pass the result to `dryRunMutations(base, mutations, {verifyValueBefore: true})` for stale field rejection and isolated all-or-nothing preview. Authority revision CAS is still required before durable acceptance. The diff payload now includes additive `valueBefore` fields; consumers with exact mutation fixtures must include those fields.

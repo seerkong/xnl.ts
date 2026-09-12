@@ -47,6 +47,7 @@ describe("mutation protocol", () => {
         {
           type: "OBJECT_UPDATE",
           path: ":metadata::'id'",
+          valueBefore: "m1",
           valueAfter: "m2",
         },
       ]);

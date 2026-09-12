@@ -1,0 +1,44 @@
+<Behavior #xnl-structured-edit-conformance apiVersion="codument.tech/v1alpha1" version="1" (
+  <Requirements [
+    <Requirement #native-revision-seams (
+      <Statement ?01M1W290EKJDGPPGE8Y8NDXH4S>
+
+      公共 XNL 编辑链 SHALL 保留原生结构、稳定 identity 和事务边界；VCS checkpoint SHALL 不成为 live authority。
+      </?01M1W290EKJDGPPGE8Y8NDXH4S>
+      <Suites [
+        <Suite #public-conformance { name = "公共结构与 revision 接缝" } (
+          <Cases [
+            <Case #native-values (
+              <Given ?01M1W290EKJDGPPGE8Y8NDXH4T>
+
+              原生嵌套对象数组及稳定节点 identity
+              </?01M1W290EKJDGPPGE8Y8NDXH4T>
+              <When ?01M1W290EKJDGPPGE8Y8NDXH4V>
+
+              diff 后严格 dryRun
+              </?01M1W290EKJDGPPGE8Y8NDXH4V>
+              <Then ?01M1W290EKJDGPPGE8Y8NDXH4W>
+
+              完整目标结构重建且原输入保持不变；stale 前置值拒绝整批。
+              </?01M1W290EKJDGPPGE8Y8NDXH4W>
+            )>
+            <Case #revision-boundaries (
+              <Given ?01M1W290EKJDGPPGE8Y8NDXH4X>
+
+              两个文件共享一个 VFS revision 与历史 checkpoint
+              </?01M1W290EKJDGPPGE8Y8NDXH4X>
+              <When ?01M1W290EKJDGPPGE8Y8NDXH4Y>
+
+              竞争提交和历史 checkout
+              </?01M1W290EKJDGPPGE8Y8NDXH4Y>
+              <Then ?01M1W290EKJDGPPGE8Y8NDXH4Z>
+
+              只有一个 CAS 接受；失败不泄漏部分文件；checkout 不更改 live authority。
+              </?01M1W290EKJDGPPGE8Y8NDXH4Z>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+  ]>
+)>

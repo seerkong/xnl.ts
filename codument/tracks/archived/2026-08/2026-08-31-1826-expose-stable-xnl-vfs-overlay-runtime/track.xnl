@@ -1,0 +1,61 @@
+<Track #expose-stable-xnl-vfs-overlay-runtime apiVersion="codument.tech/v1alpha1" version="1" { status = "completed" goal = "提供稳定、可诊断、原子发布的通用 XNL VFS overlay materialization runtime" description = "组合现有 snapshot、VFS/XNL mutation 与 revisioned CAS 原语，支持 sparse directory 与 explicit mutation overlays" question_mode = "decision-tree" question_severity = "auto" commit_mode = "manual" created_at = "2026-08-31T14:47:27.245Z" updated_at = "2026-08-31T15:26:22.571Z" modeling_base_commit = "3367ef2c15f0062c9e2821b4765b4748a811ee13" engineering_base_commit = "3367ef2c15f0062c9e2821b4765b4748a811ee13" } (
+  <Ports { scope = "track" } [
+    <MaterialBundle #behavior_deltas { role = "input" name = "behavior-deltas" domain = "behavior" path = "vfs://./behavior_deltas/" }>
+    <MaterialBundle #runtime { role = "output" name = "overlay-materialization-runtime" domain = "code" path = "vfs://@/packages/vfs/src/" }>
+    <MaterialBundle #tests { role = "output" name = "overlay-materialization-tests" domain = "test" path = "vfs://@/packages/vfs/tests/" }>
+  ]>
+  <TaskSpace #space_expose-stable-xnl-vfs-overlay-runtime { name = "expose-stable-xnl-vfs-overlay-runtime" version = "1" } (
+    <SubNodes [
+      <TaskGroup #P1 { name = "Plan sparse and explicit overlays" status = "DONE" priority = "P0" order = 0 } (
+        <Description ?01M1C4VY9QDDVJ8KV0Y6V15ZW9>
+        定义 overlay contract，并在隔离 candidate 上完成有序、可诊断 planning。
+        </?01M1C4VY9QDDVJ8KV0Y6V15ZW9>
+        <SubNodes [
+          <Task #P1-T1 { name = "Implement sparse directory overlay planning" status = "DONE" priority = "P0" order = 0 } (
+            <Acceptance [
+              <Criterion #P1-T1-AC1 { checked = true } ?01M1C4VY9QDDVJ8KV0Y6V15ZWA>
+              add/replace/no-opinion、identity preserve、replacement removal fallback 与 kind conflict tests 通过。
+              </?01M1C4VY9QDDVJ8KV0Y6V15ZWA>
+            ]>
+          )>
+          <Task #P1-T2 { name = "Compose ordered explicit mutation overlays" status = "DONE" priority = "P0" order = 1 } (
+            <Acceptance [
+              <Criterion #P1-T2-AC1 { checked = true } ?01M1C4VY9RBAFACZ1D854XDQRB>
+              mixed overlays 按 contiguous order 生成 deterministic candidate/VFS/XNL batch。
+              </?01M1C4VY9RBAFACZ1D854XDQRB>
+              <Criterion #P1-T2-AC2 { checked = true } ?01M1C4VY9RBAFACZ1D854XDQRC>
+              invalid order 与 mutation failure diagnostics 精确包含 overlay/mutation location，caller base 不变。
+              </?01M1C4VY9RBAFACZ1D854XDQRC>
+            ]>
+          )>
+        ]>
+      )>
+      <TaskGroup #P2 { name = "Publish and expose browser-safe runtime" status = "DONE" priority = "P0" order = 1 } (
+        <Description ?01M1C4VY9RBAFACZ1D854XDQRD>
+        复用 revisioned coordinator 原子发布，并建立稳定 public subpath。
+        </?01M1C4VY9RBAFACZ1D854XDQRD>
+        <SubNodes [
+          <Task #P2-T1 { name = "Integrate revisioned overlay publication" status = "DONE" priority = "P0" order = 0 } (
+            <Acceptance [
+              <Criterion #P2-T1-AC1 { checked = true } ?01M1C4VY9RBAFACZ1D854XDQRE>
+              applied/unchanged/conflict/rejected/failed 闭集保持 truthful revision，失败不暴露部分 candidate。
+              </?01M1C4VY9RBAFACZ1D854XDQRE>
+            ]>
+          )>
+          <Task #P2-T2 { name = "Expose and verify public package subpath" status = "DONE" priority = "P0" order = 1 } (
+            <Acceptance [
+              <Criterion #P2-T2-AC1 { checked = true } ?01M1C4VY9RBAFACZ1D854XDQRF>
+              public entry、types、build 和 emitted transitive browser scan 通过。
+              </?01M1C4VY9RBAFACZ1D854XDQRF>
+              <Criterion #P2-T2-AC2 { checked = true } ?01M1C4VY9RBAFACZ1D854XDQRG>
+              xnl-vfs package full tests/typecheck/build 与 Codument strict validate 通过。
+              </?01M1C4VY9RBAFACZ1D854XDQRG>
+            ]>
+          )>
+        ]>
+      )>
+    ]>
+  )>
+  <Schedule []>
+  <Hooks []>
+)>

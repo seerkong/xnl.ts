@@ -1,63 +1,79 @@
-<decision #harden-xnl-authoring-mutations.identity-role {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>#id 在 mutation diff 中是匹配键还是普通可更新字段？</?>
-  <answer { }
-  (
-    <raw-answer ?>#id 用来比较树并识别 move，不参与普通字段比较。</?>
-    <decision-text ?>Track SHALL 保持 #id 的 identity-key 语义，不新增 #id update mutation。</?>
-    <rationale ?>更新 identity 会破坏节点对齐、move 检测和引用稳定性。</?>
-    <evidence ?>现有 diffArray/readIdOrMetadaataId 实现与用户明确纠正。</?>
-  )
-  >
+<decision #harden-xnl-authoring-mutations.identity-role apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2D79GFZZR9JW21EWBDS>
+  #id 在 mutation diff 中是匹配键还是普通可更新字段？
+  </?01M1W1C2D79GFZZR9JW21EWBDS>
+  <answer {  } (
+    <raw-answer ?01M1W1C2D79GFZZR9JW21EWBDT>
+    #id 用来比较树并识别 move，不参与普通字段比较。
+    </?01M1W1C2D79GFZZR9JW21EWBDT>
+    <decision-text ?01M1W1C2D79GFZZR9JW21EWBDV>
+    Track SHALL 保持 #id 的 identity-key 语义，不新增 #id update mutation。
+    </?01M1W1C2D79GFZZR9JW21EWBDV>
+    <rationale ?01M1W1C2D79GFZZR9JW21EWBDW>
+    更新 identity 会破坏节点对齐、move 检测和引用稳定性。
+    </?01M1W1C2D79GFZZR9JW21EWBDW>
+    <evidence ?01M1W1C2D79GFZZR9JW21EWBDX>
+    现有 diffArray/readIdOrMetadaataId 实现与用户明确纠正。
+    </?01M1W1C2D79GFZZR9JW21EWBDX>
+  )>
 )>
 
-<decision #harden-xnl-authoring-mutations.compatibility {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>是否把现有 applyMutations 直接改为 immutable transaction？</?>
-  <answer { }
-  (
-    <raw-answer ?>保留低层 API，新增严格 authoring batch API。</?>
-    <decision-text ?>Existing mutable applyMutations SHALL remain compatible; dry-run/atomic behavior SHALL use a new explicit API。</?>
-    <rationale ?>避免未审计调用方因返回 identity 或 mutation side effect 改变而发生隐式 breaking change。</?>
-    <evidence ?>xnl-core 0.1.9 已公开 applyMutations，多个项目按 mutable clone-and-apply 方式消费。</?>
-  )
-  >
+<decision #harden-xnl-authoring-mutations.compatibility apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2D79GFZZR9JW21EWBDY>
+  是否把现有 applyMutations 直接改为 immutable transaction？
+  </?01M1W1C2D79GFZZR9JW21EWBDY>
+  <answer {  } (
+    <raw-answer ?01M1W1C2D79GFZZR9JW21EWBDZ>
+    保留低层 API，新增严格 authoring batch API。
+    </?01M1W1C2D79GFZZR9JW21EWBDZ>
+    <decision-text ?01M1W1C2D79GFZZR9JW21EWBE0>
+    Existing mutable applyMutations SHALL remain compatible; dry-run/atomic behavior SHALL use a new explicit API。
+    </?01M1W1C2D79GFZZR9JW21EWBE0>
+    <rationale ?01M1W1C2D79GFZZR9JW21EWBE1>
+    避免未审计调用方因返回 identity 或 mutation side effect 改变而发生隐式 breaking change。
+    </?01M1W1C2D79GFZZR9JW21EWBE1>
+    <evidence ?01M1W1C2D79GFZZR9JW21EWBE2>
+    xnl-core 0.1.9 已公开 applyMutations，多个项目按 mutable clone-and-apply 方式消费。
+    </?01M1W1C2D79GFZZR9JW21EWBE2>
+  )>
 )>
 
-<decision #harden-xnl-authoring-mutations.identity-policy {
-  status = "accepted"
-  priority = "P1"
-}
-(
-  <question ?>严格事务 API 是否要求所有 XNL element 都有 #id？</?>
-  <answer { }
-  (
-    <raw-answer ?>通用 XNL 默认允许缺失，authoring consumer 显式选择严格策略。</?>
-    <decision-text ?>Identity policy SHALL be configurable; default allows missing identities while always rejecting duplicates among identities that exist。</?>
-    <rationale ?>XNL 是通用表示语言，文档 authoring 的强 identity 要求不应破坏普通解析和 mutation 场景。</?>
-    <evidence ?>现有 parser 与 fixtures 允许无 #id element，Mission 只要求可编辑结构具备稳定 identity。</?>
-  )
-  >
+<decision #harden-xnl-authoring-mutations.identity-policy apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P1" } (
+  <question ?01M1W1C2D79GFZZR9JW21EWBE3>
+  严格事务 API 是否要求所有 XNL element 都有 #id？
+  </?01M1W1C2D79GFZZR9JW21EWBE3>
+  <answer {  } (
+    <raw-answer ?01M1W1C2D79GFZZR9JW21EWBE4>
+    通用 XNL 默认允许缺失，authoring consumer 显式选择严格策略。
+    </?01M1W1C2D79GFZZR9JW21EWBE4>
+    <decision-text ?01M1W1C2D79GFZZR9JW21EWBE5>
+    Identity policy SHALL be configurable; default allows missing identities while always rejecting duplicates among identities that exist。
+    </?01M1W1C2D79GFZZR9JW21EWBE5>
+    <rationale ?01M1W1C2D79GFZZR9JW21EWBE6>
+    XNL 是通用表示语言，文档 authoring 的强 identity 要求不应破坏普通解析和 mutation 场景。
+    </?01M1W1C2D79GFZZR9JW21EWBE6>
+    <evidence ?01M1W1C2D79GFZZR9JW21EWBE7>
+    现有 parser 与 fixtures 允许无 #id element，Mission 只要求可编辑结构具备稳定 identity。
+    </?01M1W1C2D79GFZZR9JW21EWBE7>
+  )>
 )>
 
-<decision #harden-xnl-authoring-mutations.strict-id-mutation {
-  status = "accepted"
-  priority = "P0"
-}
-(
-  <question ?>strict batch 如何处理调用方手工构造的 element id 字段 mutation？</?>
-  <answer { }
-  (
-    <raw-answer ?>严格入口拒绝，legacy apply 保持兼容；身份变化用 delete/add。</?>
-    <decision-text ?>Strict batch SHALL return IDENTITY_MUTATION_FORBIDDEN for direct element id field mutation, while legacy applyMutations remains unchanged。</?>
-    <rationale ?>只禁止 diff 生成 id update 仍允许外部调用方绕过 identity 语义；严格入口必须闭合读取与写入两侧。</?>
-    <evidence ?>Fresh coding AttractorCheck 发现 applySingle 当前只拦 metadata.id，普通 :id path 仍可由 setPathValue 写入。</?>
-  )
-  >
+<decision #harden-xnl-authoring-mutations.strict-id-mutation apiVersion="codument.tech/v1alpha1" { status = "accepted" priority = "P0" } (
+  <question ?01M1W1C2D79GFZZR9JW21EWBE8>
+  strict batch 如何处理调用方手工构造的 element id 字段 mutation？
+  </?01M1W1C2D79GFZZR9JW21EWBE8>
+  <answer {  } (
+    <raw-answer ?01M1W1C2D79GFZZR9JW21EWBE9>
+    严格入口拒绝，legacy apply 保持兼容；身份变化用 delete/add。
+    </?01M1W1C2D79GFZZR9JW21EWBE9>
+    <decision-text ?01M1W1C2D79GFZZR9JW21EWBEA>
+    Strict batch SHALL return IDENTITY_MUTATION_FORBIDDEN for direct element id field mutation, while legacy applyMutations remains unchanged。
+    </?01M1W1C2D79GFZZR9JW21EWBEA>
+    <rationale ?01M1W1C2D79GFZZR9JW21EWBEB>
+    只禁止 diff 生成 id update 仍允许外部调用方绕过 identity 语义；严格入口必须闭合读取与写入两侧。
+    </?01M1W1C2D79GFZZR9JW21EWBEB>
+    <evidence ?01M1W1C2D79GFZZR9JW21EWBEC>
+    Fresh coding AttractorCheck 发现 applySingle 当前只拦 metadata.id，普通 :id path 仍可由 setPathValue 写入。
+    </?01M1W1C2D79GFZZR9JW21EWBEC>
+  )>
 )>

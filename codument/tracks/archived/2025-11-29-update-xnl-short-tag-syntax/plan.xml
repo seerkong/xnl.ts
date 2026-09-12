@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plan>
   <metadata>
+    <ApiVersion>codument.tech/v1alpha1</ApiVersion>
     <track_id>update-xnl-short-tag-syntax</track_id>
     <track_name>Short-tag XNL syntax</track_name>
     <goal>Convert archived OpenSpec change update-xnl-short-tag-syntax into Codument archive format.</goal>

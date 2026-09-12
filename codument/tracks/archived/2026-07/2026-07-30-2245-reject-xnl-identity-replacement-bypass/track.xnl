@@ -1,0 +1,105 @@
+<Track #reject-xnl-identity-replacement-bypass version="1" apiVersion="codument.tech/v1alpha1" { status = "completed" goal = "封闭 strict XNL mutation 通过 whole-node/container update 原地替换 element identity 的绕过。" description = "为 update mutation 增加 full-tree identity skeleton invariant，并为 add/move 增加 occupied identified destination guard，保持 #id alignment 与显式 delete/add/move 语义。" question_mode = "decision-tree" question_severity = "auto" commit_mode = "manual" gap-round = 2 created_at = "2026-07-30T18:13:32Z" updated_at = "2026-07-30T19:45:38Z" } (
+  <Ports { scope = "track" } [
+    <MaterialBundle { role = "input" name = "behavior-deltas" domain = "behavior" path = "vfs://./behavior_deltas/" }>
+    <MaterialBundle { role = "output" name = "behavior" domain = "codument" path = "vfs://@/codument/behaviors/" }>
+    <MaterialBundle { role = "output" name = "core-mutation" domain = "code" path = "vfs://@/packages/core/src/mutation/" }>
+    <MaterialBundle { role = "output" name = "core-tests" domain = "test" path = "vfs://@/packages/core/tests/" }>
+  ]>
+  <TaskSpace #space_reject-xnl-identity-replacement-bypass { name = "reject-xnl-identity-replacement-bypass" } (
+    <Description ?01M1W1C2DCF30SQK0FRF4XAWJX>
+    先固定绕过与合法更新基线，再实现 skeleton invariant，最后做回归与 residue 验证。
+    </?01M1W1C2DCF30SQK0FRF4XAWJX>
+    <SubNodes [
+      <TaskGroup #P1 { name = "Identity continuity characterization" status = "DONE" order = 0 } (
+        <Description ?01M1W1C2DCF30SQK0FRF4XAWJY>
+        覆盖 direct、whole-node、container/fallback、authority source、swap、hidden move、Extend reorder/retag/collision、occupied destination 与合法 structural expression。
+        </?01M1W1C2DCF30SQK0FRF4XAWJY>
+        <SubNodes [
+          <Task #P1-T1 { name = "添加 hidden identity replacement tests" status = "DONE" order = 0 priority = "P0" } (
+            <Description ?01M1W1C2DCF30SQK0FRF4XAWJZ>
+            添加 TREE/OBJECT update、Data/TextElement、direct metadata fallback/#id authority、body/attributes/extend、identity swap/relocation、identified/missing-id Extend reorder、Extend retag/coherence/collision、occupied add/move、same-id payload、explicit delete+add、两种 identity policy、legacy parity 与 base immutability 测试。
+            </?01M1W1C2DCF30SQK0FRF4XAWJZ>
+            <Acceptance [
+              <Criterion #P1-T1-AC1 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWK0>
+              当前绕过用例在修复前稳定复现 applied
+              </?01M1W1C2DCF30SQK0FRF4XAWK0>
+              <Criterion #P1-T1-AC2 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWK1>
+              失败测试覆盖 ordered full-tree skeleton 的 add/remove/swap/relocate、raw identity authority transition、direct/container metadata fallback 与 occupied property/map/extend destination
+              </?01M1W1C2DCF30SQK0FRF4XAWK1>
+              <Criterion #P1-T1-AC3 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWK2>
+              合法 #id precedence、same-id update、普通 list insertion、empty destination、delete+add replacement、normal move 与 same-source Extend reorder 有正向基线
+              </?01M1W1C2DCF30SQK0FRF4XAWK2>
+              <Criterion #P1-T1-AC4 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWK3>
+              矩阵覆盖 Data/TextElement、body/attributes/extend、allow-missing/require-elements 与 legacy apply behavior
+              </?01M1W1C2DCF30SQK0FRF4XAWK3>
+              <Criterion #P1-T1-AC5 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWK4>
+              Extend same-tag add、cross-parent occupied move、identified/missing-id reorder、retag/key migration、standalone incoherent retag、delete-then-add 和 diff/apply parity 均有 characterization
+              </?01M1W1C2DCF30SQK0FRF4XAWK4>
+            ]>
+          )>
+        ]>
+        <Hooks [
+          <Hook { on = "phase:after" } (
+            <AttractorCheck { use = "coding" }>
+          )>
+        ]>
+      )>
+      <TaskGroup #P2 { name = "Strict skeleton invariant 与验证" status = "DONE" order = 1 } (
+        <Description ?01M1W1C2DCF30SQK0FRF4XAWK5>
+        在 strict dry-run 实现 ordered full-tree update continuity、structural destination guard 与 Extend move diff，并验证完整 package。
+        </?01M1W1C2DCF30SQK0FRF4XAWK5>
+        <SubNodes [
+          <Task #P2-T1 { name = "实现 full-tree skeleton 与 destination validation" status = "DONE" order = 0 priority = "P0" } (
+            <Description ?01M1W1C2DCF30SQK0FRF4XAWK6>
+            比较 update 前后 ordered full-tree path -> identity authority/value descriptor；add/move apply 前检查 occupied assignment/Extend destination；所有 Extend reorder 生成显式 move；destinationKey 承载 retag key migration；最终验证 Extend order/key/tag coherence；差异转结构化 diagnostic。
+            </?01M1W1C2DCF30SQK0FRF4XAWK6>
+            <Acceptance [
+              <Criterion #P2-T1-AC1 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWK7>
+              hidden identity add/remove/swap/relocate、raw authority/fallback change 与 occupied destination overwrite 均被 strict entry 拒绝
+              </?01M1W1C2DCF30SQK0FRF4XAWK7>
+              <Criterion #P2-T1-AC2 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWK8>
+              拒绝返回原始 base clone，不泄露 partial working value
+              </?01M1W1C2DCF30SQK0FRF4XAWK8>
+              <Criterion #P2-T1-AC3 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWK9>
+              legacy apply、explicit structural mutation 与 same-id payload update 保持兼容
+              </?01M1W1C2DCF30SQK0FRF4XAWK9>
+              <Criterion #P2-T1-AC4 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWKA>
+              所有 Extend child reorder 由 identity/pathBefore move 表达；same-id retag 以 destinationKey 迁移 key/order；双向 retag+reorder parity 通过；collision 被拒绝；incoherent final Extend 返回 RESULT_STRUCTURE_INVALID
+              </?01M1W1C2DCF30SQK0FRF4XAWKA>
+            ]>
+          )>
+          <Task #P2-T2 { name = "更新文档并执行 core 验证矩阵" status = "DONE" order = 1 priority = "P0" } (
+            <Description ?01M1W1C2DCF30SQK0FRF4XAWKB>
+            更新 README；运行 mutation focus、core full tests、lint、build、ESM/CJS exports 与 #id diff residue scan。
+            </?01M1W1C2DCF30SQK0FRF4XAWKB>
+            <Acceptance [
+              <Criterion #P2-T2-AC1 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWKC>
+              core tests、lint 与 build 全部通过
+              </?01M1W1C2DCF30SQK0FRF4XAWKC>
+              <Criterion #P2-T2-AC2 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWKD>
+              diff 仍以 #id 对齐 move，不生成 ordinary #id update；任何 Extend reorder 都不残留 TREE_UPDATE ...:extend:order
+              </?01M1W1C2DCF30SQK0FRF4XAWKD>
+              <Criterion #P2-T2-AC3 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWKE>
+              public strict API diagnostic 与既有 signatures 保持兼容
+              </?01M1W1C2DCF30SQK0FRF4XAWKE>
+              <Criterion #P2-T2-AC4 { checked = true } ?01M1W1C2DCF30SQK0FRF4XAWKF>
+              README 区分 IDENTITY_MUTATION_FORBIDDEN 与 RESULT_STRUCTURE_INVALID，并说明 #id 仍不是 ordinary diff payload
+              </?01M1W1C2DCF30SQK0FRF4XAWKF>
+            ]>
+          )>
+        ]>
+        <Hooks [
+          <Hook { on = "phase:after" } (
+            <AttractorCheck { use = "coding" }>
+          )>
+          <Hook { on = "phase:after" } (
+            <GapLoop { max_rounds = 3 on_exhausted = "block" verify_round = true }>
+          )>
+        ]>
+      )>
+    ]>
+  )>
+  <Schedule [
+    <Parallel { max_concurrent = 1 spot_check = true }>
+  ]>
+)>

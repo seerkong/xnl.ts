@@ -1,0 +1,125 @@
+<Behavior #xnl-dotted-tag apiVersion="codument.tech/v1alpha1" version="1" (
+  <Requirements [
+    <Requirement #dotted-tag-grammar (
+      <Statement ?01M1W1C2BSK9TCGZ4FSV17CWBN>
+      The parser SHALL accept dotted fully-qualified tag names of the form `seg(.seg)*` where each segment matches the existing identifier grammar `[A-Za-z_][A-Za-z0-9_-]*`, e.g. `&amp;lt;dg.materials.CrudTable #users-table&amp;gt;`.
+      </?01M1W1C2BSK9TCGZ4FSV17CWBN>
+      <Suites [
+        <Suite #dotted-tag { name = "Dotted tag grammar" } (
+          <Cases [
+            <Case #parse-dotted-tag (
+              <Given ?01M1W1C2BSK9TCGZ4FSV17CWBP>
+              Source `&amp;lt;dg.materials.CrudTable #t { pageSize = 20 }&amp;gt;`.
+              </?01M1W1C2BSK9TCGZ4FSV17CWBP>
+              <When ?01M1W1C2BSK9TCGZ4FSV17CWBQ>
+              parseXnl parses the source.
+              </?01M1W1C2BSK9TCGZ4FSV17CWBQ>
+              <Then ?01M1W1C2BSK9TCGZ4FSV17CWBR>
+              Parsing SHALL succeed and the node tag SHALL be the joined string `dg.materials.CrudTable`.
+              </?01M1W1C2BSK9TCGZ4FSV17CWBR>
+            )>
+            <Case #segment-grammar (
+              <Given ?01M1W1C2BSK9TCGZ4FSV17CWBS>
+              A tag with an empty segment, leading dot, or trailing dot (e.g. `&amp;lt;a..b&amp;gt;`, `&amp;lt;.a&amp;gt;`, `&amp;lt;a.&amp;gt;`).
+              </?01M1W1C2BSK9TCGZ4FSV17CWBS>
+              <When ?01M1W1C2BSK9TCGZ4FSV17CWBT>
+              parseXnl parses the source.
+              </?01M1W1C2BSK9TCGZ4FSV17CWBT>
+              <Then ?01M1W1C2BSK9TCGZ4FSV17CWBV>
+              The parser SHALL raise a parse error and SHALL NOT silently truncate the tag.
+              </?01M1W1C2BSK9TCGZ4FSV17CWBV>
+            )>
+            <Case #full-combination (
+              <Given ?01M1W1C2BSK9TCGZ4FSV17CWBW>
+              A dotted-tag node combining `#id`, metadata, `{...}` attributes, `(...)` extend section, and `[...]` array body.
+              </?01M1W1C2BSK9TCGZ4FSV17CWBW>
+              <When ?01M1W1C2BSK9TCGZ4FSV17CWBX>
+              parseXnl parses the source.
+              </?01M1W1C2BSK9TCGZ4FSV17CWBX>
+              <Then ?01M1W1C2BSK9TCGZ4FSV17CWBY>
+              All sections SHALL parse exactly as they do for single-segment tags.
+              </?01M1W1C2BSK9TCGZ4FSV17CWBY>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #tag-string-compat (
+      <Statement ?01M1W1C2BSK9TCGZ4FSV17CWBZ>
+      `DataElementNode.tag` and `TextElementNode.tag` SHALL remain plain strings holding the joined dotted form; single-segment tag behavior SHALL be unchanged.
+      </?01M1W1C2BSK9TCGZ4FSV17CWBZ>
+      <Suites [
+        <Suite #compat { name = "Tag type compatibility" } (
+          <Cases [
+            <Case #single-segment-unchanged (
+              <Given ?01M1W1C2BSK9TCGZ4FSV17CWC0>
+              Any existing document using single-segment tags.
+              </?01M1W1C2BSK9TCGZ4FSV17CWC0>
+              <When ?01M1W1C2BSK9TCGZ4FSV17CWC1>
+              The full test suite runs after the change.
+              </?01M1W1C2BSK9TCGZ4FSV17CWC1>
+              <Then ?01M1W1C2BSK9TCGZ4FSV17CWC2>
+              All existing parser/formatter/loader/import/path/mutation tests SHALL pass unchanged.
+              </?01M1W1C2BSK9TCGZ4FSV17CWC2>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #roundtrip-fidelity (
+      <Statement ?01M1W1C2BSK9TCGZ4FSV17CWC3>
+      Formatters SHALL print dotted tags verbatim so that parse -&gt; stringify -&gt; parse is stable for dotted-tag documents.
+      </?01M1W1C2BSK9TCGZ4FSV17CWC3>
+      <Suites [
+        <Suite #roundtrip { name = "Roundtrip fidelity" } (
+          <Cases [
+            <Case #stringify-dotted (
+              <Given ?01M1W1C2BSK9TCGZ4FSV17CWC4>
+              A parsed node with tag `dg.materials.CrudTable`.
+              </?01M1W1C2BSK9TCGZ4FSV17CWC4>
+              <When ?01M1W1C2BSK9TCGZ4FSV17CWC5>
+              The document is stringified with the default and line-block formatters.
+              </?01M1W1C2BSK9TCGZ4FSV17CWC5>
+              <Then ?01M1W1C2BSK9TCGZ4FSV17CWC6>
+              The output SHALL contain `&amp;lt;dg.materials.CrudTable` and reparsing SHALL yield an equal AST.
+              </?01M1W1C2BSK9TCGZ4FSV17CWC6>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #tooling-regression (
+      <Statement ?01M1W1C2BSK9TCGZ4FSV17CWC7>
+      path resolution, mutation diff/apply, and loader/import SHALL treat dotted tags as opaque tag strings with no behavior change.
+      </?01M1W1C2BSK9TCGZ4FSV17CWC7>
+      <Suites [
+        <Suite #tooling { name = "Tooling regression" } (
+          <Cases [
+            <Case #mutation-on-dotted (
+              <Given ?01M1W1C2BSK9TCGZ4FSV17CWC8>
+              Two documents differing in an attribute of a dotted-tag node.
+              </?01M1W1C2BSK9TCGZ4FSV17CWC8>
+              <When ?01M1W1C2BSK9TCGZ4FSV17CWC9>
+              diffNodes produces mutations and applyMutations applies them.
+              </?01M1W1C2BSK9TCGZ4FSV17CWC9>
+              <Then ?01M1W1C2BSK9TCGZ4FSV17CWCA>
+              The mutation SHALL address the node correctly and the result SHALL equal the target document.
+              </?01M1W1C2BSK9TCGZ4FSV17CWCA>
+            )>
+            <Case #path-on-dotted (
+              <Given ?01M1W1C2BSK9TCGZ4FSV17CWCB>
+              A document containing a dotted-tag node with `#id`.
+              </?01M1W1C2BSK9TCGZ4FSV17CWCB>
+              <When ?01M1W1C2BSK9TCGZ4FSV17CWCC>
+              XNL.path resolve/set operates on a path through that node.
+              </?01M1W1C2BSK9TCGZ4FSV17CWCC>
+              <Then ?01M1W1C2BSK9TCGZ4FSV17CWCD>
+              Resolution SHALL behave identically to single-segment tags.
+              </?01M1W1C2BSK9TCGZ4FSV17CWCD>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+  ]>
+)>

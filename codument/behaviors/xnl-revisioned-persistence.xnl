@@ -1,0 +1,389 @@
+<Behavior #xnl-revisioned-persistence apiVersion="codument.tech/v1alpha1" version="1" (
+  <Requirements [
+    <Requirement #opaque-live-revision (
+      <Statement ?01M1W1C2BYPEVCNXMJT4TA66ND>
+      XNL VFS authoring persistence SHALL expose an authority-qualified opaque live revision used only for equality-based compare-and-swap and MUST NOT conflate it with a VCS commit id, tree hash, or collaboration version id.
+      </?01M1W1C2BYPEVCNXMJT4TA66ND>
+      <Suites [
+        <Suite #revision { name = "Live revision identity" } (
+          <Cases [
+            <Case #separate-from-commit (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66NE>
+              A persisted VFS snapshot is checkpointed into an XNL VCS repository.
+              </?01M1W1C2BYPEVCNXMJT4TA66NE>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66NF>
+              The caller inspects persistence and checkpoint receipts.
+              </?01M1W1C2BYPEVCNXMJT4TA66NF>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66NG>
+              The persistence receipt SHALL expose a live revision without commit identity, while the checkpoint receipt SHALL expose liveRevision and commitId as distinct fields.
+              </?01M1W1C2BYPEVCNXMJT4TA66NG>
+            )>
+            <Case #cross-authority-token (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66NH>
+              Two authorities expose the same opaque revision value under different authority identities.
+              </?01M1W1C2BYPEVCNXMJT4TA66NH>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66NJ>
+              A caller submits authority A revision to authority B.
+              </?01M1W1C2BYPEVCNXMJT4TA66NJ>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66NK>
+              Authority B SHALL return conflict and SHALL not accept the candidate.
+              </?01M1W1C2BYPEVCNXMJT4TA66NK>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #atomic-cas-flush (
+      <Statement ?01M1W1C2BYPEVCNXMJT4TA66NM>
+      A revisioned VFS authority SHALL compare expected revision and persist the complete candidate as one authority operation, returning an observable result and never advancing snapshot or revision on conflict or failure.
+      </?01M1W1C2BYPEVCNXMJT4TA66NM>
+      <Suites [
+        <Suite #cas { name = "CAS flush" } (
+          <Cases [
+            <Case #successful-flush (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66NN>
+              A valid candidate and the current expected live revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66NN>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66NP>
+              The authority compare-and-swaps the candidate.
+              </?01M1W1C2BYPEVCNXMJT4TA66NP>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66NQ>
+              It SHALL persist the complete candidate and return a receipt containing previousRevision, new revision, authority identity, durability, and timestamp.
+              </?01M1W1C2BYPEVCNXMJT4TA66NQ>
+            )>
+            <Case #stale-writer (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66NR>
+              A caller submits a candidate based on an expired live revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66NR>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66NS>
+              The authority evaluates the compare-and-swap.
+              </?01M1W1C2BYPEVCNXMJT4TA66NS>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66NT>
+              It SHALL return conflict with the actual revision and SHALL leave the persisted snapshot unchanged.
+              </?01M1W1C2BYPEVCNXMJT4TA66NT>
+            )>
+            <Case #flush-failure (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66NV>
+              The persistence authority fails while attempting to flush a valid candidate.
+              </?01M1W1C2BYPEVCNXMJT4TA66NV>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66NW>
+              The operation returns failed.
+              </?01M1W1C2BYPEVCNXMJT4TA66NW>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66NX>
+              The authority SHALL retain the previous snapshot and revision so the caller can retry from a truthful base.
+              </?01M1W1C2BYPEVCNXMJT4TA66NX>
+            )>
+            <Case #concurrent-same-base (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66NY>
+              Two asynchronous writers submit different candidates with the same current expected revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66NY>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66NZ>
+              The authority linearizes both compare-and-swap operations.
+              </?01M1W1C2BYPEVCNXMJT4TA66NZ>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66P0>
+              Exactly one SHALL be applied, the other SHALL conflict, and the final snapshot SHALL match the winning receipt.
+              </?01M1W1C2BYPEVCNXMJT4TA66P0>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #mutation-to-persistence-chain (
+      <Statement ?01M1W1C2BYPEVCNXMJT4TA66P1>
+      The revisioned VFS coordinator SHALL construct a candidate through existing atomic mutation primitives before CAS persistence and SHALL expose applied, unchanged, conflict, rejected, and failed outcomes without mutating the caller base.
+      </?01M1W1C2BYPEVCNXMJT4TA66P1>
+      <Suites [
+        <Suite #coordinator { name = "Mutation coordinator" } (
+          <Cases [
+            <Case #invalid-mutation (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66P2>
+              A mutation batch fails identity, precondition, path, or apply validation.
+              </?01M1W1C2BYPEVCNXMJT4TA66P2>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66P3>
+              The coordinator dry-runs the batch.
+              </?01M1W1C2BYPEVCNXMJT4TA66P3>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66P4>
+              It SHALL return rejected, SHALL not call the authority writer, and SHALL preserve the caller base.
+              </?01M1W1C2BYPEVCNXMJT4TA66P4>
+            )>
+            <Case #reject-direct-id-mutation (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66P5>
+              A strict authoring batch directly adds, updates, or deletes an element #id field.
+              </?01M1W1C2BYPEVCNXMJT4TA66P5>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66P6>
+              The coordinator constructs the candidate.
+              </?01M1W1C2BYPEVCNXMJT4TA66P6>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66P7>
+              It SHALL return rejected without calling the authority; identity replacement SHALL only use old-node delete plus new-node add, while missing identity remains controlled by an explicit policy.
+              </?01M1W1C2BYPEVCNXMJT4TA66P7>
+            )>
+            <Case #force-fallback-identity-mode (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66P8>
+              A VFS element has no explicit #id and metadata.id is its effective identity.
+              </?01M1W1C2BYPEVCNXMJT4TA66P8>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66P9>
+              A caller tries to directly add, update, or delete metadata.id through the revisioned coordinator.
+              </?01M1W1C2BYPEVCNXMJT4TA66P9>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66PA>
+              The coordinator SHALL force metadataIdMode identity, return rejected, and SHALL not call the authority; callers SHALL have no public option or runtime escape to switch this coordinator to metadata mode.
+              </?01M1W1C2BYPEVCNXMJT4TA66PA>
+            )>
+            <Case #semantic-noop (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66PB>
+              A valid mutation batch produces a candidate semantically equal to the caller base snapshot.
+              </?01M1W1C2BYPEVCNXMJT4TA66PB>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66PC>
+              The authority evaluates the candidate at the CAS linearization point.
+              </?01M1W1C2BYPEVCNXMJT4TA66PC>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66PD>
+              It SHALL return unchanged without revision advance only when expected revision is current; a stale no-op SHALL return conflict.
+              </?01M1W1C2BYPEVCNXMJT4TA66PD>
+            )>
+            <Case #identity-is-not-noop (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66PE>
+              A candidate differs only by a root or descendant explicit #id, effective metadata fallback identity, or a same-value transition between those identity authorities.
+              </?01M1W1C2BYPEVCNXMJT4TA66PE>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66PF>
+              The authority performs identity-sensitive structural equality.
+              </?01M1W1C2BYPEVCNXMJT4TA66PF>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66PG>
+              It SHALL treat the snapshots as different even though diffNodes reads #id for node alignment and move detection rather than emitting an ordinary payload-field update for #id.
+              </?01M1W1C2BYPEVCNXMJT4TA66PG>
+            )>
+            <Case #accepted-candidate (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66PH>
+              A valid non-empty candidate and current expected revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66PH>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66PJ>
+              The authority applies the CAS flush.
+              </?01M1W1C2BYPEVCNXMJT4TA66PJ>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66PK>
+              The coordinator SHALL return the complete persisted snapshot and its receipt only after authority success.
+              </?01M1W1C2BYPEVCNXMJT4TA66PK>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #vcs-checkpoint-boundary (
+      <Statement ?01M1W1C2BYPEVCNXMJT4TA66PM>
+      An XNL VCS authoring adapter SHALL update the repository worktree only after VFS persistence success and SHALL create history checkpoints from the exact authority revision-plus-snapshot pair through an explicit operation separate from VFS flush.
+      </?01M1W1C2BYPEVCNXMJT4TA66PM>
+      <Suites [
+        <Suite #vcs { name = "Repository adapter" } (
+          <Cases [
+            <Case #conflict-does-not-update-worktree (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66PN>
+              A VFS persistence operation returns conflict, rejected, or failed.
+              </?01M1W1C2BYPEVCNXMJT4TA66PN>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66PP>
+              The repository adapter handles the result.
+              </?01M1W1C2BYPEVCNXMJT4TA66PP>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66PQ>
+              It SHALL leave the repository worktree and branch history unchanged.
+              </?01M1W1C2BYPEVCNXMJT4TA66PQ>
+            )>
+            <Case #revision-checked-checkpoint (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66PR>
+              The caller requests a checkpoint for a live revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66PR>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66PS>
+              The authority still exposes that revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66PS>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66PT>
+              The adapter SHALL commit a clone of the exact authority snapshot, verify the committed tree matches it, and return distinct liveRevision, commitId, and truthful durability fields.
+              </?01M1W1C2BYPEVCNXMJT4TA66PT>
+            )>
+            <Case #lossless-tree-roundtrip (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66PV>
+              An authority snapshot contains explicit #id, overlapping metadata and attributes keys, every XNL node/value variant, absent versus present-with-undefined optional fields, ordered body values, and ordered Extend children.
+              </?01M1W1C2BYPEVCNXMJT4TA66PV>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66PW>
+              The snapshot is encoded as a versioned checkpoint tree and read back.
+              </?01M1W1C2BYPEVCNXMJT4TA66PW>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66PX>
+              The reconstructed snapshot SHALL be identity-sensitive structurally equal to the source, while legacy unversioned tree objects SHALL remain readable through fallback decoding.
+              </?01M1W1C2BYPEVCNXMJT4TA66PX>
+            )>
+            <Case #lossless-repository-snapshot-roundtrip (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66PY>
+              A Repository contains a commit whose root tree carries a versioned lossless snapshot payload.
+              </?01M1W1C2BYPEVCNXMJT4TA66PY>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66PZ>
+              The Repository is captured, serialized as node or string, deserialized, restored, and the commit is checked out.
+              </?01M1W1C2BYPEVCNXMJT4TA66PZ>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66Q0>
+              The v2 marker and payload SHALL survive with the same object id and the checked-out snapshot SHALL remain identity-sensitive structurally equal to the source.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q0>
+            )>
+            <Case #out-of-band-worktree-mutation (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66Q1>
+              The public repository worktree was changed outside the adapter before checkpoint.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q1>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66Q2>
+              The adapter checkpoints a current authority revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q2>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66Q3>
+              The checkpoint SHALL contain the authority snapshot rather than the unrelated worktree mutation and SHALL restore that public worktree after temporary staging.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q3>
+            )>
+            <Case #stale-checkpoint (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66Q4>
+              The checkpoint expected revision is stale.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q4>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66Q5>
+              The adapter verifies the authority before commit.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q5>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66Q6>
+              It SHALL return conflict and SHALL not create a VCS commit.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q6>
+            )>
+            <Case #checkpoint-backend-failure (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66Q7>
+              A commit is accepted in memory but its backend update or flush fails.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q7>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66Q8>
+              The adapter observes the failure.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q8>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66Q9>
+              It SHALL return an indeterminate checkpoint result with observed history state and SHALL NOT claim that history was unchanged.
+              </?01M1W1C2BYPEVCNXMJT4TA66Q9>
+            )>
+            <Case #checkpoint-result-boundary (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66QA>
+              A checkpoint read, pre-commit preparation, commit, post-commit verification, or optional flush fails.
+              </?01M1W1C2BYPEVCNXMJT4TA66QA>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66QB>
+              The adapter classifies the observable outcome.
+              </?01M1W1C2BYPEVCNXMJT4TA66QB>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66QC>
+              It SHALL return failed only when commit acceptance is known not to have started and the public worktree is restored; otherwise it SHALL return indeterminate with headBefore, observedHead, candidateCommitId when available, and an explicit restored-or-unknown worktree state.
+              </?01M1W1C2BYPEVCNXMJT4TA66QC>
+            )>
+            <Case #restore-failure-boundary (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66QD>
+              Checkpoint staging or commit has completed or failed and restoration of the public worktree or persisted workspace also fails.
+              </?01M1W1C2BYPEVCNXMJT4TA66QD>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66QE>
+              The closed outcome is classified.
+              </?01M1W1C2BYPEVCNXMJT4TA66QE>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66QF>
+              It SHALL return indeterminate with phase restore, truthful historyState, worktreeState unknown, and observed head evidence even when the preceding error occurred before commit invocation.
+              </?01M1W1C2BYPEVCNXMJT4TA66QF>
+            )>
+            <Case #checkpoint-durability (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66QG>
+              A checkpoint tree is committed and verified.
+              </?01M1W1C2BYPEVCNXMJT4TA66QG>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66QH>
+              The same Repository backend has no flush capability, its active stores are overridden, or its bound awaitable flush succeeds.
+              </?01M1W1C2BYPEVCNXMJT4TA66QH>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66QJ>
+              The receipt SHALL report backend-flushed only when active object/content stores are the backend-owned ports and that backend confirms flush; missing capability, mixed stores, or an unrelated function SHALL remain memory-accepted.
+              </?01M1W1C2BYPEVCNXMJT4TA66QJ>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #backward-compatible-entrypoints (
+      <Statement ?01M1W1C2BYPEVCNXMJT4TA66QK>
+      The revisioned persistence contracts and reference authority SHALL be introduced through an explicit browser-safe xnl-vfs subpath while existing package-root browser limitations, VFS persistence APIs, and Repository APIs remain unchanged and source-compatible.
+      </?01M1W1C2BYPEVCNXMJT4TA66QK>
+      <Suites [
+        <Suite #compatibility { name = "Compatibility and exports" } (
+          <Cases [
+            <Case #package-regression (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66QM>
+              Existing xnl-vfs and xnl-vcs consumers and tests.
+              </?01M1W1C2BYPEVCNXMJT4TA66QM>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66QN>
+              The new revisioned primitives are built and exported.
+              </?01M1W1C2BYPEVCNXMJT4TA66QN>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66QP>
+              Existing tests and type checks SHALL remain green, the new xnl-vfs revisioned subpath SHALL contain no Node-only imports, and no new browser-safety claim SHALL be made for existing package roots.
+              </?01M1W1C2BYPEVCNXMJT4TA66QP>
+            )>
+            <Case #strict-browser-surface (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66QQ>
+              A browser consumer imports xnl-vfs/revisioned-persistence.
+              </?01M1W1C2BYPEVCNXMJT4TA66QQ>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66QR>
+              It invokes the coordinator.
+              </?01M1W1C2BYPEVCNXMJT4TA66QR>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66QS>
+              The public input SHALL be XnlMutationBatch plus options that omit metadataIdMode, the runtime SHALL force metadataIdMode identity, and the path SHALL terminate in strict dryRunMutations without exposing the legacy VfsMutation bridge.
+              </?01M1W1C2BYPEVCNXMJT4TA66QS>
+            )>
+            <Case #transitive-browser-scan (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66QT>
+              The ESM and CJS revisioned-persistence entries have been built.
+              </?01M1W1C2BYPEVCNXMJT4TA66QT>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66QV>
+              The verification recursively follows emitted chunks and resolvable bare package imports.
+              </?01M1W1C2BYPEVCNXMJT4TA66QV>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66QW>
+              The reachable graph SHALL contain neither fs, path, crypto nor their node-prefixed forms.
+              </?01M1W1C2BYPEVCNXMJT4TA66QW>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #browser-persistent-authority (
+      <Statement ?01M1W1C2BYPEVCNXMJT4TA66QX>
+      An IndexedDB revisioned VFS authority SHALL durably retain one authority-qualified snapshot and live revision, and SHALL linearize freshness validation, semantic no-op detection, and accepted snapshot/revision replacement in one browser-storage transaction.
+      </?01M1W1C2BYPEVCNXMJT4TA66QX>
+      <Suites [
+        <Suite #indexeddb-authority { name = "IndexedDB revisioned authority" } (
+          <Cases [
+            <Case #reopen-retains-fact (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66QY>
+              An authority has accepted and durably stored a snapshot revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66QY>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66QZ>
+              A new authority instance opens the same database and authority identity.
+              </?01M1W1C2BYPEVCNXMJT4TA66QZ>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66R0>
+              It SHALL restore the exact snapshot and revision and SHALL NOT overwrite them with its initial seed.
+              </?01M1W1C2BYPEVCNXMJT4TA66R0>
+            )>
+            <Case #independent-instance-cas (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66R1>
+              Two independently opened authority instances submit different candidates from the same current revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66R1>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66R2>
+              IndexedDB linearizes their readwrite transactions.
+              </?01M1W1C2BYPEVCNXMJT4TA66R2>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66R3>
+              Exactly one SHALL return applied with workspace durability, the other SHALL return conflict, and reopen SHALL expose the winning snapshot and revision.
+              </?01M1W1C2BYPEVCNXMJT4TA66R3>
+            )>
+            <Case #browser-failure-is-atomic (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66R4>
+              An IndexedDB transaction aborts or fails before durable completion.
+              </?01M1W1C2BYPEVCNXMJT4TA66R4>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66R5>
+              The authority returns a failed result and is reopened.
+              </?01M1W1C2BYPEVCNXMJT4TA66R5>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66R6>
+              The previous snapshot and revision SHALL remain authoritative and a retry from that revision MAY succeed.
+              </?01M1W1C2BYPEVCNXMJT4TA66R6>
+            )>
+            <Case #browser-safe-public-surface (
+              <Given ?01M1W1C2BYPEVCNXMJT4TA66R7>
+              A browser consumer imports the explicit xnl-vfs/revisioned-persistence subpath.
+              </?01M1W1C2BYPEVCNXMJT4TA66R7>
+              <When ?01M1W1C2BYPEVCNXMJT4TA66R8>
+              It creates the IndexedDB authority through the public factory.
+              </?01M1W1C2BYPEVCNXMJT4TA66R8>
+              <Then ?01M1W1C2BYPEVCNXMJT4TA66R9>
+              The subpath's reachable implementation SHALL use no Node-only builtins and SHALL preserve the existing RevisionedVfsAuthority and VCS-separation contracts without making a new browser-safety claim for the package root.
+              </?01M1W1C2BYPEVCNXMJT4TA66R9>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+  ]>
+)>

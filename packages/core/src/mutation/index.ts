@@ -1,5 +1,6 @@
 import { deleteAtPath, parsePath, resolvePath, setPathValue, XnlPath, XnlPathError, PathItem } from "../path";
 import { DataElementNode, ExtendBody, TextElementNode, XnlNode, isWord, wordToString } from "../types";
+import { cloneWithValueContext, isLiteralObject, markLiteralTree } from "../value-context";
 
 export type MutationType =
   | "TREE_ADD"
@@ -29,6 +30,8 @@ export type MetadataIdMode = "identity" | "metadata";
 
 export interface XnlMutationOptions {
   metadataIdMode?: MetadataIdMode;
+  /** Explicit data roots for constructed or transported ASTs. Paths resolve against each complete tree. */
+  literalValuePaths?: readonly (string | XnlPath)[];
 }
 
 export type XnlMutationBatch = readonly XnlMutation[];
@@ -105,7 +108,14 @@ function isMetadataMapPath(path: XnlPath): boolean {
 }
 
 function cloneValue<T>(value: T): T {
-  return structuredClone(value);
+  return cloneWithValueContext(value);
+}
+
+function bindLiteralPaths(root: XnlNode, options: XnlMutationOptions): void {
+  for (const path of options.literalValuePaths ?? []) {
+    const value = resolvePath(root, path, { strict: false });
+    if (value !== undefined) markLiteralTree(value);
+  }
 }
 
 function validateIdentities(
@@ -570,6 +580,7 @@ export const dryRunMutations: XnlDryRunMutations = (
   options = {}
 ) => {
   const rejectedValue = cloneValue(base);
+  bindLiteralPaths(rejectedValue, options);
   const reject = (
     diagnostics: readonly XnlMutationDiagnostic[]
   ): XnlMutationBatchResult => ({
@@ -677,6 +688,7 @@ export const dryRunMutations: XnlDryRunMutations = (
         ? collectIdentitySkeleton(current)
         : undefined;
       current = applySingle(current, mutation, options);
+      bindLiteralPaths(current, options);
       if (skeletonBefore) {
         const skeletonAfter = collectIdentitySkeleton(current);
         if (!identitySkeletonsEqual(skeletonBefore, skeletonAfter)) {
@@ -742,14 +754,46 @@ export const dryRunMutations: XnlDryRunMutations = (
 };
 
 export function applyMutations(root: XnlNode, mutations: XnlMutation[], opts: XnlMutationOptions = {}): XnlNode {
+  bindLiteralPaths(root, opts);
   let current = root;
   for (const mutation of mutations) {
     current = applySingle(current, mutation, opts);
+    bindLiteralPaths(current, opts);
   }
   return current;
 }
 
+/** Produces preconditions against the sequential state observed by strict apply. */
 export function diffNodes(
+  oldNode: XnlNode,
+  newNode: XnlNode,
+  basePath: string | XnlPath = [],
+  opts: XnlMutationOptions = {}
+): XnlMutation[] {
+  if (opts.literalValuePaths?.length) {
+    oldNode = cloneValue(oldNode);
+    newNode = cloneValue(newNode);
+    bindLiteralPaths(oldNode, opts);
+    bindLiteralPaths(newNode, opts);
+  }
+  const mutations = diffNodesInternal(oldNode, newNode, basePath, opts);
+  // Paths with an externally supplied base cannot be resolved against this subtree.
+  // Normal root and identity-selected root paths can be simulated locally.
+  const path = Array.isArray(basePath) ? basePath : parsePath(basePath);
+  if (path.length > 0 && !(path.length === 1 && path[0]?.type === "UniqueName")) return mutations;
+  let current = cloneValue(oldNode);
+  return mutations.map((mutation) => {
+    const next = cloneValue(mutation);
+    if (supportsValueBefore(next)) {
+      const targetPath = Array.isArray(next.path) ? next.path : parsePath(next.path);
+      next.valueBefore = cloneValue(resolveObservableTarget(current, next, targetPath)) as XnlNode;
+    }
+    current = applySingle(current, cloneValue(next), opts);
+    return next;
+  });
+}
+
+function diffNodesInternal(
   oldNode: XnlNode,
   newNode: XnlNode,
   basePath: string | XnlPath = [],
@@ -757,10 +801,10 @@ export function diffNodes(
 ): XnlMutation[] {
   const pathItems = Array.isArray(basePath) ? basePath : parsePath(basePath);
   if (!sameKind(oldNode, newNode)) {
-    throw new XnlPathError("Root kinds must match to diff");
+    return [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueBefore: oldNode, valueAfter: newNode }];
   }
   if (isValueLiteral(oldNode) || isComment(oldNode)) {
-    return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueAfter: newNode }];
+    return oldNode === newNode ? [] : [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueBefore: oldNode, valueAfter: newNode }];
   }
   if (Array.isArray(oldNode) && Array.isArray(newNode)) {
     return diffArray(oldNode, newNode, pathItems, undefined, undefined, opts);
@@ -775,12 +819,13 @@ export function diffNodes(
     const mutations = diffDataElement(oldNode, newNode, pathItems, opts);
     return reconcileMoves(mutations, opts);
   }
-  return [];
+  return isEqual(oldNode, newNode) ? [] : [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueBefore: oldNode, valueAfter: newNode }];
 }
 
 function applySingle(root: XnlNode, mutation: XnlMutation, opts: XnlMutationOptions): XnlNode {
   const { type, path, valueAfter } = mutation;
   const pathItems = Array.isArray(path) ? path : parsePath(path);
+  if (pathItems.length === 0 && (type === "OBJECT_UPDATE" || type === "TREE_UPDATE")) return valueAfter as XnlNode;
 
   if (resolveMetaIdMode(opts) === "identity" && isMetadataIdPath(pathItems)) {
     return root;
@@ -1082,7 +1127,7 @@ function diffArray(
         continue;
       }
 
-      const nested = diffNodes(oldItem, newItem, path, opts);
+      const nested = diffNodesInternal(oldItem, newItem, path, opts);
       if (nested.length === 0) {
         if (!useIdentity) {
           mutations.push({
@@ -1141,8 +1186,8 @@ function diffMap(
     if (resolveMetaIdMode(opts) === "identity" && isMetadataMapPath(basePath) && key === "id") {
       continue;
     }
-    const oldVal = (oldMap || {})[key];
-    const newVal = (newMap || {})[key];
+    const oldVal = oldMap && Object.prototype.hasOwnProperty.call(oldMap, key) ? oldMap[key] : undefined;
+    const newVal = newMap && Object.prototype.hasOwnProperty.call(newMap, key) ? newMap[key] : undefined;
     const path = [...basePath, mk(key)];
     if (oldVal === undefined && newVal !== undefined) {
       mutations.push({
@@ -1165,7 +1210,7 @@ function diffMap(
       continue;
     }
     if (!isEqual(oldVal, newVal)) {
-      const nested = diffNodes(oldVal, newVal, path, opts);
+      const nested = diffNodesInternal(oldVal, newVal, path, opts);
       if (nested.length === 0) {
         mutations.push({ type: "OBJECT_UPDATE", path: pathToDsl(path), valueAfter: newVal });
       } else {
@@ -1276,7 +1321,7 @@ function diffExtend(
 
     const id = readIdOrMetadaataId(match.oldChild) ?? readIdOrMetadaataId(match.newChild);
     const childPath = id ? [{ type: "UniqueName", value: id } as PathItem] : [...pathBase, mk(newTag)];
-    const nested = diffNodes(match.oldChild, match.newChild, childPath, opts);
+    const nested = diffNodesInternal(match.oldChild, match.newChild, childPath, opts);
     if (nested.length === 0) {
       if (!isStructurallyEqual(match.oldChild, match.newChild)) {
         mutations.push({ type: "TREE_UPDATE", path: pathToDsl(childPath), valueAfter: match.newChild });
@@ -1304,7 +1349,7 @@ function pathToDsl(path: XnlPath): string {
       continue;
     }
     if (item.type === "MapKey") {
-      out += `::'${item.value}'`;
+      out += `::'${item.value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
       continue;
     }
     out += `::${item.value}`;
@@ -1345,15 +1390,15 @@ function isPlainObject(value: any): value is Record<string, any> {
 }
 
 function isDataElement(node: any): node is DataElementNode {
-  return node && node.kind === "DataElement";
+  return node && !isLiteralObject(node) && node.kind === "DataElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 
 function isTextElement(node: any): node is TextElementNode {
-  return node && node.kind === "TextElement";
+  return node && !isLiteralObject(node) && node.kind === "TextElement" && typeof node.tag === "string" && node.metadata !== null && typeof node.metadata === "object" && !Array.isArray(node.metadata);
 }
 
 function isExtendBody(node: any): node is ExtendBody {
-  return node && typeof node === "object" && Array.isArray(node.order) && node.children;
+  return node && !isLiteralObject(node) && typeof node === "object" && Array.isArray(node.order) && node.children;
 }
 
 function isValueLiteral(node: any): boolean {
@@ -1367,7 +1412,7 @@ function isValueLiteral(node: any): boolean {
 }
 
 function isComment(node: any): boolean {
-  return node && node.kind === "Comment";
+  return node && !isLiteralObject(node) && node.kind === "Comment";
 }
 
 const ip = (value: string): PathItem => ({ type: "InstanceProperty", value });
@@ -1498,7 +1543,7 @@ function reconcileMoves(
     };
     result.push(move);
     moveUpdates.push(
-      ...diffNodes(
+      ...diffNodesInternal(
         del.valueBefore as XnlNode,
         add.valueAfter as XnlNode,
         [{ type: "UniqueName", value: id }],

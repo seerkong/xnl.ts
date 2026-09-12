@@ -1,0 +1,312 @@
+<Behavior #xnl-mutation-transaction apiVersion="codument.tech/v1alpha1" version="1" (
+  <Requirements [
+    <Requirement #identity-key-semantics (
+      <Statement ?01M1W1C2BW59Q86GR8M04Z01PZ>
+      XNL mutation diff SHALL use element #id as the identity key for node alignment and move detection and MUST NOT emit ordinary field updates for #id; strict update mutations SHALL preserve the full-tree identity skeleton and strict structural writes SHALL not overwrite an occupied identified destination.
+      </?01M1W1C2BW59Q86GR8M04Z01PZ>
+      <Suites [
+        <Suite #identity { name = "Identity semantics" } (
+          <Cases [
+            <Case #detect-move-by-id (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01Q0>
+              Two trees contain the same uniquely identified element under different parents or indexes.
+              </?01M1W1C2BW59Q86GR8M04Z01Q0>
+              <When ?01M1W1C2BW59Q86GR8M04Z01Q1>
+              diffNodes compares the trees in identity mode.
+              </?01M1W1C2BW59Q86GR8M04Z01Q1>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01Q2>
+              The mutation set SHALL identify the structural move by that #id rather than treating #id as changed payload.
+              </?01M1W1C2BW59Q86GR8M04Z01Q2>
+            )>
+            <Case #reject-duplicate-id (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01Q3>
+              A base or candidate tree contains the same effective identity more than once.
+              </?01M1W1C2BW59Q86GR8M04Z01Q3>
+              <When ?01M1W1C2BW59Q86GR8M04Z01Q4>
+              The strict mutation batch API validates the tree.
+              </?01M1W1C2BW59Q86GR8M04Z01Q4>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01Q5>
+              The batch SHALL be rejected with a structured duplicate-identity diagnostic before acceptance.
+              </?01M1W1C2BW59Q86GR8M04Z01Q5>
+            )>
+            <Case #configurable-missing-id (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01Q6>
+              An element has no effective identity.
+              </?01M1W1C2BW59Q86GR8M04Z01Q6>
+              <When ?01M1W1C2BW59Q86GR8M04Z01Q7>
+              The batch runs with allow-missing or require-elements identity policy.
+              </?01M1W1C2BW59Q86GR8M04Z01Q7>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01Q8>
+              Allow-missing SHALL accept the absence while require-elements SHALL reject it with a structured diagnostic.
+              </?01M1W1C2BW59Q86GR8M04Z01Q8>
+            )>
+            <Case #reject-direct-id-mutation (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01Q9>
+              A caller submits an add, update, or delete mutation whose target is an element #id field.
+              </?01M1W1C2BW59Q86GR8M04Z01Q9>
+              <When ?01M1W1C2BW59Q86GR8M04Z01QA>
+              The strict mutation batch API validates the mutation before apply.
+              </?01M1W1C2BW59Q86GR8M04Z01QA>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01QB>
+              The batch SHALL reject it with IDENTITY_MUTATION_FORBIDDEN, SHALL leave the base unchanged, and identity replacement SHALL only be representable as old-node delete plus new-node add.
+              </?01M1W1C2BW59Q86GR8M04Z01QB>
+            )>
+            <Case #reject-hidden-id-replacement (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01QC>
+              An update mutation replaces a whole node or container and changes, adds, removes, swaps, or relocates an identified descendant.
+              </?01M1W1C2BW59Q86GR8M04Z01QC>
+              <When ?01M1W1C2BW59Q86GR8M04Z01QD>
+              The strict mutation batch compares the ordered full-tree identity skeleton before and after that update.
+              </?01M1W1C2BW59Q86GR8M04Z01QD>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01QE>
+              The batch SHALL reject it with IDENTITY_MUTATION_FORBIDDEN and SHALL expose only an unchanged base clone.
+              </?01M1W1C2BW59Q86GR8M04Z01QE>
+            )>
+            <Case #reject-fallback-id-container-update (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01QF>
+              An element has no explicit #id and an update replaces its metadata container so the effective fallback identity changes or disappears.
+              </?01M1W1C2BW59Q86GR8M04Z01QF>
+              <When ?01M1W1C2BW59Q86GR8M04Z01QG>
+              The strict batch compares the full-tree identity skeleton before and after the update.
+              </?01M1W1C2BW59Q86GR8M04Z01QG>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01QH>
+              The batch SHALL reject it with IDENTITY_MUTATION_FORBIDDEN even though the mutation target container has no identity itself.
+              </?01M1W1C2BW59Q86GR8M04Z01QH>
+            )>
+            <Case #reject-direct-fallback-id-mutation (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01QJ>
+              An element has no explicit #id and its metadata id is the effective compatibility identity.
+              </?01M1W1C2BW59Q86GR8M04Z01QJ>
+              <When ?01M1W1C2BW59Q86GR8M04Z01QK>
+              A strict identity-mode batch directly adds, updates, or deletes that metadata id map key.
+              </?01M1W1C2BW59Q86GR8M04Z01QK>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01QM>
+              The batch SHALL reject it with IDENTITY_MUTATION_FORBIDDEN; an element with explicit #id SHALL retain the existing identity-mode compatibility behavior for metadata id.
+              </?01M1W1C2BW59Q86GR8M04Z01QM>
+            )>
+            <Case #respect-explicit-id-precedence (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01QN>
+              An element has an explicit #id and also carries compatibility metadata id.
+              </?01M1W1C2BW59Q86GR8M04Z01QN>
+              <When ?01M1W1C2BW59Q86GR8M04Z01QP>
+              An ordinary update changes only the metadata fallback while the explicit #id and all structural identity paths remain stable.
+              </?01M1W1C2BW59Q86GR8M04Z01QP>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01QQ>
+              The identity skeleton SHALL continue using #id precedence and SHALL not misclassify the payload update as an identity replacement.
+              </?01M1W1C2BW59Q86GR8M04Z01QQ>
+            )>
+            <Case #reject-identity-authority-transition (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01QR>
+              A whole-node or container update switches an element between explicit #id and metadata fallback while preserving the same identity string.
+              </?01M1W1C2BW59Q86GR8M04Z01QR>
+              <When ?01M1W1C2BW59Q86GR8M04Z01QS>
+              The strict batch compares the ordered full-tree identity descriptors before and after the update.
+              </?01M1W1C2BW59Q86GR8M04Z01QS>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01QT>
+              The batch SHALL reject the raw identity authority transition with IDENTITY_MUTATION_FORBIDDEN; #id SHALL remain an alignment authority rather than ordinary update payload.
+              </?01M1W1C2BW59Q86GR8M04Z01QT>
+            )>
+            <Case #reject-occupied-structural-destination (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01QV>
+              An add or move targets an occupied property, map key, or extend destination whose existing subtree contains an identified element.
+              </?01M1W1C2BW59Q86GR8M04Z01QV>
+              <When ?01M1W1C2BW59Q86GR8M04Z01QW>
+              The strict batch validates the assignment-style destination before apply.
+              </?01M1W1C2BW59Q86GR8M04Z01QW>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01QX>
+              The batch SHALL reject it with IDENTITY_MUTATION_FORBIDDEN rather than silently replacing the existing identity.
+              </?01M1W1C2BW59Q86GR8M04Z01QX>
+            )>
+            <Case #allow-list-insertion-and-empty-destination (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01QY>
+              An add inserts at an ordinary array list index or an add/move targets an empty assignment-style destination.
+              </?01M1W1C2BW59Q86GR8M04Z01QY>
+              <When ?01M1W1C2BW59Q86GR8M04Z01QZ>
+              The strict batch applies the explicit structural mutation.
+              </?01M1W1C2BW59Q86GR8M04Z01QZ>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01R0>
+              The operation SHALL remain eligible for normal identity and result validation.
+              </?01M1W1C2BW59Q86GR8M04Z01R0>
+            )>
+            <Case #preserve-extend-order-with-moves (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01R1>
+              Two Extend bodies contain the same children in a different order, with or without effective identities under the selected policy.
+              </?01M1W1C2BW59Q86GR8M04Z01R1>
+              <When ?01M1W1C2BW59Q86GR8M04Z01R2>
+              diffNodes compares them and the strict batch applies the produced mutations.
+              </?01M1W1C2BW59Q86GR8M04Z01R2>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01R3>
+              The diff SHALL express the reorder as explicit same-level identity or pathBefore move mutations, SHALL NOT update extend.order as ordinary payload, and the applied value SHALL equal the target.
+              </?01M1W1C2BW59Q86GR8M04Z01R3>
+            )>
+            <Case #preserve-extend-retag-coherence (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01R4>
+              An Extend child keeps its identity while its tag and therefore its keyed storage name change.
+              </?01M1W1C2BW59Q86GR8M04Z01R4>
+              <When ?01M1W1C2BW59Q86GR8M04Z01R5>
+              diffNodes constructs and the strict batch applies the retag mutation set.
+              </?01M1W1C2BW59Q86GR8M04Z01R5>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01R6>
+              The diff SHALL use an explicit move destination key to migrate the children key at the target order index, update the child tag, and leave a coherent Extend body; a standalone tag update without key migration SHALL be rejected with RESULT_STRUCTURE_INVALID.
+              </?01M1W1C2BW59Q86GR8M04Z01R6>
+            )>
+            <Case #preserve-extend-retag-and-reorder (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01R7>
+              An identified Extend child is retagged and moves from a later index to an earlier index or from an earlier index to a later index.
+              </?01M1W1C2BW59Q86GR8M04Z01R7>
+              <When ?01M1W1C2BW59Q86GR8M04Z01R8>
+              diffNodes emits and the strict batch applies the mutation set.
+              </?01M1W1C2BW59Q86GR8M04Z01R8>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01R9>
+              The move destinationKey SHALL carry the new storage key independently from the moved node's old tag, and both direction cases SHALL apply exactly to the target.
+              </?01M1W1C2BW59Q86GR8M04Z01R9>
+            )>
+            <Case #guard-extend-keyed-insertion (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01RA>
+              An Extend index add or cross-parent move would write a child tag already occupied by a different identified child.
+              </?01M1W1C2BW59Q86GR8M04Z01RA>
+              <When ?01M1W1C2BW59Q86GR8M04Z01RB>
+              The strict batch validates the destination before source extraction or insertion.
+              </?01M1W1C2BW59Q86GR8M04Z01RB>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01RC>
+              The batch SHALL inspect the children[value.tag] occupant, reject replacement of a different child without overwriting either child, and keep a same-source reorder or delete-then-add replacement eligible regardless of the sibling currently at the target order index.
+              </?01M1W1C2BW59Q86GR8M04Z01RC>
+            )>
+            <Case #allow-same-identity-update (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01RD>
+              A whole-node update preserves every identified descendant at the same relative structural path.
+              </?01M1W1C2BW59Q86GR8M04Z01RD>
+              <When ?01M1W1C2BW59Q86GR8M04Z01RE>
+              The strict mutation batch updates tag or ordinary payload.
+              </?01M1W1C2BW59Q86GR8M04Z01RE>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01RF>
+              The update SHALL remain eligible for normal precondition, apply, and result validation, except that an Extend child retag SHALL also satisfy the structural key migration and final coherence rules.
+              </?01M1W1C2BW59Q86GR8M04Z01RF>
+            )>
+            <Case #allow-explicit-identity-replacement (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01RG>
+              A batch deletes the old identified node and adds a new node with a different identity.
+              </?01M1W1C2BW59Q86GR8M04Z01RG>
+              <When ?01M1W1C2BW59Q86GR8M04Z01RH>
+              The ordered strict batch applies the explicit structural mutations.
+              </?01M1W1C2BW59Q86GR8M04Z01RH>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01RJ>
+              The replacement SHALL remain eligible for atomic acceptance when all other validation passes.
+              </?01M1W1C2BW59Q86GR8M04Z01RJ>
+            )>
+            <Case #strict-matrix-coverage (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01RK>
+              Identity-bearing DataElement or TextElement nodes occur in metadata, attributes, body, or extend under allow-missing or require-elements policy.
+              </?01M1W1C2BW59Q86GR8M04Z01RK>
+              <When ?01M1W1C2BW59Q86GR8M04Z01RM>
+              TREE_UPDATE, OBJECT_UPDATE, add, delete, or move mutations pass through strict and legacy entries.
+              </?01M1W1C2BW59Q86GR8M04Z01RM>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01RN>
+              The strict entry SHALL enforce effective-identity continuity and occupied-destination rules while legacy applyMutations SHALL preserve its existing behavior.
+              </?01M1W1C2BW59Q86GR8M04Z01RN>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #atomic-dry-run (
+      <Statement ?01M1W1C2BW59Q86GR8M04Z01RP>
+      xnl-core SHALL provide an explicit mutation batch dry-run that never modifies its base input and exposes only a fully applied result or a structured rejection.
+      </?01M1W1C2BW59Q86GR8M04Z01RP>
+      <Suites [
+        <Suite #batch { name = "Atomic mutation batch" } (
+          <Cases [
+            <Case #successful-preview (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01RQ>
+              A valid base tree and ordered mutation batch.
+              </?01M1W1C2BW59Q86GR8M04Z01RQ>
+              <When ?01M1W1C2BW59Q86GR8M04Z01RR>
+              The caller dry-runs the batch.
+              </?01M1W1C2BW59Q86GR8M04Z01RR>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01RS>
+              The result SHALL contain the fully updated clone and the original base SHALL remain deeply equal to its pre-call value.
+              </?01M1W1C2BW59Q86GR8M04Z01RS>
+            )>
+            <Case #failed-preview (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01RT>
+              A batch whose later mutation cannot be applied.
+              </?01M1W1C2BW59Q86GR8M04Z01RT>
+              <When ?01M1W1C2BW59Q86GR8M04Z01RV>
+              The caller dry-runs the batch.
+              </?01M1W1C2BW59Q86GR8M04Z01RV>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01RW>
+              The result SHALL be rejected, SHALL expose no partially applied authority, and SHALL leave the original base unchanged.
+              </?01M1W1C2BW59Q86GR8M04Z01RW>
+            )>
+            <Case #stale-precondition (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01RX>
+              A delete, update, or move mutation has valueBefore that differs from the observable target.
+              </?01M1W1C2BW59Q86GR8M04Z01RX>
+              <When ?01M1W1C2BW59Q86GR8M04Z01RY>
+              Precondition verification is enabled.
+              </?01M1W1C2BW59Q86GR8M04Z01RY>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01RZ>
+              The batch SHALL be rejected with PRECONDITION_FAILED before that mutation is applied.
+              </?01M1W1C2BW59Q86GR8M04Z01RZ>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #diff-apply-parity (
+      <Statement ?01M1W1C2BW59Q86GR8M04Z01S0>
+      For supported XNL tree changes, applying the ordered diff to a clone of the base SHALL produce an AST equal to the target.
+      </?01M1W1C2BW59Q86GR8M04Z01S0>
+      <Suites [
+        <Suite #parity { name = "Diff/apply parity" } (
+          <Cases [
+            <Case #same-level-and-cross-level-move (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01S1>
+              Targets containing same-level reorder, cross-level move, and a three-node rotation.
+              </?01M1W1C2BW59Q86GR8M04Z01S1>
+              <When ?01M1W1C2BW59Q86GR8M04Z01S2>
+              diffNodes creates mutations and the strict batch API applies them.
+              </?01M1W1C2BW59Q86GR8M04Z01S2>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01S3>
+              Every applied result SHALL equal the complete target AST, including order and parentage.
+              </?01M1W1C2BW59Q86GR8M04Z01S3>
+            )>
+            <Case #mixed-structural-change (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01S4>
+              A target combines move, add, delete, attribute update, text update, and tag update.
+              </?01M1W1C2BW59Q86GR8M04Z01S4>
+              <When ?01M1W1C2BW59Q86GR8M04Z01S5>
+              The diff is dry-run against the base.
+              </?01M1W1C2BW59Q86GR8M04Z01S5>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01S6>
+              The applied result SHALL equal the target without modifying #id as ordinary payload.
+              </?01M1W1C2BW59Q86GR8M04Z01S6>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+    <Requirement #backward-compatible-primitives (
+      <Statement ?01M1W1C2BW59Q86GR8M04Z01S7>
+      The existing diffNodes and mutable applyMutations APIs SHALL remain source-compatible while the strict transaction behavior, including rejection of direct #id field mutation, is introduced through explicit new exports.
+      </?01M1W1C2BW59Q86GR8M04Z01S7>
+      <Suites [
+        <Suite #compatibility { name = "Compatibility" } (
+          <Cases [
+            <Case #existing-suite (
+              <Given ?01M1W1C2BW59Q86GR8M04Z01S8>
+              Existing parser, path, loader, formatter and mutation consumers.
+              </?01M1W1C2BW59Q86GR8M04Z01S8>
+              <When ?01M1W1C2BW59Q86GR8M04Z01S9>
+              xnl-core builds and its complete test suite runs.
+              </?01M1W1C2BW59Q86GR8M04Z01S9>
+              <Then ?01M1W1C2BW59Q86GR8M04Z01SA>
+              Existing supported behavior SHALL remain green and no consumer SHALL be forced into strict identity policy.
+              </?01M1W1C2BW59Q86GR8M04Z01SA>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+  ]>
+)>

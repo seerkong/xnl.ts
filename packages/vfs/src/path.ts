@@ -1,4 +1,3 @@
-import path from "node:path";
 import { VfsError } from "./errors";
 
 export const VFS_SCHEME = "vfs://";
@@ -27,9 +26,16 @@ function stripRootBody(input: string): string {
 
 function normalizeSegments(raw: string): string[] {
   const unix = raw.replace(/\\/g, "/");
-  const joined = path.posix.normalize(unix);
-  const parts = joined.split("/").filter(Boolean);
-  return parts;
+  const normalized: string[] = [];
+  for (const segment of unix.split("/")) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      normalized.pop();
+      continue;
+    }
+    normalized.push(segment);
+  }
+  return normalized;
 }
 
 export function normalizeVfsPath(input: string): string {
@@ -66,12 +72,19 @@ export function basenameVfsPath(input: string): string {
 }
 
 export function relativeVfsPath(from: string, to: string): string {
-  const nFrom = normalizeVfsPath(from);
-  const nTo = normalizeVfsPath(to);
-  const fromBody = stripScheme(nFrom);
-  const toBody = stripScheme(nTo);
-  const rel = path.posix.relative(fromBody, toBody);
-  return rel || ".";
+  const fromSegments = toSegments(from);
+  const toSegmentsValue = toSegments(to);
+  let commonLength = 0;
+  while (
+    commonLength < fromSegments.length &&
+    commonLength < toSegmentsValue.length &&
+    fromSegments[commonLength] === toSegmentsValue[commonLength]
+  ) {
+    commonLength += 1;
+  }
+  const upward = Array.from({ length: fromSegments.length - commonLength }, () => "..");
+  const downward = toSegmentsValue.slice(commonLength);
+  return [...upward, ...downward].join("/") || ".";
 }
 
 export function toSegments(input: string): string[] {

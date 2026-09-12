@@ -95,6 +95,8 @@ interface XnlMutation {
 type MetadataIdMode = "identity" | "metadata";
 interface XnlMutationOptions {
     metadataIdMode?: MetadataIdMode;
+    /** Explicit data roots for constructed or transported ASTs. Paths resolve against each complete tree. */
+    literalValuePaths?: readonly (string | XnlPath)[];
 }
 type XnlMutationBatch = readonly XnlMutation[];
 type XnlMutationIdentityPolicy = "allow-missing" | "require-elements";
@@ -131,6 +133,7 @@ type XnlMutationBatchResult = {
 type XnlDryRunMutations = (base: XnlNode, mutations: XnlMutationBatch, options?: XnlMutationBatchOptions) => XnlMutationBatchResult;
 declare const dryRunMutations: XnlDryRunMutations;
 declare function applyMutations(root: XnlNode, mutations: XnlMutation[], opts?: XnlMutationOptions): XnlNode;
+/** Produces preconditions against the sequential state observed by strict apply. */
 declare function diffNodes(oldNode: XnlNode, newNode: XnlNode, basePath?: string | XnlPath, opts?: XnlMutationOptions): XnlMutation[];
 
 /** Options for parsing. */
@@ -217,6 +220,17 @@ declare function resolveVfsSrc(src: string, opts: ResolveImportsOptions): string
  */
 declare function resolveImports(rootDoc: XnlDocument, resolver: ImportResolver, opts: ResolveImportsOptions): ResolveImportsResult;
 
+/** JSON-compatible data, interpreted without XNL AST discriminators. */
+type XnlLiteral = null | boolean | number | string | XnlLiteral[] | {
+    [key: string]: XnlLiteral;
+};
+interface StringifyLiteralOptions {
+    /** Sort object keys recursively; array order is always preserved. */
+    readonly sortKeys?: boolean;
+}
+/** Serialize data as native XNL literals, including objects with a `kind` key. */
+declare function stringifyLiteral(value: XnlLiteral, options?: StringifyLiteralOptions): string;
+
 type XnlErrorCode = "UNEXPECTED_EOF" | "MISMATCHED_TAG" | "DUPLICATE_CHILD" | "INVALID_CONTENT" | "INVALID_LITERAL" | "UNEXPECTED_TOKEN";
 declare class XnlParseError extends Error {
     readonly code: XnlErrorCode;
@@ -230,6 +244,7 @@ declare function GetWordFullName(word: XnlWord): string;
 declare function MakeWord(wordStr: string, namespace?: never[]): XnlWord;
 
 declare const XNL: {
+    stringifyLiteral: typeof stringifyLiteral;
     parseMany: typeof parseXnl;
     parseSingle: typeof parseXnlSingleNode;
     parseUnique: typeof parseUniqueChildren;
@@ -258,4 +273,4 @@ declare const XNL: {
     };
 };
 
-export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, type ImportResolver, type ImportSymbols, MakeWord, type MetadataIdMode, type MutationType, type ParseWarning, type PathItem, type PathItemType, type ResolveImportsOptions, type ResolveImportsResult, type SingleNodeResult, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlDryRunMutations, type XnlErrorCode, XnlImportError, type XnlImportErrorCode, type XnlMutation, type XnlMutationBatch, type XnlMutationBatchOptions, type XnlMutationBatchResult, type XnlMutationDiagnostic, type XnlMutationDiagnosticCode, type XnlMutationIdentityPolicy, type XnlMutationOptions, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, deleteAtPath, diffNodes, dryRunMutations, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify as stringifyLineBlock, wordToString };
+export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, type ImportResolver, type ImportSymbols, MakeWord, type MetadataIdMode, type MutationType, type ParseWarning, type PathItem, type PathItemType, type ResolveImportsOptions, type ResolveImportsResult, type SingleNodeResult, type StringifyLiteralOptions, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlDryRunMutations, type XnlErrorCode, XnlImportError, type XnlImportErrorCode, type XnlLiteral, type XnlMutation, type XnlMutationBatch, type XnlMutationBatchOptions, type XnlMutationBatchResult, type XnlMutationDiagnostic, type XnlMutationDiagnosticCode, type XnlMutationIdentityPolicy, type XnlMutationOptions, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, deleteAtPath, diffNodes, dryRunMutations, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify as stringifyLineBlock, stringifyLiteral, wordToString };

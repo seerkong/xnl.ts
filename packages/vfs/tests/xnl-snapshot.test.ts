@@ -81,4 +81,32 @@ describe("vfs xnl snapshot", () => {
     expect(restored).toEqual(snapshot);
   });
 
+  it("roundtrips nested XNL whose text body contains the empty text terminator", () => {
+    const vfs = new VirtualFileSystem();
+    const nestedXnl = `<Agent #CodeAgent (\n  <Prompt #system ?>Act, observe, then close.</?>\n)>`;
+    vfs.mkdir("vfs:///.eidolon/resources", { recursive: true });
+    vfs.writeFile("vfs:///.eidolon/resources/CodeAgent.xnl", nestedXnl, { fileType: "xnl" });
+
+    const text = serializeVfsSnapshotToString(vfs.getSnapshot(), { mode: "full" });
+    const restored = deserializeVfsSnapshotFromString(text);
+    const restoredVfs = new VirtualFileSystem(restored);
+
+    expect(restoredVfs.readFile("vfs:///.eidolon/resources/CodeAgent.xnl")).toBe(nestedXnl);
+    expect(serializeVfsSnapshotToString(restored, { mode: "full" })).toBe(text);
+  });
+
+  it("skips every colliding non-empty marker deterministically", () => {
+    const vfs = new VirtualFileSystem();
+    const adversarial = "empty </?> then </?VFS> then </?VFS1> remain literal";
+    vfs.writeFile("vfs:///adversarial.txt", adversarial, { fileType: "text" });
+
+    const text = serializeVfsSnapshotToString(vfs.getSnapshot(), { mode: "full" });
+    const restored = deserializeVfsSnapshotFromString(text);
+    const restoredVfs = new VirtualFileSystem(restored);
+
+    expect(text).toContain("?VFS2>");
+    expect(restoredVfs.readFile("vfs:///adversarial.txt")).toBe(adversarial);
+    expect(serializeVfsSnapshotToString(restored, { mode: "full" })).toBe(text);
+  });
+
 });

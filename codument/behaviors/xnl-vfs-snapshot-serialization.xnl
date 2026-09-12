@@ -1,0 +1,48 @@
+<Behavior #xnl-vfs-snapshot-serialization apiVersion="codument.tech/v1alpha1" version="1" (
+  <Requirements [
+    <Requirement #lossless-full-snapshot-text-quoting (
+      <Statement ?01M1CA9FVAYV4QNPA44ETHH5RK>
+      xnl-vfs full snapshot serialization SHALL quote every text and XNL file payload with a deterministic collision-free XNL text marker so the emitted snapshot remains parseable and exact-content round-trippable.
+      </?01M1CA9FVAYV4QNPA44ETHH5RK>
+      <Suites [
+        <Suite #nested-content { name = "Nested XNL and text content" } (
+          <Cases [
+            <Case #nested-empty-marker-terminator (
+              <Given ?01M1CA9FVAYV4QNPA44ETHH5RM>
+              a VFS XNL or text file contains the sequence `&lt;/?&gt;` from an inner TextElement
+              </?01M1CA9FVAYV4QNPA44ETHH5RM>
+              <When ?01M1CA9FVAYV4QNPA44ETHH5RN>
+              the VFS is serialized as a full snapshot string and deserialized
+              </?01M1CA9FVAYV4QNPA44ETHH5RN>
+              <Then ?01M1CA9FVAYV4QNPA44ETHH5RP>
+              the outer snapshot SHALL remain parseable and the restored file payload and node identity SHALL exactly equal the source
+              </?01M1CA9FVAYV4QNPA44ETHH5RP>
+            )>
+            <Case #candidate-marker-collision (
+              <Given ?01M1CA9FVAYV4QNPA44ETHH5RQ>
+              a payload also contains the terminator for the serializer's initial marker candidate
+              </?01M1CA9FVAYV4QNPA44ETHH5RQ>
+              <When ?01M1CA9FVAYV4QNPA44ETHH5RR>
+              full snapshot serialization selects a marker
+              </?01M1CA9FVAYV4QNPA44ETHH5RR>
+              <Then ?01M1CA9FVAYV4QNPA44ETHH5RS>
+              it SHALL deterministically choose another non-colliding marker without rewriting or base64-wrapping the payload
+              </?01M1CA9FVAYV4QNPA44ETHH5RS>
+            )>
+            <Case #deterministic-output (
+              <Given ?01M1CA9FVAYV4QNPA44ETHH5RT>
+              the same identity-sensitive VFS snapshot
+              </?01M1CA9FVAYV4QNPA44ETHH5RT>
+              <When ?01M1CA9FVAYV4QNPA44ETHH5RV>
+              it is serialized repeatedly
+              </?01M1CA9FVAYV4QNPA44ETHH5RV>
+              <Then ?01M1CA9FVAYV4QNPA44ETHH5RW>
+              the emitted full snapshot bytes SHALL be identical
+              </?01M1CA9FVAYV4QNPA44ETHH5RW>
+            )>
+          ]>
+        )>
+      ]>
+    )>
+  ]>
+)>
