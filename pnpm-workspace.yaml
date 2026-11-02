@@ -1,3 +1,6 @@
 packages:
   - "demo/*"
   - "packages/*"
+
+# Source development follows the workspace owners; packed artifacts use registry versions.
+linkWorkspacePackages: true

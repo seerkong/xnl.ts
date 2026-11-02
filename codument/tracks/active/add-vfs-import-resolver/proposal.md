@@ -4,7 +4,7 @@
 
 XNL 当前只能在**单文件内**做逻辑组合：loader 的 `proto` / `Prefabs` / `export` + `batchLoad` 能跨“批次”共享原型与导出，但没有**文件级 import**——无法在一个文档头部用 `<Import as="X" src="vfs://...">` 显式引入另一个文件/目录里的定义，并以命名空间别名 `X:name` 引用。
 
-下游需求（codument 的 `add-modeling-registry`）要把领域建模 registry 拆成分形多文件，节点需跨文件引用类型/定义。sparrow Layer-1 内核语言已设计了 `<Imports>` + `vfs://` + `as` 命名空间合并这套规范，但 xnl-core 尚未实现。本 track 补上这个能力，作为 modeling registry 多文件管理的底座。
+下游需求（codument 的 `add-modeling-registry`）要把领域建模 registry 拆成分形多文件，节点需跨文件引用类型/定义。目标是用 `<Imports>` + `vfs://` + `as` 表达文件导入与命名空间合并；该能力由 XNL 自身的协议与测试定义。本 track 补上这个能力，作为 modeling registry 多文件管理的底座。
 
 ## “要做”和“不做” (Goals / Non-Goals)
 

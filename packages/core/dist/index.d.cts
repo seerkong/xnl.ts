@@ -1,3 +1,5 @@
+export { captureImmutableData, isCapturedImmutableData } from 'immutable-data-core';
+
 type ValueLiteral = string | boolean | null | number;
 type AttributeMap = Record<string, XnlNode>;
 interface ExtendBody {
@@ -36,6 +38,9 @@ interface CommentNode {
 type ContainerNode = Array<XnlNode> | Object | ElementNode;
 type XnlNode = ValueLiteral | XnlWord | ContainerNode | CommentNode;
 declare function isWord(value: any): value is XnlWord;
+/** Canonical Word identities are string data, independent of mutable global
+ * array algorithms. Accessor/extended/noncanonical inputs retain the legacy
+ * fallback, including their explicit formatting capabilities. */
 declare function wordToString(word?: XnlWord | null): string | undefined;
 type ParseWarningCode = "DUPLICATE_CHILD";
 interface ParseWarning {
@@ -97,6 +102,12 @@ interface XnlMutationOptions {
     metadataIdMode?: MetadataIdMode;
     /** Explicit data roots for constructed or transported ASTs. Paths resolve against each complete tree. */
     literalValuePaths?: readonly (string | XnlPath)[];
+    /** Schema-declared literal attributes. Unlike instance paths these rules also
+     * cover newly inserted nodes after transport, without enumerating every ID. */
+    literalAttributeRules?: readonly {
+        readonly tags: readonly string[];
+        readonly attributes: readonly string[];
+    }[];
 }
 type XnlMutationBatch = readonly XnlMutation[];
 type XnlMutationIdentityPolicy = "allow-missing" | "require-elements";
@@ -131,7 +142,23 @@ type XnlMutationBatchResult = {
     readonly diagnostics: readonly XnlMutationDiagnostic[];
 };
 type XnlDryRunMutations = (base: XnlNode, mutations: XnlMutationBatch, options?: XnlMutationBatchOptions) => XnlMutationBatchResult;
+/** Queries the original diff's isolated literal-binding requirement without
+ * marking or applying. False is not an identity/schema validity proof. Raw
+ * getters and Proxy traps can execute during the original underlying reads. */
+declare function needsXnlLiteralBinding(root: XnlNode, options?: XnlMutationOptions): boolean;
 declare const dryRunMutations: XnlDryRunMutations;
+/** A structural derivation only: this exact captured result was constructed
+ * from this exact base by one scalar path-copy. It grants no admission, schema
+ * or identity proof, and never skips strict validation of a new operation. */
+declare function immutableScalarUpdatePath(base: XnlNode, candidate: XnlNode): readonly string[] | undefined;
+type XnlImmutableMutationBatchResult = XnlMutationBatchResult & {
+    readonly representation: 'captured-data' | 'isolated-native';
+};
+/** Explicit immutable data result: unchanged frozen subtrees may be shared.
+ * Non-data builtins retain the original mutable isolation contract, explicitly
+ * reported as isolated-native. They never receive the captured-data proof.
+ * The default dryRunMutations contract remains a fully isolated clone. */
+declare const dryRunImmutableMutations: (base: XnlNode, mutations: XnlMutationBatch, options?: XnlMutationBatchOptions) => XnlImmutableMutationBatchResult;
 declare function applyMutations(root: XnlNode, mutations: XnlMutation[], opts?: XnlMutationOptions): XnlNode;
 /** Produces preconditions against the sequential state observed by strict apply. */
 declare function diffNodes(oldNode: XnlNode, newNode: XnlNode, basePath?: string | XnlPath, opts?: XnlMutationOptions): XnlMutation[];
@@ -240,6 +267,13 @@ declare class XnlParseError extends Error {
     constructor(code: XnlErrorCode, message: string, input: string, position: number);
 }
 
+/** Runtime invalidation version for derivations of captured XNL values.
+ * Raw parser marks cannot alter a captured closure; late captured marks can. */
+declare function capturedLiteralContextVersion(): bigint;
+/** Current syntax context is not a property of Object.freeze. Storage owners
+ * that promise context-free data reads must inspect it before sharing data. */
+declare function hasXnlLiteralContext(root: unknown): boolean;
+
 declare function GetWordFullName(word: XnlWord): string;
 declare function MakeWord(wordStr: string, namespace?: never[]): XnlWord;
 
@@ -273,4 +307,4 @@ declare const XNL: {
     };
 };
 
-export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, type ImportResolver, type ImportSymbols, MakeWord, type MetadataIdMode, type MutationType, type ParseWarning, type PathItem, type PathItemType, type ResolveImportsOptions, type ResolveImportsResult, type SingleNodeResult, type StringifyLiteralOptions, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlDryRunMutations, type XnlErrorCode, XnlImportError, type XnlImportErrorCode, type XnlLiteral, type XnlMutation, type XnlMutationBatch, type XnlMutationBatchOptions, type XnlMutationBatchResult, type XnlMutationDiagnostic, type XnlMutationDiagnosticCode, type XnlMutationIdentityPolicy, type XnlMutationOptions, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, deleteAtPath, diffNodes, dryRunMutations, isWord, loadFromString, resolveNode as loadNode, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify as stringifyLineBlock, stringifyLiteral, wordToString };
+export { type AttributeMap, type CommentNode, type DataElementNode, type ElementNode, type ElementNodeKind, type ExtendBody, GetWordFullName, type ImportResolver, type ImportSymbols, MakeWord, type MetadataIdMode, type MutationType, type ParseWarning, type PathItem, type PathItemType, type ResolveImportsOptions, type ResolveImportsResult, type SingleNodeResult, type StringifyLiteralOptions, type TextElementNode, type UniqueChildrenResult, type ValueLiteral, XNL, type XnlDocument, type XnlDryRunMutations, type XnlErrorCode, type XnlImmutableMutationBatchResult, XnlImportError, type XnlImportErrorCode, type XnlLiteral, type XnlMutation, type XnlMutationBatch, type XnlMutationBatchOptions, type XnlMutationBatchResult, type XnlMutationDiagnostic, type XnlMutationDiagnosticCode, type XnlMutationIdentityPolicy, type XnlMutationOptions, type XnlNode, XnlParseError, type XnlPath, XnlPathError, type XnlWord, applyMutations, batchLoad, capturedLiteralContextVersion, deleteAtPath, diffNodes, dryRunImmutableMutations, dryRunMutations, hasXnlLiteralContext, immutableScalarUpdatePath, isWord, loadFromString, resolveNode as loadNode, needsXnlLiteralBinding, parsePath, parseUniqueChildren, parseXnl, parseXnlSingleNode, resolveImports, resolvePath, resolveVfsSrc, setPathValue, stringify as stringifyLineBlock, stringifyLiteral, wordToString };

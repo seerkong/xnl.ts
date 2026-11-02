@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyMutations, diffNodes, dryRunMutations, parseXnl, stringifyLiteral, XNL, type DataElementNode } from "../src/index";
+import { applyMutations, diffNodes, dryRunMutations, parseXnl, stringifyLiteral, XNL, type DataElementNode, type XnlLiteral } from "../src/index";
 
 const strict = { verifyValueBefore: true, identityPolicy: "require-elements" } as const;
 const parse = (source: string) => parseXnl(source).nodes[0] as DataElementNode;
-const fixtures = [
+const fixtures: Array<Record<string, XnlLiteral>> = [
   { kind: "DataElement", tag: "Invoice", metadata: {}, business: 1 },
   { kind: "DataElement", tag: "Invoice", id: { kind: "Word", name: "invoice" }, metadata: {}, business: 1 },
   { kind: "TextElement", tag: "Invoice", metadata: {}, text: "hello", business: 1 },
@@ -14,6 +14,16 @@ const fixtures = [
 ];
 
 describe("literal values retain their grammar role during structural editing", () => {
+  it('schema attribute rules cover newly inserted instances without treating their literal IDs as element IDs', () => {
+    const literal = { kind: 'DataElement', tag: 'ComponentEmbed', id: { kind: 'Word', namespace: [], name: 'doc' }, metadata: {}, input: 1 };
+    const before = structuredClone(parse('<Document #doc>'));
+    const after = structuredClone(parse(`<Document #doc [<ComponentEmbed #new { input = ${stringifyLiteral(literal)} }>] >`));
+    const profile = { ...strict, literalAttributeRules: [{ tags: ['ComponentEmbed'], attributes: ['input'] }] };
+    const changes = diffNodes(before, after, [], profile);
+    expect(dryRunMutations(before, structuredClone(changes), profile)).toMatchObject({ status: 'applied', value: after });
+    const changed = structuredClone(parse(`<Document #doc [<ComponentEmbed #new { input = ${stringifyLiteral({ ...literal, input: 2 })} }>] >`));
+    expect(dryRunMutations(after, diffNodes(after, changed, [], profile), profile)).toMatchObject({ status: 'applied', value: changed });
+  });
   for (const [index, literal] of fixtures.entries()) it(`preserves every business field in AST-shaped literal ${index}`, () => {
     const before = parse(`<Record #record { rules = ${stringifyLiteral(literal)} }>`);
     const after = parse(`<Record #record { rules = ${stringifyLiteral({ ...literal, business: 2 })} }>`);

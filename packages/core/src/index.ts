@@ -43,6 +43,7 @@ export type {
   XnlMutationBatchOptions,
   XnlMutationBatchResult,
   XnlDryRunMutations,
+  XnlImmutableMutationBatchResult,
 } from "./mutation";
 export {
   parsePath,
@@ -51,7 +52,9 @@ export {
   deleteAtPath,
   XnlPathError,
 } from "./path";
-export { applyMutations, diffNodes, dryRunMutations } from "./mutation";
+export { applyMutations, diffNodes, dryRunMutations, dryRunImmutableMutations, immutableScalarUpdatePath, needsXnlLiteralBinding } from "./mutation";
+export { captureImmutableData, isCapturedImmutableData } from './immutable-data';
+export { hasXnlLiteralContext, capturedLiteralContextVersion } from './value-context';
 export { loadFromString, resolveNode as loadNode, batchLoad } from "./loader";
 export { resolveImports, resolveVfsSrc, XnlImportError } from "./import";
 export type {

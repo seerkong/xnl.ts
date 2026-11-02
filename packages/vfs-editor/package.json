@@ -51,5 +51,9 @@
     "vitest": "^4.0.17",
     "vue": "^3.5.26",
     "vue-tsc": "^3.2.2"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.com"
   }
 }

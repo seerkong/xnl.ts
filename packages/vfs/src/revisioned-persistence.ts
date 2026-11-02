@@ -1,4 +1,8 @@
+import { isCapturedDenseArray } from 'immutable-data-core';
 import {
+  captureImmutableData,
+  isCapturedImmutableData,
+  hasXnlLiteralContext,
   dryRunMutations,
   type DataElementNode,
   type XnlMutationBatch,
@@ -11,8 +15,10 @@ import {
   openXnlVfsDatabase,
   requestToPromise,
   REVISIONED_VFS_AUTHORITY_STORE,
+  REVISIONED_VFS_OPERATION_STORE,
   transactionDone,
 } from "./indexeddb-schema";
+import { historyCanonical } from './content-history';
 
 export type Awaitable<T> = T | PromiseLike<T>;
 
@@ -39,6 +45,8 @@ export interface RevisionedVfsSnapshot {
 }
 
 export interface RevisionedVfsFlushInput {
+  /** Stable per-owner operation identity for recovery after a lost receipt. */
+  readonly operationId?: string;
   readonly expectedRevision: VfsRevision;
   readonly snapshot: DataElementNode;
 }
@@ -85,16 +93,42 @@ export type RevisionedVfsCompareAndSwapResult =
  * unchanged.
  */
 export interface RevisionedVfsAuthority {
+  readonly lookupOperation?: (operationId: string) => Awaitable<RevisionedVfsOperationResult | undefined>;
   read(): Awaitable<RevisionedVfsSnapshot>;
   compareAndSwap(
     input: RevisionedVfsFlushInput,
   ): Awaitable<RevisionedVfsCompareAndSwapResult>;
 }
 
+export type RevisionedVfsOperationResult = Extract<RevisionedVfsCompareAndSwapResult, { status: 'applied' | 'unchanged' }>;
+interface RevisionedVfsOperationRecord { readonly fingerprint: string; readonly result: RevisionedVfsOperationResult }
+function validateOperationId(operationId: string): void {
+  if (typeof operationId !== 'string' || !operationId.trim() || operationId.length > 512) throw Error('VFS_INVALID_OPERATION_ID');
+}
+async function operationFingerprint(input: RevisionedVfsFlushInput): Promise<string> {
+  // Optional-field presence is significant to the original snapshot authority.
+  // Tag every container, so an explicit undefined cannot alias user JSON.
+  function encode(value: unknown): unknown {
+    if (value === undefined) return ['undefined'];
+    if (Array.isArray(value)) return ['array', value.map(encode)];
+    if (value !== null && typeof value === 'object') return ['object', Object.keys(value).sort().map(key => [key, encode((value as Record<string, unknown>)[key])])];
+    return ['value', value];
+  }
+  const source = historyCanonical(encode({ expectedRevision: input.expectedRevision, snapshot: input.snapshot }));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+function operationReused(actualRevision: VfsRevision): RevisionedVfsCompareAndSwapResult {
+  return { status: 'failed', actualRevision: cloneRevision(actualRevision), diagnostics: [{ code: 'VFS_OPERATION_ID_REUSED', message: 'Operation ID was already used with a different base or snapshot.' }] };
+}
+
 export interface MemoryRevisionedVfsAuthorityOptions {
   readonly authorityId: string;
   readonly clock?: () => string;
   readonly revisionFactory?: (sequence: number) => string;
+  /** Explicitly share captured immutable data. Native values and syntax
+   * context always retain the original isolated, context-free read contract. */
+  readonly snapshotMode?: 'isolated' | 'immutable-data';
 }
 
 function defaultClock(): string {
@@ -171,6 +205,8 @@ function revisionsEqual(left: VfsRevision, right: VfsRevision): boolean {
  * another CAS operation.
  */
 export class MemoryRevisionedVfsAuthority implements RevisionedVfsAuthority {
+  private readonly snapshotMode: 'isolated' | 'immutable-data';
+  private readonly operations = new Map<string, RevisionedVfsOperationRecord>();
   private readonly authorityId: string;
   private readonly clock: () => string;
   private readonly revisionFactory: (sequence: number) => string;
@@ -190,7 +226,8 @@ export class MemoryRevisionedVfsAuthority implements RevisionedVfsAuthority {
     this.authorityId = options.authorityId;
     this.clock = options.clock ?? defaultClock;
     this.revisionFactory = options.revisionFactory ?? defaultRevisionFactory;
-    this.currentSnapshot = cloneSnapshot(initialSnapshot);
+    this.snapshotMode = options.snapshotMode ?? 'isolated';
+    this.currentSnapshot = this.isolateSnapshot(initialSnapshot);
     this.currentRevision = {
       authorityId: this.authorityId,
       value: this.revisionFactory(this.sequence),
@@ -201,7 +238,8 @@ export class MemoryRevisionedVfsAuthority implements RevisionedVfsAuthority {
   read(): RevisionedVfsSnapshot {
     return {
       revision: cloneRevision(this.currentRevision),
-      snapshot: cloneSnapshot(this.currentSnapshot),
+      snapshot: this.snapshotMode === 'immutable-data' && isCapturedImmutableData(this.currentSnapshot)
+        ? this.isolateSnapshot(this.currentSnapshot) : cloneSnapshot(this.currentSnapshot),
     };
   }
 
@@ -209,19 +247,44 @@ export class MemoryRevisionedVfsAuthority implements RevisionedVfsAuthority {
     this.pendingFlushFailure = clonePersistenceDiagnostic(diagnostic);
   }
 
+  private isolateSnapshot(snapshot: DataElementNode): DataElementNode {
+    if (this.snapshotMode !== 'immutable-data') return cloneSnapshot(snapshot);
+    if (isCapturedImmutableData(snapshot) && !hasXnlLiteralContext(snapshot)) return snapshot;
+    // Preserve VFS data semantics: structuredClone strips syntax provenance.
+    // An unbranded builtin result is never shared back out by read().
+    return captureImmutableData(cloneSnapshot(snapshot));
+  }
+
   compareAndSwap(
     input: RevisionedVfsFlushInput,
   ): Promise<RevisionedVfsCompareAndSwapResult> {
     const submission: RevisionedVfsFlushInput = {
+      ...(input.operationId === undefined ? {} : { operationId: input.operationId }),
       expectedRevision: cloneRevision(input.expectedRevision),
-      snapshot: cloneSnapshot(input.snapshot),
+      snapshot: this.isolateSnapshot(input.snapshot),
     };
-    const result = this.casTail.then(() => this.linearize(submission));
+    const result = this.casTail.then(async () => {
+      if (submission.operationId === undefined) return this.linearize(submission);
+      validateOperationId(submission.operationId);
+      const fingerprint = await operationFingerprint(submission);
+      const previous = this.operations.get(submission.operationId);
+      if (previous) return fingerprint === previous.fingerprint ? structuredClone(previous.result) : operationReused(this.currentRevision);
+      const result = this.linearize(submission);
+      if (result.status === 'applied' || result.status === 'unchanged')
+        this.operations.set(submission.operationId, { fingerprint, result: structuredClone(result) });
+      return result;
+    });
     this.casTail = result.then(
       () => undefined,
       () => undefined,
     );
     return result;
+  }
+
+  async lookupOperation(operationId: string): Promise<RevisionedVfsOperationResult | undefined> {
+    validateOperationId(operationId);
+    await this.casTail;
+    return structuredClone(this.operations.get(operationId)?.result);
   }
 
   private linearize(
@@ -412,9 +475,15 @@ export class IndexedDbRevisionedVfsAuthority
   ): Promise<RevisionedVfsCompareAndSwapResult> {
     let submittedSnapshot: DataElementNode;
     let submittedRevision: VfsRevision;
+    const operationId = input.operationId;
+    let fingerprint: string | undefined;
     try {
       submittedSnapshot = cloneSnapshot(input.snapshot);
       submittedRevision = cloneRevision(input.expectedRevision);
+      if (operationId !== undefined) {
+        validateOperationId(operationId);
+        fingerprint = await operationFingerprint({ snapshot: submittedSnapshot, expectedRevision: submittedRevision });
+      }
     } catch (cause) {
       const current = await this.read();
       return this.failedResult(current.revision, cause);
@@ -424,7 +493,7 @@ export class IndexedDbRevisionedVfsAuthority
     let actualRevision: VfsRevision | undefined;
     try {
       const transaction = database.transaction(
-        REVISIONED_VFS_AUTHORITY_STORE,
+        operationId === undefined ? [REVISIONED_VFS_AUTHORITY_STORE] : [REVISIONED_VFS_AUTHORITY_STORE, REVISIONED_VFS_OPERATION_STORE],
         "readwrite",
       );
       const completed = transactionDone(transaction);
@@ -438,6 +507,15 @@ export class IndexedDbRevisionedVfsAuthority
         );
       }
       actualRevision = revisionFromRecord(record);
+      const operations = operationId === undefined ? undefined : transaction.objectStore(REVISIONED_VFS_OPERATION_STORE);
+      const operationKey = operationId === undefined ? undefined : [this.authorityId, operationId];
+      if (operations && operationKey) {
+        const previous = await requestToPromise(operations.get(operationKey)) as RevisionedVfsOperationRecord | undefined;
+        if (previous) {
+          await completed;
+          return previous.fingerprint === fingerprint ? structuredClone(previous.result) : operationReused(actualRevision);
+        }
+      }
 
       if (!revisionsEqual(submittedRevision, actualRevision)) {
         await completed;
@@ -450,11 +528,10 @@ export class IndexedDbRevisionedVfsAuthority
       if (
         areXnlSnapshotsStructurallyEqual(submittedSnapshot, record.snapshot)
       ) {
+        const unchanged = { status: 'unchanged', revision: cloneRevision(actualRevision) } as const;
+        if (operations && operationKey) operations.add({ fingerprint: fingerprint!, result: unchanged } satisfies RevisionedVfsOperationRecord, operationKey);
         await completed;
-        return {
-          status: "unchanged",
-          revision: cloneRevision(actualRevision),
-        };
+        return unchanged;
       }
 
       const nextSequence = record.sequence + 1;
@@ -475,11 +552,8 @@ export class IndexedDbRevisionedVfsAuthority
         ],
         snapshot: submittedSnapshot,
       };
-      store.put(nextRecord);
-      await completed;
-
       const nextRevision = revisionFromRecord(nextRecord);
-      return {
+      const result: RevisionedVfsOperationResult = {
         status: "applied",
         receipt: {
           previousRevision: cloneRevision(actualRevision),
@@ -488,6 +562,10 @@ export class IndexedDbRevisionedVfsAuthority
           durability: "workspace",
         },
       };
+      store.put(nextRecord);
+      if (operations && operationKey) operations.add({ fingerprint: fingerprint!, result } satisfies RevisionedVfsOperationRecord, operationKey);
+      await completed;
+      return result;
     } catch (cause) {
       if (!actualRevision) {
         throw cause;
@@ -496,6 +574,18 @@ export class IndexedDbRevisionedVfsAuthority
     } finally {
       database.close();
     }
+  }
+
+  async lookupOperation(operationId: string): Promise<RevisionedVfsOperationResult | undefined> {
+    validateOperationId(operationId);
+    const database = await this.openDatabase();
+    try {
+      const transaction = database.transaction(REVISIONED_VFS_OPERATION_STORE, 'readonly');
+      const completed = transactionDone(transaction);
+      const record = await requestToPromise(transaction.objectStore(REVISIONED_VFS_OPERATION_STORE).get([this.authorityId, operationId])) as RevisionedVfsOperationRecord | undefined;
+      await completed;
+      return record?.result;
+    } finally { database.close(); }
   }
 
   private async seedIfAbsent(initialSnapshot: DataElementNode): Promise<void> {
@@ -694,6 +784,18 @@ function compareStructuralValues(
     memo.set(left, comparisons);
   }
   comparisons.set(right, "comparing");
+
+  if (leftIsArray && isCapturedDenseArray(left) && isCapturedDenseArray(right)) {
+    const leftArray = left as readonly unknown[], rightArray = right as readonly unknown[];
+    for (let index = 0; index < leftArray.length; index++) {
+      if (!compareStructuralValues(leftArray[index], rightArray[index], memo)) {
+        comparisons.set(right, false);
+        return false;
+      }
+    }
+    comparisons.set(right, true);
+    return true;
+  }
 
   const leftRecord = left as Record<string, unknown>;
   const rightRecord = right as Record<string, unknown>;

@@ -1,5 +1,7 @@
 'use strict';
 
+var immutableDataCore = require('immutable-data-core');
+
 // src/position.ts
 function positionToLineColumn(input, index) {
   let line = 1;
@@ -27,14 +29,57 @@ var XnlParseError = class extends Error {
     this.column = column;
   }
 };
-
-// src/value-context.ts
 var literalObjects = /* @__PURE__ */ new WeakSet();
+var literalMarkEpoch = 0n;
+var capturedLiteralMarkEpoch = 0n;
+var contextFreeEpochs = /* @__PURE__ */ new WeakMap();
+function capturedLiteralContextVersion() {
+  return capturedLiteralMarkEpoch;
+}
 function isLiteralObject(value) {
   return value !== null && typeof value === "object" && literalObjects.has(value);
 }
+function hasXnlLiteralContext(root) {
+  const seen = /* @__PURE__ */ new Set();
+  const cacheable = immutableDataCore.isCapturedImmutableData(root);
+  const epoch = cacheable ? capturedLiteralMarkEpoch : literalMarkEpoch;
+  const completed = /* @__PURE__ */ new Set();
+  let repeated = false;
+  const visit = (value) => {
+    if (!value || typeof value !== "object") return false;
+    if (isLiteralObject(value)) return true;
+    const captured = immutableDataCore.isCapturedImmutableData(value);
+    if (cacheable && captured && contextFreeEpochs.get(value) === epoch) return false;
+    if (cacheable && completed.has(value)) return false;
+    if (seen.has(value)) {
+      repeated = true;
+      return false;
+    }
+    seen.add(value);
+    for (const key of Object.keys(value)) {
+      if (captured) {
+        if (visit(value[key])) return true;
+        continue;
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value") || visit(descriptor.value)) return true;
+    }
+    if (cacheable && captured) completed.add(value);
+    return false;
+  };
+  const found = visit(root);
+  if (epoch !== (cacheable ? capturedLiteralMarkEpoch : literalMarkEpoch)) return true;
+  if (!found && cacheable && !repeated) {
+    for (const value of completed) contextFreeEpochs.set(value, epoch);
+  }
+  return found;
+}
 function markLiteralObject(value) {
-  literalObjects.add(value);
+  if (!literalObjects.has(value)) {
+    literalObjects.add(value);
+    literalMarkEpoch++;
+    if (immutableDataCore.isCapturedImmutableData(value)) capturedLiteralMarkEpoch++;
+  }
   return value;
 }
 function markLiteralTree(value, seen = /* @__PURE__ */ new WeakSet()) {
@@ -592,13 +637,59 @@ function skipComment(state) {
   }
   state.pos = end + 3;
 }
-
-// src/types.ts
 function isWord(value) {
   return value !== null && typeof value === "object" && !isLiteralObject(value) && value.kind === "Word";
 }
+var nonCanonicalWord = /* @__PURE__ */ Symbol("non-canonical-word");
+var wordDescriptor = Object.getOwnPropertyDescriptor;
+var wordDescriptors = Object.getOwnPropertyDescriptors;
+var wordOwnKeys = Reflect.ownKeys;
+var wordArray = Array.isArray;
+var wordOwn = Function.prototype.call.bind(Object.prototype.hasOwnProperty);
+function wordData(descriptor) {
+  return descriptor !== void 0 && wordOwn(descriptor, "value");
+}
+function finishWord(prefix, name) {
+  const value = prefix.length ? `${prefix}.${name}` : name;
+  return value.length ? value : void 0;
+}
+function rawDataWord(word) {
+  if (!word || typeof word !== "object" || wordArray(word)) return nonCanonicalWord;
+  try {
+    const kind = wordDescriptor(word, "kind"), name = wordDescriptor(word, "name"), namespace = wordDescriptor(word, "namespace");
+    if (!wordData(kind) || kind.value !== "Word" || !wordData(name) || typeof name.value !== "string" || !wordData(namespace) || !wordArray(namespace.value)) return nonCanonicalWord;
+    const descriptors = wordDescriptors(namespace.value);
+    const length = wordOwn(descriptors, "length") ? descriptors.length : void 0;
+    if (!wordData(length) || typeof length.value !== "number" || wordOwnKeys(descriptors).length !== length.value + 1) return nonCanonicalWord;
+    let prefix = "";
+    for (let index = 0; index < length.value; index++) {
+      const key = `${index}`;
+      const descriptor = wordOwn(descriptors, key) ? descriptors[key] : void 0;
+      if (!wordData(descriptor) || typeof descriptor.value !== "string") return nonCanonicalWord;
+      const part = descriptor.value;
+      if (part.length) prefix = prefix.length ? `${prefix}.${part}` : part;
+    }
+    return finishWord(prefix, name.value);
+  } catch {
+    return nonCanonicalWord;
+  }
+}
 function wordToString(word) {
   if (!word) return void 0;
+  if (immutableDataCore.isCapturedImmutableData(word) && !wordArray(word) && word.kind === "Word" && typeof word.name === "string" && immutableDataCore.isCapturedDenseArray(word.namespace)) {
+    let prefix = "", canonical = true;
+    for (let index = 0; index < word.namespace.length; index++) {
+      const part = word.namespace[index];
+      if (typeof part !== "string") {
+        canonical = false;
+        break;
+      }
+      if (part.length) prefix = prefix.length ? `${prefix}.${part}` : part;
+    }
+    if (canonical) return finishWord(prefix, word.name);
+  }
+  const data = rawDataWord(word);
+  if (data !== nonCanonicalWord) return data;
   const ns = word.namespace ?? [];
   const parts = [...ns.filter(Boolean), word.name].filter((p) => p !== void 0 && p !== null);
   const str = parts.join(".");
@@ -1545,6 +1636,199 @@ function readId(node) {
   if (typeof metaId === "string") return metaId;
   return void 0;
 }
+var profiles = /* @__PURE__ */ new WeakMap();
+var facts = /* @__PURE__ */ new WeakMap();
+var clonedData = /* @__PURE__ */ new WeakSet();
+var dataDescriptor = (value) => value !== void 0 && Object.prototype.hasOwnProperty.call(value, "value");
+function rememberClonedStructure(root, profile) {
+  if (!root || typeof root !== "object" || facts.get(root)?.key !== profile.key) return;
+  const pending = [], seen = /* @__PURE__ */ new Set();
+  function visit(value) {
+    if (!value || typeof value !== "object" || clonedData.has(value) || seen.has(value)) return;
+    seen.add(value);
+    pending.push(value);
+    const values = Object.values(value);
+    for (let index = 0; index < values.length; index++) visit(values[index]);
+  }
+  visit(root);
+  pending.forEach((value) => clonedData.add(value));
+}
+function clonedStructureFacts(value, profile) {
+  const proof = facts.get(value);
+  return (clonedData.has(value) || immutableDataCore.isCapturedImmutableData(value)) && proof?.key === profile.key ? proof.value : void 0;
+}
+function frozenArray(value) {
+  if (!Array.isArray(value) || !Object.isFrozen(value) || Object.getPrototypeOf(value) !== Array.prototype) return;
+  const descriptors = Object.getOwnPropertyDescriptors(value), length = Object.getOwnPropertyDescriptor(value, "length")?.value;
+  if (!Number.isSafeInteger(length) || Reflect.ownKeys(descriptors).length !== length + 1) return;
+  const result = [];
+  for (let index = 0; index < length; index++) {
+    const descriptor = Object.getOwnPropertyDescriptor(descriptors, String(index))?.value;
+    if (!dataDescriptor(descriptor) || !descriptor.enumerable) return;
+    Object.defineProperty(result, index, { value: descriptor.value, enumerable: true, configurable: true, writable: true });
+  }
+  return result;
+}
+function strings(value) {
+  const values = frozenArray(value);
+  if (!values) return;
+  for (let index = 0; index < values.length; index++) if (typeof values[index] !== "string") return;
+  return values;
+}
+function immutableLiteralProfile(options) {
+  try {
+    return inspectLiteralProfile(options);
+  } catch {
+    return;
+  }
+}
+function inspectLiteralProfile(options) {
+  const previous = profiles.get(options);
+  if (previous) return previous;
+  if (!Object.isFrozen(options)) return;
+  const prototype = Object.getPrototypeOf(options);
+  if (prototype !== null && prototype !== Object.prototype) return;
+  const descriptors = Object.getOwnPropertyDescriptors(options);
+  const own = (key2) => Object.getOwnPropertyDescriptor(descriptors, key2)?.value;
+  for (const key2 of ["metadataIdMode", "literalValuePaths", "literalAttributeRules", "identityPolicy", "verifyValueBefore"]) {
+    const descriptor = own(key2);
+    if (!dataDescriptor(descriptor)) return;
+  }
+  const paths = own("literalValuePaths"), declared = own("literalAttributeRules");
+  for (const key2 of Reflect.ownKeys(descriptors)) {
+    if (typeof key2 !== "string" || !dataDescriptor(descriptors[key2])) return;
+  }
+  if (!dataDescriptor(paths) || !dataDescriptor(declared)) return;
+  if (paths.value !== void 0 && frozenArray(paths.value)?.length !== 0) return;
+  const source = declared.value === void 0 ? [] : frozenArray(declared.value);
+  if (!source) return;
+  const rules = [];
+  for (let index = 0; index < source.length; index++) {
+    const rule = source[index];
+    if (!rule || typeof rule !== "object" || !Object.isFrozen(rule)) return;
+    const fields = Object.getOwnPropertyDescriptors(rule);
+    const tagsField = Object.getOwnPropertyDescriptor(fields, "tags")?.value;
+    const attributesField = Object.getOwnPropertyDescriptor(fields, "attributes")?.value;
+    if (Reflect.ownKeys(fields).length !== 2 || !dataDescriptor(tagsField) || !dataDescriptor(attributesField)) return;
+    const tags = strings(tagsField.value), attributes = strings(attributesField.value);
+    if (!tags || !attributes) return;
+    Object.defineProperty(rules, index, { value: { tags, attributes }, enumerable: true, configurable: true, writable: true });
+  }
+  let key = `${rules.length}:`;
+  for (let index = 0; index < rules.length; index++) {
+    const rule = rules[index];
+    key += `${rule.tags.length}:`;
+    for (let item = 0; item < rule.tags.length; item++) key += JSON.stringify(rule.tags[item]);
+    key += `${rule.attributes.length}:`;
+    for (let item = 0; item < rule.attributes.length; item++) key += JSON.stringify(rule.attributes[item]);
+  }
+  const mode = own("metadataIdMode").value, policy = own("identityPolicy").value, verify = own("verifyValueBefore").value;
+  if (mode !== void 0 && mode !== "identity" && mode !== "metadata" || policy !== void 0 && policy !== "allow-missing" && policy !== "require-elements" || verify !== void 0 && typeof verify !== "boolean") return;
+  const canonicalRules = Object.freeze(rules.map((rule) => Object.freeze({ tags: Object.freeze(rule.tags), attributes: Object.freeze(rule.attributes) })));
+  const canonicalOptions = Object.freeze({
+    metadataIdMode: mode,
+    identityPolicy: policy,
+    verifyValueBefore: verify,
+    literalValuePaths: void 0,
+    literalAttributeRules: canonicalRules
+  });
+  const result = Object.freeze({ rules: canonicalRules, key, options: canonicalOptions });
+  profiles.set(options, result);
+  profiles.set(canonicalOptions, result);
+  return result;
+}
+function structureFactPrototypesSafe(profile) {
+  if (Object.getPrototypeOf(Object.prototype) !== null || Object.getPrototypeOf(Array.prototype) !== Object.prototype) return false;
+  for (const key of ["kind", "tag", "id", "metadata", "attributes", "body", "extend", "order", "children", "namespace", "name"]) {
+    if (Object.getOwnPropertyDescriptor(Object.prototype, key) || Object.getOwnPropertyDescriptor(Array.prototype, key)) return false;
+  }
+  if (profile) for (let rule = 0; rule < profile.rules.length; rule++) for (let index = 0; index < profile.rules[rule].attributes.length; index++) {
+    const key = profile.rules[rule].attributes[index];
+    if (Object.getOwnPropertyDescriptor(Object.prototype, key) || Object.getOwnPropertyDescriptor(Array.prototype, key)) return false;
+  }
+  return true;
+}
+function frozenStructureFacts(root, profile) {
+  try {
+    return inspectStructureFacts(root, profile);
+  } catch {
+    return;
+  }
+}
+function inspectStructureFacts(root, profile) {
+  if (!structureFactPrototypesSafe(profile)) return;
+  const pending = /* @__PURE__ */ new Map(), active = /* @__PURE__ */ new Set();
+  function visit(value) {
+    if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === void 0) return { binding: false, extend: false };
+    if (typeof value !== "object" || active.has(value)) return;
+    const prior = facts.get(value);
+    if (prior?.key === profile.key) return prior.value;
+    const completed = pending.get(value);
+    if (completed) return completed;
+    if (!Object.isFrozen(value)) return;
+    const array = Array.isArray(value), prototype = Object.getPrototypeOf(value);
+    if (array ? prototype !== Array.prototype : prototype !== null) return;
+    if (array && immutableDataCore.isCapturedDenseArray(value)) {
+      active.add(value);
+      let binding2 = false, extend2 = false;
+      for (let index = 0; index < value.length; index++) {
+        const child = visit(value[index]);
+        if (!child) return;
+        binding2 || (binding2 = child.binding);
+        extend2 || (extend2 = child.extend);
+      }
+      active.delete(value);
+      const result3 = Object.freeze({ binding: binding2, extend: extend2 });
+      pending.set(value, result3);
+      return result3;
+    }
+    const captured = immutableDataCore.isCapturedImmutableData(value);
+    const descriptors = captured ? void 0 : Object.getOwnPropertyDescriptors(value);
+    const keys = captured ? Object.keys(value) : Reflect.ownKeys(descriptors);
+    const length = array ? Object.getOwnPropertyDescriptor(value, "length")?.value : void 0;
+    if (array && keys.length !== length + (captured ? 0 : 1)) return;
+    const data = /* @__PURE__ */ Object.create(null);
+    active.add(value);
+    let binding = false, extend = false;
+    for (let index = 0; index < keys.length; index++) {
+      const key = keys[index];
+      if (array && key === "length") continue;
+      const descriptor = typeof key === "string" && descriptors ? descriptors[key] : void 0;
+      if (!captured && (!dataDescriptor(descriptor) || !descriptor.enumerable) || array && (!/^(0|[1-9][0-9]*)$/.test(String(key)) || Number(key) >= length)) return;
+      const field = captured ? value[String(key)] : descriptor.value;
+      const child = visit(field);
+      if (!child) return;
+      data[String(key)] = field;
+      binding || (binding = child.binding);
+      extend || (extend = child.extend);
+    }
+    active.delete(value);
+    extend || (extend = Array.isArray(data.order));
+    if ((data.kind === "DataElement" || data.kind === "TextElement") && typeof data.tag === "string" && data.metadata !== null && typeof data.metadata === "object" && !Array.isArray(data.metadata)) {
+      for (let index = 0; index < profile.rules.length; index++) {
+        const rule = profile.rules[index];
+        for (let tag = 0; tag < rule.tags.length; tag++) if (rule.tags[tag] === data.tag) {
+          const attrs = data.attributes;
+          if (attrs !== null && attrs !== void 0 && (typeof attrs !== "object" || Object.getPrototypeOf(attrs) !== null)) {
+            binding = true;
+            continue;
+          }
+          for (let attribute = 0; attribute < rule.attributes.length; attribute++) {
+            const literal = attrs?.[rule.attributes[attribute]];
+            binding || (binding = literal !== null && typeof literal === "object");
+          }
+        }
+      }
+    }
+    const result2 = Object.freeze({ binding, extend });
+    pending.set(value, result2);
+    return result2;
+  }
+  const result = visit(root);
+  if (!result || !structureFactPrototypesSafe(profile)) return;
+  pending.forEach((value, object) => facts.set(object, { key: profile.key, value }));
+  return result;
+}
 
 // src/mutation/index.ts
 function resolveMetaIdMode(opts) {
@@ -1561,21 +1845,126 @@ function isMetadataMapPath(path) {
 function cloneValue(value) {
   return cloneWithValueContext(value);
 }
+function someDeclaredLiteralAttribute(node, options, predicate) {
+  const profile = immutableLiteralProfile(options);
+  if (profile) {
+    for (let index = 0; index < profile.rules.length; index++) {
+      const rule = profile.rules[index];
+      let matched = false;
+      for (let tag = 0; tag < rule.tags.length; tag++) if (rule.tags[tag] === node.tag) matched = true;
+      if (!matched) continue;
+      for (let attribute = 0; attribute < rule.attributes.length; attribute++) if (predicate(node.attributes?.[rule.attributes[attribute]])) return true;
+    }
+    return false;
+  }
+  for (const rule of options.literalAttributeRules ?? []) {
+    if (!rule.tags.includes(node.tag)) continue;
+    for (const key of rule.attributes) if (predicate(node.attributes?.[key])) return true;
+  }
+  return false;
+}
 function bindLiteralPaths(root, options) {
-  for (const path of options.literalValuePaths ?? []) {
+  const profile = immutableLiteralProfile(options);
+  if (profile ? profile.rules.length : options.literalAttributeRules?.length) {
+    const visited = /* @__PURE__ */ new WeakSet();
+    const visit = (value) => {
+      if (!value || typeof value !== "object" || visited.has(value) || isLiteralObject(value)) return;
+      visited.add(value);
+      if (isDataElement2(value) || isTextElement2(value)) {
+        someDeclaredLiteralAttribute(value, options, (literal) => {
+          if (literal !== void 0) markLiteralTree(literal);
+          return false;
+        });
+      }
+      for (const child of Object.values(value)) visit(child);
+    };
+    visit(root);
+  }
+  for (const path of profile ? [] : options.literalValuePaths ?? []) {
     const value = resolvePath(root, path, { strict: false });
     if (value !== void 0) markLiteralTree(value);
   }
 }
-function validateIdentities(root, policy) {
+function needsLiteralBinding(root, options) {
+  const profile = immutableLiteralProfile(options);
+  let canUseFacts = !!profile && structureFactPrototypesSafe(profile);
+  for (const path of profile ? [] : options.literalValuePaths ?? []) {
+    const value = resolvePath(root, path, { strict: false });
+    if (value !== null && typeof value === "object") return true;
+  }
+  if (!(profile ? profile.rules.length : options.literalAttributeRules?.length)) return false;
+  if (profile && canUseFacts && immutableDataCore.isCapturedImmutableData(root) && frozenStructureFacts(root, profile)?.binding === false) return false;
+  canUseFacts = !!profile && structureFactPrototypesSafe(profile);
+  const visited = /* @__PURE__ */ new WeakSet();
+  const visit = (value) => {
+    if (value === null || typeof value !== "object" || visited.has(value) || isLiteralObject(value)) return false;
+    if (canUseFacts && profile && clonedStructureFacts(value, profile)?.binding === false) return false;
+    visited.add(value);
+    if (isDataElement2(value) || isTextElement2(value)) {
+      if (someDeclaredLiteralAttribute(value, options, (attribute) => attribute !== null && typeof attribute === "object")) return true;
+    }
+    const values = Object.values(value);
+    canUseFacts = !!profile && structureFactPrototypesSafe(profile);
+    for (let index = 0; index < values.length; index++) if (visit(values[index])) return true;
+    return false;
+  };
+  return visit(root);
+}
+function needsXnlLiteralBinding(root, options = {}) {
+  return needsLiteralBinding(root, options);
+}
+var capturedObjectPrototype = Object.getPrototypeOf;
+var objectChildKeys = /* @__PURE__ */ new WeakMap();
+var readObjectChildKeys = objectChildKeys.get.bind(objectChildKeys);
+var writeObjectChildKeys = objectChildKeys.set.bind(objectChildKeys);
+var childKeysPrototype = Object.setPrototypeOf;
+var childKeysFreeze = Object.freeze;
+function capturedObjectChildKeys(value) {
+  if (!immutableDataCore.isCapturedImmutableData(value) || capturedObjectPrototype(value) !== null) return;
+  const previous = readObjectChildKeys(value);
+  if (previous !== void 0) return previous;
+  const keys = childKeysPrototype([], null);
+  for (const key in value) {
+    const child = value[key];
+    if (child !== null && typeof child === "object") keys[keys.length] = key;
+  }
+  const snapshot = childKeysFreeze(keys);
+  writeObjectChildKeys(value, snapshot);
+  return snapshot;
+}
+function validateIdentities(root, policy, inspection) {
   const diagnostics = [];
   const identities = /* @__PURE__ */ new Set();
-  const ancestors = /* @__PURE__ */ new WeakSet();
-  const visit = (value) => {
+  let ancestors = inspection ? void 0 : /* @__PURE__ */ new Set();
+  const active = inspection ? Object.setPrototypeOf([], null) : void 0;
+  const visit = (value, depth) => {
     if (value === null || typeof value !== "object") return;
     const objectValue = value;
-    if (ancestors.has(objectValue)) return;
-    ancestors.add(objectValue);
+    if (inspection && objectValue === inspection.target) {
+      if (inspection.targetSeen) inspection.aliased = true;
+      inspection.targetSeen = true;
+      inspection.address = [...inspection.stack.slice(0, depth), inspection.key];
+    }
+    if (!ancestors) {
+      for (let index = 0; index < depth; index++) {
+        if (active[index] === objectValue) {
+          inspection.aliased = true;
+          return;
+        }
+      }
+      if (depth < 32) active[depth] = objectValue;
+      else {
+        ancestors = /* @__PURE__ */ new Set();
+        for (let index = 0; index < depth; index++) ancestors.add(active[index]);
+        ancestors.add(objectValue);
+      }
+    } else {
+      if (ancestors.has(objectValue)) {
+        if (inspection) inspection.aliased = true;
+        return;
+      }
+      ancestors.add(objectValue);
+    }
     if (isDataElement2(value) || isTextElement2(value)) {
       const identity = readIdOrMetadaataId(value);
       if (identity) {
@@ -1595,12 +1984,42 @@ function validateIdentities(root, policy) {
         });
       }
     }
-    for (const key of Object.keys(value)) {
-      visit(value[key]);
+    if (inspection && capturedObjectPrototype(value) === null) {
+      const keys = capturedObjectChildKeys(value);
+      if (keys !== void 0) {
+        for (let index = 0; index < keys.length; index++) {
+          const key = keys[index];
+          if (depth < inspection.stack.length) inspection.stack[depth] = key;
+          else Object.defineProperty(inspection.stack, depth, { value: key, enumerable: true, configurable: true, writable: true });
+          visit(value[key], depth + 1);
+        }
+      } else {
+        for (const key in value) {
+          if (depth < inspection.stack.length) inspection.stack[depth] = key;
+          else Object.defineProperty(inspection.stack, depth, { value: key, enumerable: true, configurable: true, writable: true });
+          visit(value[key], depth + 1);
+        }
+      }
+    } else if (inspection && immutableDataCore.isCapturedDenseArray(value)) {
+      const array = value;
+      for (let index = 0; index < array.length; index++) {
+        const key = `${index}`;
+        if (depth < inspection.stack.length) inspection.stack[depth] = key;
+        else Object.defineProperty(inspection.stack, depth, { value: key, enumerable: true, configurable: true, writable: true });
+        visit(array[index], depth + 1);
+      }
+    } else {
+      for (const key of Object.keys(value)) {
+        if (inspection) {
+          if (depth < inspection.stack.length) inspection.stack[depth] = key;
+          else Object.defineProperty(inspection.stack, depth, { value: key, enumerable: true, configurable: true, writable: true });
+        }
+        visit(value[key], depth + 1);
+      }
     }
-    ancestors.delete(objectValue);
+    ancestors?.delete(objectValue);
   };
-  visit(root);
+  visit(root, 0);
   return diagnostics;
 }
 function readIdentityDescriptor(node) {
@@ -1658,6 +2077,18 @@ function identitySkeletonsEqual(before, after) {
     const other = after[index];
     return other !== void 0 && entry.path === other.path && entry.descriptor.authority === other.descriptor.authority && entry.descriptor.value === other.descriptor.value;
   });
+}
+var identityStructureKeys = /* @__PURE__ */ new Set(["kind", "tag", "id", "metadata", "body", "extend", "order", "children", "namespace", "name", "length", "__proto__", "constructor", "prototype"]);
+var scalarMutationValue = (value) => value === null || typeof value === "string" || typeof value === "boolean" || typeof value === "number";
+function isIdentityNeutralScalarUpdate(root, mutation, path, options) {
+  if (!isUpdateMutation(mutation)) return false;
+  const profile = immutableLiteralProfile(options);
+  if (!profile || !structureFactPrototypesSafe(profile)) return false;
+  const last = path[path.length - 1];
+  if (!last || last.type !== "MapKey" && last.type !== "InstanceProperty" || identityStructureKeys.has(last.value)) return false;
+  const parent = path.length === 1 ? root : resolvePath(root, path.slice(0, -1), { strict: false, metadataIdMode: "identity" });
+  if (parent === null || typeof parent !== "object" || Array.isArray(parent)) return false;
+  return scalarMutationValue(mutation.valueAfter) && scalarMutationValue(resolveObservableTarget(root, mutation, path));
 }
 function isUpdateMutation(mutation) {
   return mutation.type === "TREE_UPDATE" || mutation.type === "OBJECT_UPDATE";
@@ -1880,22 +2311,86 @@ function isStructurallyEqual(left, right, seen = /* @__PURE__ */ new WeakMap()) 
 function errorMessage(error2) {
   return error2 instanceof Error ? error2.message : String(error2);
 }
-var dryRunMutations = (base, mutations, options = {}) => {
-  const rejectedValue = cloneValue(base);
-  bindLiteralPaths(rejectedValue, options);
-  const reject = (diagnostics) => ({
-    status: "rejected",
-    value: rejectedValue,
-    mutations,
-    diagnostics
-  });
+var dryRunMutations = (base, mutations, options = {}) => runStrictMutations(base, mutations, options, false);
+var scalarUpdateRelations = /* @__PURE__ */ new WeakMap();
+function immutableScalarUpdatePath(base, candidate) {
+  if (!immutableDataCore.isCapturedImmutableData(base) || !immutableDataCore.isCapturedImmutableData(candidate) || !structureFactPrototypesSafe()) return;
+  const relation = scalarUpdateRelations.get(base)?.get(candidate);
+  return relation?.contextVersion === capturedLiteralContextVersion() ? relation.path : void 0;
+}
+var dryRunImmutableMutations = (base, mutations, options = {}) => {
+  const result = runStrictMutations(base, mutations, options, true);
+  const value = captureXnlResult(result.value), captured = immutableDataCore.isCapturedImmutableData(value);
+  return { ...result, value: captured ? value : result.value, representation: captured ? "captured-data" : "isolated-native" };
+};
+function captureXnlResult(value) {
+  if (immutableDataCore.isCapturedImmutableData(value)) return value;
+  const result = immutableDataCore.captureImmutableData(value), seen = /* @__PURE__ */ new WeakSet();
+  const transfer = (source, target) => {
+    if (!source || typeof source !== "object" || !target || typeof target !== "object" || seen.has(source)) return;
+    seen.add(source);
+    if (isLiteralObject(source)) markLiteralObject(target);
+    for (const key of Object.keys(source)) transfer(source[key], target[key]);
+  };
+  transfer(value, result);
+  return result;
+}
+function immutableScalarTarget(base, mutations) {
+  if (!immutableDataCore.isCapturedImmutableData(base) || !immutableDataCore.isCapturedImmutableData(mutations) || mutations.length !== 1) return;
+  const mutation = mutations[0];
+  if (mutation.type !== "OBJECT_UPDATE") return;
+  let path;
+  try {
+    path = Array.isArray(mutation.path) ? mutation.path : parsePath(mutation.path);
+  } catch {
+    return;
+  }
+  if (!path.every((item) => item !== null && typeof item === "object" && typeof Object.getOwnPropertyDescriptor(item, "type")?.value === "string" && typeof Object.getOwnPropertyDescriptor(item, "value")?.value === "string" && (["UniqueName", "InstanceProperty", "MapKey", "ListIndex"].includes(item.type) || item.type === "MetadataSelector" && item.value.startsWith("<id=")))) return;
+  const last = path[path.length - 1];
+  if (!last || last.type !== "MapKey" && last.type !== "InstanceProperty" || identityStructureKeys.has(last.value) || !scalarMutationValue(mutation.valueAfter)) return;
+  const parent = resolvePath(base, path.slice(0, -1), { strict: false, metadataIdMode: "identity" });
+  if (!immutableDataCore.isCapturedImmutableData(parent) || Array.isArray(parent) || Object.getPrototypeOf(parent) !== null || Object.prototype.hasOwnProperty.call(parent, "kind") || Object.prototype.hasOwnProperty.call(parent, "order")) return;
+  const field = Object.getOwnPropertyDescriptor(parent, last.value);
+  if (!field || !Object.prototype.hasOwnProperty.call(field, "value") || !scalarMutationValue(field.value)) return;
+  return { target: parent, key: last.value, actual: field.value, targetSeen: false, stack: [], aliased: false, address: void 0 };
+}
+function copyImmutableScalar(base, address, after) {
+  const replace = (value, depth) => {
+    if (depth === address.length) return after;
+    const key = address[depth];
+    const result = immutableDataCore.replaceCapturedDataProperty(value, key, replace(value[key], depth + 1));
+    if (!result) throw new Error("IMMUTABLE_CONTAINER_UNAVAILABLE");
+    if (isLiteralObject(value)) markLiteralObject(result);
+    return result;
+  };
+  return replace(base, 0);
+}
+var runStrictMutations = (base, mutations, options = {}, immutable) => {
+  const profile = immutableLiteralProfile(options);
+  if (profile) options = profile.options;
+  const immutableBase = profile && frozenStructureFacts(base, profile);
+  let inspection;
+  try {
+    inspection = immutable && profile && immutableBase && !immutableBase.binding && !immutableBase.extend && structureFactPrototypesSafe(profile) ? immutableScalarTarget(base, mutations) : void 0;
+  } catch {
+  }
+  const rejectedValue = inspection ? base : cloneValue(base);
+  if (!inspection && profile && immutableBase) rememberClonedStructure(base, profile);
+  if (!profile || !immutableBase || immutableBase.binding || !structureFactPrototypesSafe(profile)) bindLiteralPaths(rejectedValue, options);
+  const reject = (diagnostics) => {
+    const unchanged = cloneValue(base);
+    bindLiteralPaths(unchanged, options);
+    return { status: "rejected", value: unchanged, mutations, diagnostics };
+  };
   let baseIdentityDiagnostics;
   try {
     baseIdentityDiagnostics = validateIdentities(
       rejectedValue,
-      options.identityPolicy ?? "allow-missing"
+      options.identityPolicy ?? "allow-missing",
+      inspection
     );
   } catch (error2) {
+    if (inspection) return runStrictMutations(base, mutations, options, false);
     return reject([
       {
         code: "APPLY_FAILED",
@@ -1903,13 +2398,16 @@ var dryRunMutations = (base, mutations, options = {}) => {
       }
     ]);
   }
+  if (inspection && (inspection.aliased || !inspection.address)) return runStrictMutations(base, mutations, options, false);
   if (baseIdentityDiagnostics.length > 0) {
     return reject(baseIdentityDiagnostics);
   }
+  const address = inspection?.address;
   let current;
   let mutationCopies;
+  let identityUnchanged = true;
   try {
-    current = cloneValue(rejectedValue);
+    current = rejectedValue;
     mutationCopies = cloneValue(mutations);
   } catch (error2) {
     return reject([
@@ -1948,7 +2446,7 @@ var dryRunMutations = (base, mutations, options = {}) => {
         ]);
       }
       if (options.verifyValueBefore && supportsValueBefore(mutation) && mutation.valueBefore !== void 0) {
-        const actual = resolveObservableTarget(current, mutation, path);
+        const actual = address ? inspection.actual : resolveObservableTarget(current, mutation, path);
         if (!isStructurallyEqual(actual, mutation.valueBefore)) {
           return reject([
             {
@@ -1971,9 +2469,11 @@ var dryRunMutations = (base, mutations, options = {}) => {
       if (destinationDiagnostic) {
         return reject([destinationDiagnostic]);
       }
-      const skeletonBefore = isUpdateMutation(mutation) ? collectIdentitySkeleton(current) : void 0;
-      current = applySingle(current, mutation, options);
-      bindLiteralPaths(current, options);
+      const identityNeutral = !!address || isIdentityNeutralScalarUpdate(current, mutation, path, options);
+      identityUnchanged && (identityUnchanged = identityNeutral);
+      const skeletonBefore = isUpdateMutation(mutation) && !identityNeutral ? collectIdentitySkeleton(current) : void 0;
+      current = address ? copyImmutableScalar(current, address, mutation.valueAfter) : applySingle(current, mutation, options);
+      if (!identityNeutral) bindLiteralPaths(current, options);
       if (skeletonBefore) {
         const skeletonAfter = collectIdentitySkeleton(current);
         if (!identitySkeletonsEqual(skeletonBefore, skeletonAfter)) {
@@ -2000,16 +2500,13 @@ var dryRunMutations = (base, mutations, options = {}) => {
       ]);
     }
   }
-  const resultStructureDiagnostics = validateExtendCoherence(current);
+  const resultStructureDiagnostics = identityUnchanged && immutableBase && !immutableBase.extend && structureFactPrototypesSafe(profile) ? [] : validateExtendCoherence(current);
   if (resultStructureDiagnostics.length > 0) {
     return reject(resultStructureDiagnostics);
   }
   let resultIdentityDiagnostics;
   try {
-    resultIdentityDiagnostics = validateIdentities(
-      current,
-      options.identityPolicy ?? "allow-missing"
-    );
+    resultIdentityDiagnostics = address && identityUnchanged && structureFactPrototypesSafe(profile) ? [] : validateIdentities(current, options.identityPolicy ?? "allow-missing");
   } catch (error2) {
     return reject([
       {
@@ -2027,6 +2524,14 @@ var dryRunMutations = (base, mutations, options = {}) => {
       }))
     );
   }
+  if (immutable && address && identityUnchanged && immutableDataCore.isCapturedImmutableData(base) && immutableDataCore.isCapturedImmutableData(current)) {
+    let candidates = scalarUpdateRelations.get(base);
+    if (!candidates) {
+      candidates = /* @__PURE__ */ new WeakMap();
+      scalarUpdateRelations.set(base, candidates);
+    }
+    candidates.set(current, { path: immutableDataCore.captureImmutableData(address), contextVersion: capturedLiteralContextVersion() });
+  }
   return {
     status: "applied",
     value: current,
@@ -2035,6 +2540,7 @@ var dryRunMutations = (base, mutations, options = {}) => {
   };
 };
 function applyMutations(root, mutations, opts = {}) {
+  opts = immutableLiteralProfile(opts)?.options ?? opts;
   bindLiteralPaths(root, opts);
   let current = root;
   for (const mutation of mutations) {
@@ -2044,7 +2550,8 @@ function applyMutations(root, mutations, opts = {}) {
   return current;
 }
 function diffNodes(oldNode, newNode, basePath = [], opts = {}) {
-  if (opts.literalValuePaths?.length) {
+  opts = immutableLiteralProfile(opts)?.options ?? opts;
+  if (needsLiteralBinding(oldNode, opts) || needsLiteralBinding(newNode, opts)) {
     oldNode = cloneValue(oldNode);
     newNode = cloneValue(newNode);
     bindLiteralPaths(oldNode, opts);
@@ -2053,18 +2560,26 @@ function diffNodes(oldNode, newNode, basePath = [], opts = {}) {
   const mutations = diffNodesInternal(oldNode, newNode, basePath, opts);
   const path = Array.isArray(basePath) ? basePath : parsePath(basePath);
   if (path.length > 0 && !(path.length === 1 && path[0]?.type === "UniqueName")) return mutations;
-  let current = cloneValue(oldNode);
-  return mutations.map((mutation) => {
+  let current = oldNode;
+  let isolated = false;
+  return mutations.map((mutation, index) => {
     const next = cloneValue(mutation);
     if (supportsValueBefore(next)) {
       const targetPath = Array.isArray(next.path) ? next.path : parsePath(next.path);
       next.valueBefore = cloneValue(resolveObservableTarget(current, next, targetPath));
     }
-    current = applySingle(current, cloneValue(next), opts);
+    if (index + 1 < mutations.length) {
+      if (!isolated) {
+        current = cloneValue(current);
+        isolated = true;
+      }
+      current = applySingle(current, cloneValue(next), opts);
+    }
     return next;
   });
 }
 function diffNodesInternal(oldNode, newNode, basePath = [], opts = {}) {
+  if (oldNode === newNode) return [];
   const pathItems = Array.isArray(basePath) ? basePath : parsePath(basePath);
   if (!sameKind(oldNode, newNode)) {
     return [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueBefore: oldNode, valueAfter: newNode }];
@@ -2274,6 +2789,12 @@ function diffArray(oldArr, newArr, basePath, parentBefore, parentAfter, opts) {
   const mutations = [];
   const parentId = resolveMetaIdMode(opts) === "identity" ? readIdOrMetadaataId(parentBefore) ?? readIdOrMetadaataId(parentAfter) : void 0;
   const pathBase = parentId ? [ms("id", parentId), ip("body")] : basePath;
+  if (resolveMetaIdMode(opts) === "identity" && oldArr.length === newArr.length && oldArr.every((item, index) => item === newArr[index] || !!readIdOrMetadaataId(item) && readIdOrMetadaataId(item) === readIdOrMetadaataId(newArr[index]))) {
+    for (let index = 0; index < oldArr.length; index++) {
+      if (oldArr[index] !== newArr[index]) mutations.push(...diffNodesInternal(oldArr[index], newArr[index], [...pathBase, li(index)], opts));
+    }
+    return mutations;
+  }
   const oldById = {};
   const newById = {};
   oldArr.forEach((item, idx) => {
@@ -3183,8 +3704,8 @@ function resolveVfsSrc(src, opts) {
 function collectExports(content) {
   const doc = parseXnl(content);
   const batch = doc.nodes.filter(isDataElement4);
-  const { exports: exports$1 } = batchLoad([batch]);
-  return exports$1;
+  const { exports } = batchLoad([batch]);
+  return exports;
 }
 function loadImportTarget(target, resolver) {
   if (resolver.isDir(target)) {
@@ -3357,6 +3878,14 @@ var XNL = {
   }
 };
 
+Object.defineProperty(exports, "captureImmutableData", {
+  enumerable: true,
+  get: function () { return immutableDataCore.captureImmutableData; }
+});
+Object.defineProperty(exports, "isCapturedImmutableData", {
+  enumerable: true,
+  get: function () { return immutableDataCore.isCapturedImmutableData; }
+});
 exports.GetWordFullName = GetWordFullName;
 exports.MakeWord = MakeWord;
 exports.XNL = XNL;
@@ -3365,12 +3894,17 @@ exports.XnlParseError = XnlParseError;
 exports.XnlPathError = XnlPathError;
 exports.applyMutations = applyMutations;
 exports.batchLoad = batchLoad;
+exports.capturedLiteralContextVersion = capturedLiteralContextVersion;
 exports.deleteAtPath = deleteAtPath;
 exports.diffNodes = diffNodes;
+exports.dryRunImmutableMutations = dryRunImmutableMutations;
 exports.dryRunMutations = dryRunMutations;
+exports.hasXnlLiteralContext = hasXnlLiteralContext;
+exports.immutableScalarUpdatePath = immutableScalarUpdatePath;
 exports.isWord = isWord;
 exports.loadFromString = loadFromString;
 exports.loadNode = resolveNode;
+exports.needsXnlLiteralBinding = needsXnlLiteralBinding;
 exports.parsePath = parsePath;
 exports.parseUniqueChildren = parseUniqueChildren;
 exports.parseXnl = parseXnl;

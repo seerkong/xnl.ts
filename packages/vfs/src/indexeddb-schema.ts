@@ -1,9 +1,10 @@
 export const DEFAULT_XNL_VFS_DB_NAME = "xnl-vfs-db";
-export const DEFAULT_XNL_VFS_DB_VERSION = 2;
+export const DEFAULT_XNL_VFS_DB_VERSION = 3;
 export const VFS_NODE_STORE = "vfs-nodes";
 export const VFS_CONTENT_STORE = "vfs-contents";
 export const VFS_WORKSPACE_STORE = "vfs-workspaces";
 export const REVISIONED_VFS_AUTHORITY_STORE = "revisioned-vfs-authorities";
+export const REVISIONED_VFS_OPERATION_STORE = 'revisioned-vfs-operations';
 
 export function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -24,6 +25,7 @@ export function transactionDone(transaction: IDBTransaction): Promise<void> {
 }
 
 export function upgradeXnlVfsDatabase(database: IDBDatabase): void {
+  if (!database.objectStoreNames.contains(REVISIONED_VFS_OPERATION_STORE)) database.createObjectStore(REVISIONED_VFS_OPERATION_STORE);
   if (!database.objectStoreNames.contains(VFS_NODE_STORE)) {
     const nodeStore = database.createObjectStore(VFS_NODE_STORE, {
       keyPath: "metadataId",

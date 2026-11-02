@@ -39,6 +39,8 @@ admin/node_modules
 
 # Build outputs
 dist
+!packages/immutable-data-core/dist/
+!packages/immutable-data-core/dist/**
 dist-ssr
 shared/dist
 server/dist

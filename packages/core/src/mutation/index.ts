@@ -1,6 +1,9 @@
 import { deleteAtPath, parsePath, resolvePath, setPathValue, XnlPath, XnlPathError, PathItem } from "../path";
 import { DataElementNode, ExtendBody, TextElementNode, XnlNode, isWord, wordToString } from "../types";
-import { cloneWithValueContext, isLiteralObject, markLiteralTree } from "../value-context";
+import { capturedLiteralContextVersion, cloneWithValueContext, isLiteralObject, markLiteralObject, markLiteralTree } from "../value-context";
+import { captureImmutableData, isCapturedImmutableData } from '../immutable-data';
+import { isCapturedDenseArray, replaceCapturedDataProperty } from 'immutable-data-core';
+import { clonedStructureFacts, frozenStructureFacts, immutableLiteralProfile, rememberClonedStructure, structureFactPrototypesSafe } from './immutableFacts';
 
 export type MutationType =
   | "TREE_ADD"
@@ -32,6 +35,12 @@ export interface XnlMutationOptions {
   metadataIdMode?: MetadataIdMode;
   /** Explicit data roots for constructed or transported ASTs. Paths resolve against each complete tree. */
   literalValuePaths?: readonly (string | XnlPath)[];
+  /** Schema-declared literal attributes. Unlike instance paths these rules also
+   * cover newly inserted nodes after transport, without enumerating every ID. */
+  literalAttributeRules?: readonly {
+    readonly tags: readonly string[];
+    readonly attributes: readonly string[];
+  }[];
 }
 
 export type XnlMutationBatch = readonly XnlMutation[];
@@ -111,27 +120,159 @@ function cloneValue<T>(value: T): T {
   return cloneWithValueContext(value);
 }
 
+function someDeclaredLiteralAttribute(node: DataElementNode | TextElementNode, options: XnlMutationOptions, predicate: (value: unknown) => boolean): boolean {
+  const profile = immutableLiteralProfile(options);
+  if (profile) {
+    for (let index = 0; index < profile.rules.length; index++) {
+      const rule = profile.rules[index]!;
+      let matched = false;
+      for (let tag = 0; tag < rule.tags.length; tag++) if (rule.tags[tag] === node.tag) matched = true;
+      if (!matched) continue;
+      for (let attribute = 0; attribute < rule.attributes.length; attribute++) if (predicate(node.attributes?.[rule.attributes[attribute]!])) return true;
+    }
+    return false;
+  }
+  for (const rule of options.literalAttributeRules ?? []) {
+    if (!rule.tags.includes(node.tag)) continue;
+    for (const key of rule.attributes) if (predicate(node.attributes?.[key])) return true;
+  }
+  return false;
+}
+
 function bindLiteralPaths(root: XnlNode, options: XnlMutationOptions): void {
-  for (const path of options.literalValuePaths ?? []) {
+  const profile = immutableLiteralProfile(options);
+  if (profile ? profile.rules.length : options.literalAttributeRules?.length) {
+    const visited = new WeakSet<object>();
+    const visit = (value: unknown): void => {
+      if (!value || typeof value !== 'object' || visited.has(value) || isLiteralObject(value)) return;
+      visited.add(value);
+      if (isDataElement(value) || isTextElement(value)) {
+        someDeclaredLiteralAttribute(value, options, literal => { if (literal !== undefined) markLiteralTree(literal); return false; });
+      }
+      for (const child of Object.values(value)) visit(child);
+    };
+    visit(root);
+  }
+  for (const path of profile ? [] : options.literalValuePaths ?? []) {
     const value = resolvePath(root, path, { strict: false });
     if (value !== undefined) markLiteralTree(value);
   }
 }
 
+/** Whether this invocation needs isolated literal marks. Do not mark shared
+ * input trees or persist schema-specific interpretation across calls. */
+function needsLiteralBinding(root: XnlNode, options: XnlMutationOptions): boolean {
+  const profile = immutableLiteralProfile(options);
+  let canUseFacts = !!profile && structureFactPrototypesSafe(profile);
+  for (const path of profile ? [] : options.literalValuePaths ?? []) {
+    const value = resolvePath(root, path, { strict: false });
+    if (value !== null && typeof value === 'object') return true;
+  }
+  if (!(profile ? profile.rules.length : options.literalAttributeRules?.length)) return false;
+  // Seed the new captured ancestors here, before strict apply. Unchanged
+  // children can reuse the same conservative, rule-specific absence facts.
+  if (profile && canUseFacts && isCapturedImmutableData(root)
+    && frozenStructureFacts(root, profile)?.binding === false) return false;
+  canUseFacts = !!profile && structureFactPrototypesSafe(profile);
+  const visited = new WeakSet<object>();
+  const visit = (value: unknown): boolean => {
+    if (value === null || typeof value !== 'object' || visited.has(value) || isLiteralObject(value)) return false;
+    if (canUseFacts && profile && clonedStructureFacts(value, profile)?.binding === false) return false;
+    visited.add(value);
+    if (isDataElement(value) || isTextElement(value)) {
+      if (someDeclaredLiteralAttribute(value, options, attribute => attribute !== null && typeof attribute === 'object')) return true;
+    }
+    const values = Object.values(value);
+    // Unknown input may execute getters/Proxy traps. Refresh after those reads,
+    // before skipping any proven frozen child. Proven closures invoke no code.
+    canUseFacts = !!profile && structureFactPrototypesSafe(profile);
+    for (let index = 0; index < values.length; index++) if (visit(values[index])) return true;
+    return false;
+  };
+  return visit(root);
+}
+
+/** Queries the original diff's isolated literal-binding requirement without
+ * marking or applying. False is not an identity/schema validity proof. Raw
+ * getters and Proxy traps can execute during the original underlying reads. */
+export function needsXnlLiteralBinding(root: XnlNode, options: XnlMutationOptions = {}): boolean {
+  return needsLiteralBinding(root, options);
+}
+
+interface ImmutableScalarInspection {
+  target: object;
+  key: string;
+  actual: unknown;
+  stack: string[];
+  targetSeen: boolean;
+  aliased: boolean;
+  address?: readonly string[];
+}
+const capturedObjectPrototype = Object.getPrototypeOf;
+const objectChildKeys = new WeakMap<object, readonly string[]>();
+const readObjectChildKeys = objectChildKeys.get.bind(objectChildKeys);
+const writeObjectChildKeys = objectChildKeys.set.bind(objectChildKeys);
+const childKeysPrototype = Object.setPrototypeOf;
+const childKeysFreeze = Object.freeze;
+
+// Representation only. All object edges, including every array and backedge,
+// still enter the original identity/alias/cycle validation on every operation.
+function capturedObjectChildKeys(value: object): readonly string[] | undefined {
+  if (!isCapturedImmutableData(value) || capturedObjectPrototype(value) !== null) return;
+  const previous = readObjectChildKeys(value);
+  if (previous !== undefined) return previous;
+  const keys: string[] = childKeysPrototype([], null);
+  for (const key in value) {
+    const child = (value as Record<string, unknown>)[key];
+    if (child !== null && typeof child === 'object') keys[keys.length] = key;
+  }
+  const snapshot = childKeysFreeze(keys);
+  writeObjectChildKeys(value, snapshot);
+  return snapshot;
+}
+
 function validateIdentities(
   root: XnlNode,
-  policy: XnlMutationIdentityPolicy
+  policy: XnlMutationIdentityPolicy,
+  inspection?: ImmutableScalarInspection,
 ): XnlMutationDiagnostic[] {
   const diagnostics: XnlMutationDiagnostic[] = [];
   const identities = new Set<string>();
-  const ancestors = new WeakSet<object>();
+  // The immutable scalar probe needs only its short active path, not a Set
+  // allocation for every shallow enter/leave. Promote once for deep graphs;
+  // unknown/default input keeps the original Set from the start.
+  let ancestors = inspection ? undefined : new Set<object>();
+  const active: object[] | undefined = inspection ? Object.setPrototypeOf([], null) : undefined;
 
-  const visit = (value: unknown): void => {
+  const visit = (value: unknown, depth: number): void => {
     if (value === null || typeof value !== "object") return;
 
     const objectValue = value as object;
-    if (ancestors.has(objectValue)) return;
-    ancestors.add(objectValue);
+    if (inspection && objectValue === inspection.target) {
+      if (inspection.targetSeen) inspection.aliased = true;
+      inspection.targetSeen = true;
+      inspection.address = [...inspection.stack.slice(0, depth), inspection.key];
+    }
+    if (!ancestors) {
+      for (let index = 0; index < depth; index++) {
+        if (active![index] === objectValue) {
+          inspection!.aliased = true;
+          return;
+        }
+      }
+      if (depth < 32) active![depth] = objectValue;
+      else {
+        ancestors = new Set<object>();
+        for (let index = 0; index < depth; index++) ancestors.add(active![index]!);
+        ancestors.add(objectValue);
+      }
+    } else {
+      if (ancestors.has(objectValue)) {
+        if (inspection) inspection.aliased = true;
+        return;
+      }
+      ancestors.add(objectValue);
+    }
 
     if (isDataElement(value) || isTextElement(value)) {
       const identity = readIdOrMetadaataId(value);
@@ -153,13 +294,43 @@ function validateIdentities(
       }
     }
 
-    for (const key of Object.keys(value)) {
-      visit((value as Record<string, unknown>)[key]);
+    if (inspection && capturedObjectPrototype(value) === null) {
+      const keys = capturedObjectChildKeys(value);
+      if (keys !== undefined) {
+        for (let index = 0; index < keys.length; index++) {
+          const key = keys[index]!;
+          if (depth < inspection.stack.length) inspection.stack[depth] = key;
+          else Object.defineProperty(inspection.stack, depth, { value: key, enumerable: true, configurable: true, writable: true });
+          visit((value as Record<string, unknown>)[key], depth + 1);
+        }
+      } else {
+        for (const key in value) {
+          if (depth < inspection.stack.length) inspection.stack[depth] = key;
+          else Object.defineProperty(inspection.stack, depth, { value: key, enumerable: true, configurable: true, writable: true });
+          visit((value as Record<string, unknown>)[key], depth + 1);
+        }
+      }
+    } else if (inspection && isCapturedDenseArray(value)) {
+      const array = value as readonly unknown[];
+      for (let index = 0; index < array.length; index++) {
+        const key = `${index}`;
+        if (depth < inspection.stack.length) inspection.stack[depth] = key;
+        else Object.defineProperty(inspection.stack, depth, { value: key, enumerable: true, configurable: true, writable: true });
+        visit(array[index], depth + 1);
+      }
+    } else {
+      for (const key of Object.keys(value)) {
+        if (inspection) {
+          if (depth < inspection.stack.length) inspection.stack[depth] = key;
+          else Object.defineProperty(inspection.stack, depth, { value: key, enumerable: true, configurable: true, writable: true });
+        }
+        visit((value as Record<string, unknown>)[key], depth + 1);
+      }
     }
-    ancestors.delete(objectValue);
+    ancestors?.delete(objectValue);
   };
 
-  visit(root);
+  visit(root, 0);
   return diagnostics;
 }
 
@@ -254,6 +425,24 @@ function identitySkeletonsEqual(
       );
     })
   );
+}
+
+// Scalar fields can change neither element recognition nor the identity Word
+// or ordered containers. Array length is structural even when addressed as a
+// named property rather than an index.
+const identityStructureKeys = new Set(['kind', 'tag', 'id', 'metadata', 'body', 'extend', 'order', 'children', 'namespace', 'name', 'length', '__proto__', 'constructor', 'prototype']);
+const scalarMutationValue = (value: unknown) => value === null || typeof value === 'string' || typeof value === 'boolean' || typeof value === 'number';
+function isIdentityNeutralScalarUpdate(root: XnlNode, mutation: XnlMutation, path: XnlPath, options: XnlMutationOptions): boolean {
+  if (!isUpdateMutation(mutation)) return false;
+  // Explicit paths may use metadata selectors whose matches change after a
+  // scalar metadata edit. Rebinding can then change an object's interpretation.
+  const profile = immutableLiteralProfile(options);
+  if (!profile || !structureFactPrototypesSafe(profile)) return false;
+  const last = path[path.length - 1];
+  if (!last || (last.type !== 'MapKey' && last.type !== 'InstanceProperty') || identityStructureKeys.has(last.value)) return false;
+  const parent = path.length === 1 ? root : resolvePath(root, path.slice(0, -1), { strict: false, metadataIdMode: 'identity' });
+  if (parent === null || typeof parent !== 'object' || Array.isArray(parent)) return false;
+  return scalarMutationValue(mutation.valueAfter) && scalarMutationValue(resolveObservableTarget(root, mutation, path));
 }
 
 function isUpdateMutation(mutation: XnlMutation): boolean {
@@ -574,29 +763,123 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export const dryRunMutations: XnlDryRunMutations = (
-  base,
-  mutations,
-  options = {}
-) => {
-  const rejectedValue = cloneValue(base);
-  bindLiteralPaths(rejectedValue, options);
+export const dryRunMutations: XnlDryRunMutations = (base, mutations, options = {}) => runStrictMutations(base, mutations, options, false);
+
+const scalarUpdateRelations = new WeakMap<object, WeakMap<object, {
+  readonly path: readonly string[]; readonly contextVersion: bigint;
+}>>();
+
+/** A structural derivation only: this exact captured result was constructed
+ * from this exact base by one scalar path-copy. It grants no admission, schema
+ * or identity proof, and never skips strict validation of a new operation. */
+export function immutableScalarUpdatePath(base: XnlNode, candidate: XnlNode): readonly string[] | undefined {
+  if (!isCapturedImmutableData(base) || !isCapturedImmutableData(candidate) || !structureFactPrototypesSafe()) return;
+  const relation = scalarUpdateRelations.get(base)?.get(candidate);
+  return relation?.contextVersion === capturedLiteralContextVersion() ? relation.path : undefined;
+}
+
+export type XnlImmutableMutationBatchResult = XnlMutationBatchResult & {
+  readonly representation: 'captured-data' | 'isolated-native';
+};
+/** Explicit immutable data result: unchanged frozen subtrees may be shared.
+ * Non-data builtins retain the original mutable isolation contract, explicitly
+ * reported as isolated-native. They never receive the captured-data proof.
+ * The default dryRunMutations contract remains a fully isolated clone. */
+export const dryRunImmutableMutations = (base: XnlNode, mutations: XnlMutationBatch, options: XnlMutationBatchOptions = {}): XnlImmutableMutationBatchResult => {
+  const result = runStrictMutations(base, mutations, options, true);
+  const value = captureXnlResult(result.value), captured = isCapturedImmutableData(value);
+  return { ...result, value: captured ? value : result.value, representation: captured ? 'captured-data' : 'isolated-native' };
+};
+
+function captureXnlResult(value: XnlNode): XnlNode {
+  if (isCapturedImmutableData(value)) return value;
+  const result = captureImmutableData(value), seen = new WeakSet<object>();
+  const transfer = (source: unknown, target: unknown): void => {
+    if (!source || typeof source !== 'object' || !target || typeof target !== 'object' || seen.has(source)) return;
+    seen.add(source);
+    if (isLiteralObject(source)) markLiteralObject(target);
+    for (const key of Object.keys(source)) transfer((source as any)[key], (target as any)[key]);
+  };
+  transfer(value, result); return result;
+}
+
+// This probe grants no identity/alias proof. The original complete base
+// identity traversal below must still succeed and collect a unique address.
+function immutableScalarTarget(base: XnlNode, mutations: XnlMutationBatch): ImmutableScalarInspection | undefined {
+  if (!isCapturedImmutableData(base) || !isCapturedImmutableData(mutations) || mutations.length !== 1) return;
+  const mutation = mutations[0]!;
+  if (mutation.type !== 'OBJECT_UPDATE') return;
+  let path: XnlPath;
+  try { path = Array.isArray(mutation.path) ? mutation.path : parsePath(mutation.path); }
+  catch { return; }
+  if (!path.every(item => item !== null && typeof item === 'object'
+    && typeof Object.getOwnPropertyDescriptor(item, 'type')?.value === 'string'
+    && typeof Object.getOwnPropertyDescriptor(item, 'value')?.value === 'string'
+    && (['UniqueName', 'InstanceProperty', 'MapKey', 'ListIndex'].includes(item.type)
+      // Identity selectors are the normal output of diffNodes. The original
+      // resolver validates their complete syntax; other selectors stay cold.
+      || item.type === 'MetadataSelector' && item.value.startsWith('<id=')))) return;
+  const last = path[path.length - 1];
+  if (!last || (last.type !== 'MapKey' && last.type !== 'InstanceProperty')
+    || identityStructureKeys.has(last.value) || !scalarMutationValue(mutation.valueAfter)) return;
+  const parent = resolvePath(base, path.slice(0, -1), { strict: false, metadataIdMode: 'identity' });
+  // A captured null-prototype record with neither kind nor order cannot be
+  // an AST node, Word or Extend body. Both supported final path operations
+  // read/write its own field. Other parent shapes keep full path semantics.
+  if (!isCapturedImmutableData(parent) || Array.isArray(parent) || Object.getPrototypeOf(parent) !== null
+    || Object.prototype.hasOwnProperty.call(parent, 'kind') || Object.prototype.hasOwnProperty.call(parent, 'order')) return;
+  const field = Object.getOwnPropertyDescriptor(parent, last.value);
+  if (!field || !Object.prototype.hasOwnProperty.call(field, 'value') || !scalarMutationValue(field.value)) return;
+  return { target: parent, key: last.value, actual: field.value, targetSeen: false, stack: [], aliased: false, address: undefined };
+}
+function copyImmutableScalar(base: XnlNode, address: readonly string[], after: XnlNode): XnlNode {
+  const replace = (value: any, depth: number): any => {
+    if (depth === address.length) return after;
+    const key = address[depth]!;
+    const result = replaceCapturedDataProperty(value, key, replace(value[key], depth + 1));
+    if (!result) throw new Error('IMMUTABLE_CONTAINER_UNAVAILABLE');
+    if (isLiteralObject(value)) markLiteralObject(result);
+    return result;
+  };
+  return replace(base, 0);
+}
+
+const runStrictMutations = (
+  base: XnlNode,
+  mutations: XnlMutationBatch,
+  options: XnlMutationBatchOptions = {},
+  immutable: boolean,
+): XnlMutationBatchResult => {
+  const profile = immutableLiteralProfile(options);
+  if (profile) options = profile.options;
+  const immutableBase = profile && frozenStructureFacts(base, profile);
+  let inspection: ImmutableScalarInspection | undefined;
+  try {
+    inspection = immutable && profile && immutableBase && !immutableBase.binding && !immutableBase.extend && structureFactPrototypesSafe(profile)
+      ? immutableScalarTarget(base, mutations) : undefined;
+  } catch { /* An uncertain probe must retain the original strict diagnostics. */ }
+  const rejectedValue = inspection ? base : cloneValue(base);
+  if (!inspection && profile && immutableBase) rememberClonedStructure(base, profile);
+  if (!profile || !immutableBase || immutableBase.binding || !structureFactPrototypesSafe(profile)) bindLiteralPaths(rejectedValue, options);
   const reject = (
     diagnostics: readonly XnlMutationDiagnostic[]
-  ): XnlMutationBatchResult => ({
-    status: "rejected",
-    value: rejectedValue,
-    mutations,
-    diagnostics,
-  });
+  ): XnlMutationBatchResult => {
+    // The working clone may already contain earlier edits. Isolate the
+    // unchanged base only on rejection rather than copying it on every apply.
+    const unchanged = cloneValue(base);
+    bindLiteralPaths(unchanged, options);
+    return { status: "rejected", value: unchanged, mutations, diagnostics };
+  };
 
   let baseIdentityDiagnostics: XnlMutationDiagnostic[];
   try {
     baseIdentityDiagnostics = validateIdentities(
       rejectedValue,
-      options.identityPolicy ?? "allow-missing"
+      options.identityPolicy ?? "allow-missing",
+      inspection,
     );
   } catch (error) {
+    if (inspection) return runStrictMutations(base, mutations, options, false);
     return reject([
       {
         code: "APPLY_FAILED",
@@ -604,14 +887,17 @@ export const dryRunMutations: XnlDryRunMutations = (
       },
     ]);
   }
+  if (inspection && (inspection.aliased || !inspection.address)) return runStrictMutations(base, mutations, options, false);
   if (baseIdentityDiagnostics.length > 0) {
     return reject(baseIdentityDiagnostics);
   }
+  const address = inspection?.address;
 
   let current: XnlNode;
   let mutationCopies: XnlMutationBatch;
+  let identityUnchanged = true;
   try {
-    current = cloneValue(rejectedValue);
+    current = rejectedValue;
     mutationCopies = cloneValue(mutations);
   } catch (error) {
     return reject([
@@ -659,7 +945,7 @@ export const dryRunMutations: XnlDryRunMutations = (
         supportsValueBefore(mutation) &&
         mutation.valueBefore !== undefined
       ) {
-        const actual = resolveObservableTarget(current, mutation, path);
+        const actual = address ? inspection!.actual : resolveObservableTarget(current, mutation, path);
         if (!isStructurallyEqual(actual, mutation.valueBefore)) {
           return reject([
             {
@@ -684,11 +970,16 @@ export const dryRunMutations: XnlDryRunMutations = (
         return reject([destinationDiagnostic]);
       }
 
-      const skeletonBefore = isUpdateMutation(mutation)
+      const identityNeutral = !!address || isIdentityNeutralScalarUpdate(current, mutation, path, options);
+      identityUnchanged &&= identityNeutral;
+      const skeletonBefore = isUpdateMutation(mutation) && !identityNeutral
         ? collectIdentitySkeleton(current)
         : undefined;
-      current = applySingle(current, mutation, options);
-      bindLiteralPaths(current, options);
+      current = address ? copyImmutableScalar(current, address, mutation.valueAfter as XnlNode) : applySingle(current, mutation, options);
+      // A primitive replacement outside AST/identity/container fields cannot
+      // introduce an object needing literal interpretation. Other operations
+      // keep the complete original rebinding and identity checks.
+      if (!identityNeutral) bindLiteralPaths(current, options);
       if (skeletonBefore) {
         const skeletonAfter = collectIdentitySkeleton(current);
         if (!identitySkeletonsEqual(skeletonBefore, skeletonAfter)) {
@@ -716,17 +1007,19 @@ export const dryRunMutations: XnlDryRunMutations = (
     }
   }
 
-  const resultStructureDiagnostics = validateExtendCoherence(current);
+  const resultStructureDiagnostics = identityUnchanged && immutableBase && !immutableBase.extend && structureFactPrototypesSafe(profile)
+    ? [] : validateExtendCoherence(current);
   if (resultStructureDiagnostics.length > 0) {
     return reject(resultStructureDiagnostics);
   }
 
   let resultIdentityDiagnostics: XnlMutationDiagnostic[];
   try {
-    resultIdentityDiagnostics = validateIdentities(
-      current,
-      options.identityPolicy ?? "allow-missing"
-    );
+    // Only our completed, single scalar path-copy has this proof. No object,
+    // key, Word or container changed, and every copied ancestor retained its
+    // literal context. Other updates still run the original complete check.
+    resultIdentityDiagnostics = address && identityUnchanged && structureFactPrototypesSafe(profile)
+      ? [] : validateIdentities(current, options.identityPolicy ?? "allow-missing");
   } catch (error) {
     return reject([
       {
@@ -745,6 +1038,12 @@ export const dryRunMutations: XnlDryRunMutations = (
     );
   }
 
+  if (immutable && address && identityUnchanged && isCapturedImmutableData(base) && isCapturedImmutableData(current)) {
+    let candidates = scalarUpdateRelations.get(base);
+    if (!candidates) { candidates = new WeakMap(); scalarUpdateRelations.set(base, candidates); }
+    candidates.set(current, { path: captureImmutableData(address), contextVersion: capturedLiteralContextVersion() });
+  }
+
   return {
     status: "applied",
     value: current,
@@ -754,6 +1053,7 @@ export const dryRunMutations: XnlDryRunMutations = (
 };
 
 export function applyMutations(root: XnlNode, mutations: XnlMutation[], opts: XnlMutationOptions = {}): XnlNode {
+  opts = immutableLiteralProfile(opts)?.options ?? opts;
   bindLiteralPaths(root, opts);
   let current = root;
   for (const mutation of mutations) {
@@ -770,7 +1070,8 @@ export function diffNodes(
   basePath: string | XnlPath = [],
   opts: XnlMutationOptions = {}
 ): XnlMutation[] {
-  if (opts.literalValuePaths?.length) {
+  opts = immutableLiteralProfile(opts)?.options ?? opts;
+  if (needsLiteralBinding(oldNode, opts) || needsLiteralBinding(newNode, opts)) {
     oldNode = cloneValue(oldNode);
     newNode = cloneValue(newNode);
     bindLiteralPaths(oldNode, opts);
@@ -781,14 +1082,20 @@ export function diffNodes(
   // Normal root and identity-selected root paths can be simulated locally.
   const path = Array.isArray(basePath) ? basePath : parsePath(basePath);
   if (path.length > 0 && !(path.length === 1 && path[0]?.type === "UniqueName")) return mutations;
-  let current = cloneValue(oldNode);
-  return mutations.map((mutation) => {
+  let current = oldNode;
+  let isolated = false;
+  return mutations.map((mutation, index) => {
     const next = cloneValue(mutation);
     if (supportsValueBefore(next)) {
       const targetPath = Array.isArray(next.path) ? next.path : parsePath(next.path);
       next.valueBefore = cloneValue(resolveObservableTarget(current, next, targetPath)) as XnlNode;
     }
-    current = applySingle(current, cloneValue(next), opts);
+    // Only earlier operations affect the next precondition. The final apply
+    // is verified by strict dry-run; diff need not clone/apply a discarded tree.
+    if (index + 1 < mutations.length) {
+      if (!isolated) { current = cloneValue(current); isolated = true; }
+      current = applySingle(current, cloneValue(next), opts);
+    }
     return next;
   });
 }
@@ -799,6 +1106,7 @@ function diffNodesInternal(
   basePath: string | XnlPath = [],
   opts: XnlMutationOptions = {}
 ): XnlMutation[] {
+  if (oldNode === newNode) return [];
   const pathItems = Array.isArray(basePath) ? basePath : parsePath(basePath);
   if (!sameKind(oldNode, newNode)) {
     return [{ type: "OBJECT_UPDATE", path: pathToDsl(pathItems), valueBefore: oldNode, valueAfter: newNode }];
@@ -1061,6 +1369,17 @@ function diffArray(
     resolveMetaIdMode(opts) === "identity" ? readIdOrMetadaataId(parentBefore) ?? readIdOrMetadaataId(parentAfter) : undefined;
 
   const pathBase = parentId ? [ms("id", parentId) as PathItem, ip("body")] : basePath;
+  // With the same ordered identities there are no inserts/deletes/moves to
+  // reconcile. Shared immutable subtrees need no ID maps or repeated matching;
+  // changed siblings still go through the original recursive diff.
+  if (resolveMetaIdMode(opts) === 'identity' && oldArr.length === newArr.length
+    && oldArr.every((item, index) => item === newArr[index]
+      || (!!readIdOrMetadaataId(item) && readIdOrMetadaataId(item) === readIdOrMetadaataId(newArr[index])))) {
+    for (let index = 0; index < oldArr.length; index++) {
+      if (oldArr[index] !== newArr[index]) mutations.push(...diffNodesInternal(oldArr[index], newArr[index], [...pathBase, li(index)], opts));
+    }
+    return mutations;
+  }
   const oldById: Record<string, { index: number; value: XnlNode }> = {};
   const newById: Record<string, { index: number; value: XnlNode }> = {};
   oldArr.forEach((item, idx) => {

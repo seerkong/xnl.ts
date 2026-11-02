@@ -2,7 +2,7 @@
 
 - xnl-core loader 现有跨节点组合：`proto=Name` + `Prefabs` 原型继承、`export=true name=` 导出、`batchLoad(batches)` 跨批次共享原型 + 产出 exports map（`exports[tag][name] = node`）。但**没有文件级 import**。
 - xnl-vfs 提供 `vfs:///` 路径工具（`normalizeVfsPath`/`joinVfsPath`/`dirnameVfsPath`/`basenameVfsPath`/`relativeVfsPath`）与 VirtualFileSystem（`readFile`/`readdir`/`stat`/`exists`）。
-- 规范来源：sparrow dynamic-workflow Layer-1 §1 Imports（`<Import as src="vfs://">`、同别名合并、零 import 回退、vfs 三式寻址）。
+- 导入合同：文件级 Imports（`<Import as src="vfs://">`、同别名合并、零 import 回退、vfs 三式寻址）。
 - 约束：xnl-core 不应硬依赖 xnl-vfs（保持 core 轻量、可在浏览器/无 fs 环境用）。
 
 ## 方案概览
